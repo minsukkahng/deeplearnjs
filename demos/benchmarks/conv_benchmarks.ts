@@ -56,14 +56,11 @@ export class ConvGPUBenchmark extends ConvBenchmark {
     const outputShape = program.outputShape as [number, number, number];
     const out = Array3D.zeros(outputShape);
     const x = Array3D.randUniform(inShape, -1, 1);
-    const wShape =
-        conv_util.computeWeightsShape4D(1, outDepth, filterSize, filterSize);
+    const wShape = conv_util.computeWeightsShape4D(
+        inDepth, outDepth, filterSize, filterSize);
     const W = Array4D.randUniform(wShape, -1, 1);
     const b = Array1D.randUniform([outDepth], -1, 1);
     const inputs = [x, W, b];
-    console.log('in shape', inShape);
-    console.log('out shape', outputShape);
-    console.log('w shape', W.shape);
     const binary = gpgpu_math.compileProgram(gpgpu, program, inputs, out);
 
     const benchmark = () => {

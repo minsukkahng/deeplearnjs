@@ -1392,7 +1392,8 @@ export abstract class NDArrayMath {
    */
   conv2d(
       x: Array3D, filter: Array4D, bias: Array1D|null,
-      strides: [number, number]|number, pad: 'valid'|'same'|number): Array3D {
+      strides: [number, number]|number, pad: 'valid'|'same'|number,
+      dataFormat: 'NHWC'|'NCHW' = 'NHWC'): Array3D {
     util.assert(
         x.rank === 3,
         `Error in conv2d: x must be rank 3, but got rank ${x.rank}.`);

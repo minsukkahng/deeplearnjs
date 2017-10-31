@@ -44,13 +44,14 @@ export class ConvGPUBenchmark extends ConvBenchmark {
     initializeGPU(gpgpu, texManager);
 
     const inDepth = this.params.inDepth;
-    const inShape: [number, number, number] = [size, size, inDepth];
+    const inShape: [number, number, number] = [inDepth, size, size];
     const outDepth = this.params.outDepth;
     const filterSize = this.params.filterSize;
     const stride = this.params.stride;
     const hasBias = true;
     const convInfo = conv_util.computeConvInfo(
-        inShape, filterSize, filterSize, outDepth, stride, stride, 'same');
+        inShape, filterSize, filterSize, outDepth, stride, stride, 'same',
+        'NCHW');
     const program = new Conv2DProgram(convInfo, hasBias);
     const outputShape = program.outputShape as [number, number, number];
     const out = Array3D.zeros(outputShape);
@@ -60,6 +61,9 @@ export class ConvGPUBenchmark extends ConvBenchmark {
     const W = Array4D.randUniform(wShape, -1, 1);
     const b = Array1D.randUniform([outDepth], -1, 1);
     const inputs = [x, W, b];
+    console.log('in shape', inShape);
+    console.log('out shape', outputShape);
+    console.log('w shape', W.shape);
     const binary = gpgpu_math.compileProgram(gpgpu, program, inputs, out);
 
     const benchmark = () => {

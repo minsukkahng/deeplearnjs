@@ -39,10 +39,11 @@ export type ConvInfo = {
 export function computeConvInfo(
     inShape: [number, number, number], filterHeight: number,
     filterWidth: number, outDepth: number, strideHeight: number,
-    strideWidth: number, pad: 'same'|'valid'|number): ConvInfo {
+    strideWidth: number, pad: 'same'|'valid'|number,
+    dataFormat: 'NHWC'|'NCHW' = 'NHWC'): ConvInfo {
   if (typeof pad === 'number') {
     const outShape = computeOutputShape3D(
-        inShape, filterHeight, outDepth, strideHeight, pad);
+        inShape, filterHeight, outDepth, strideHeight, pad, dataFormat);
     return {
       inShape,
       outShape,
@@ -53,14 +54,23 @@ export function computeConvInfo(
       filterWidth
     };
   }
-  const inHeight = inShape[0];
-  const inWidth = inShape[1];
+  let [inHeight, inWidth, inDepth] = [-1, -1, -1];
+
+  if (dataFormat === 'NHWC') {
+    [inHeight, inWidth, inDepth] = inShape;
+  } else if (dataFormat === 'NCHW') {
+    [inDepth, inHeight, inWidth] = inShape;
+  }
   let outShape: [number, number, number];
   let padInfo: {left: number, top: number, bottom: number, right: number};
   if (pad === 'same') {
     const outHeight = Math.ceil(inHeight / strideHeight);
     const outWidth = Math.ceil(inWidth / strideWidth);
-    outShape = [outHeight, outWidth, outDepth];
+    if (dataFormat === 'NHWC') {
+      outShape = [outHeight, outWidth, outDepth];
+    } else if (dataFormat === 'NCHW') {
+      outShape = [outDepth, outHeight, outWidth];
+    }
     const padAlongHeight =
         (outHeight - 1) * strideHeight + filterHeight - inHeight;
     const padAlongWidth = (outWidth - 1) * strideWidth + filterWidth - inWidth;
@@ -72,7 +82,11 @@ export function computeConvInfo(
   } else if (pad === 'valid') {
     const outHeight = Math.ceil((inHeight - filterHeight + 1) / strideHeight);
     const outWidth = Math.ceil((inWidth - filterWidth + 1) / strideWidth);
-    outShape = [outHeight, outWidth, outDepth];
+    if (dataFormat === 'NHWC') {
+      outShape = [outHeight, outWidth, outDepth];
+    } else if (dataFormat === 'NCHW') {
+      outShape = [outDepth, outHeight, outWidth];
+    }
     padInfo = {top: 0, bottom: 0, left: 0, right: 0};
   } else {
     throw Error(`Unknown padding parameter: ${pad}`);
@@ -93,12 +107,18 @@ export function computeConvInfo(
  */
 export function computeOutputShape3D(
     inShape: [number, number, number], fieldSize: number, outDepth: number,
-    stride: number, zeroPad?: number): [number, number, number] {
+    stride: number, zeroPad?: number,
+    dataFormat: 'NHWC'|'NCHW' = 'NHWC'): [number, number, number] {
   if (zeroPad == null) {
     zeroPad = computeDefaultPad(inShape, fieldSize, stride);
   }
-  const inputRows = inShape[0];
-  const inputCols = inShape[1];
+
+  let [inputRows, inputCols, inputDepth] = [-1, -1, -1];
+  if (dataFormat === 'NHWC') {
+    [inputRows, inputCols, inputDepth] = inShape;
+  } else if (dataFormat === 'NCHW') {
+    [inputDepth, inputRows, inputCols] = inShape;
+  }
   const outputRows = (inputRows - fieldSize + 2 * zeroPad) / stride + 1;
   util.assert(
       util.isInt(outputRows),
@@ -111,7 +131,13 @@ export function computeOutputShape3D(
       `The output # of columns (${outputCols}) must be an integer. Change ` +
           `the stride and/or zero pad parameters`);
 
-  return [outputRows, outputCols, outDepth];
+  if (dataFormat === 'NHWC') {
+    return [outputRows, outputCols, outDepth];
+  } else if (dataFormat === 'NCHW') {
+    return [outDepth, outputRows, outputCols];
+  } else {
+    throw new Error(`Unknown data format ${dataFormat}`);
+  }
 }
 
 export function computeDefaultPad(
@@ -128,7 +154,7 @@ export function computeTexShapeFrom3D(
 export function computeWeightsShape4D(
     inputDepth: number, outputDepth: number, filterHeight: number,
     filterWidth: number): [number, number, number, number] {
-  return [filterHeight, filterWidth, inputDepth, outputDepth];
+  return [outputDepth, inputDepth, filterHeight, filterWidth];
 }
 
 export function computeDilatedRC(

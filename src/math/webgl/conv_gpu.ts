@@ -41,81 +41,41 @@ export class Conv2DProgram implements GPGPUProgram {
 
     this.params = [strideHeight, strideWidth, hasBias, padLeft, padTop];
 
-    const inputDepthNearestVec4 = Math.floor(inputDepth / 4) * 4;
-    const inputDepthVec4Remainder = inputDepth % 4;
-
     this.userCode = `
       const ivec2 strides = ivec2(${strideHeight}, ${strideWidth});
       const ivec2 pads = ivec2(${padTop}, ${padLeft});
 
       void main() {
         ivec3 coords = getOutputCoords();
-        int d2 = coords.z;
+        int d2 = coords.x;
 
-        ivec2 xRCCorner = coords.xy * strides - pads;
+        ivec2 xRCCorner = coords.yz * strides - pads;
         int xRCorner = xRCCorner.x;
         int xCCorner = xRCCorner.y;
 
-        // Convolve x(?, ?, d1) with w(:, :, d1, d2) to get y(yR, yC, d2).
+        // Convolve x(d1, ?, ?) with w(d2, d1, :, :) to get y(d2, yR, yC).
         // ? = to be determined. : = across all values in that axis.
         float dotProd = 0.0;
-        for (int wR = 0; wR < ${filterHeight}; wR++) {
-          int xR = xRCorner + wR;
 
-          if (xR < 0 || xR >= ${xNumRows}) {
-            continue;
-          }
+        for (int d1 = 0; d1 < ${inputDepth}; d1++) {
 
-          for (int wC = 0; wC < ${filterWidth}; wC++) {
-            int xC = xCCorner + wC;
+          for (int wR = 0; wR < ${filterHeight}; wR++) {
+            int xR = xRCorner + wR;
 
-            if (xC < 0 || xC >= ${xNumCols}) {
+            if (xR < 0 || xR >= ${xNumRows}) {
               continue;
             }
 
-            for (int d1 = 0; d1 < ${inputDepthNearestVec4}; d1 += 4) {
-              vec4 xValues = vec4(
-                getX(xR, xC, d1),
-                getX(xR, xC, d1 + 1),
-                getX(xR, xC, d1 + 2),
-                getX(xR, xC, d1 + 3)
-              );
-              vec4 wValues = vec4(
-                getW(wR, wC, d1, d2),
-                getW(wR, wC, d1 + 1, d2),
-                getW(wR, wC, d1 + 2, d2),
-                getW(wR, wC, d1 + 3, d2)
-              );
+            for (int wC = 0; wC < ${filterWidth}; wC++) {
+              int xC = xCCorner + wC;
 
-              dotProd += dot(xValues, wValues);
-            }
+              if (xC < 0 || xC >= ${xNumCols}) {
+                continue;
+              }
 
-            if (${inputDepthVec4Remainder === 1}) {
-              dotProd +=
-                getX(xR, xC, ${inputDepthNearestVec4}) *
-                getW(wR, wC, ${inputDepthNearestVec4}, d2);
-            } else if (${inputDepthVec4Remainder === 2}) {
-              vec2 xValues = vec2(
-                getX(xR, xC, ${inputDepthNearestVec4}),
-                getX(xR, xC, ${inputDepthNearestVec4} + 1)
-              );
-              vec2 wValues = vec2(
-                getW(wR, wC, ${inputDepthNearestVec4}, d2),
-                getW(wR, wC, ${inputDepthNearestVec4} + 1, d2)
-              );
-              dotProd += dot(xValues, wValues);
-            } else if (${inputDepthVec4Remainder === 3}) {
-              vec3 xValues = vec3(
-                getX(xR, xC, ${inputDepthNearestVec4}),
-                getX(xR, xC, ${inputDepthNearestVec4} + 1),
-                getX(xR, xC, ${inputDepthNearestVec4} + 2)
-              );
-              vec3 wValues = vec3(
-                getW(wR, wC, ${inputDepthNearestVec4}, d2),
-                getW(wR, wC, ${inputDepthNearestVec4} + 1, d2),
-                getW(wR, wC, ${inputDepthNearestVec4} + 2, d2)
-              );
-              dotProd += dot(xValues, wValues);
+              float xValue = getX(d1, xR, xC);
+              float wValue = getW(d2, d1, wR, wC);
+              dotProd += xValue * wValue;
             }
           }
         }

@@ -153,8 +153,15 @@ export function computeTexShapeFrom3D(
 
 export function computeWeightsShape4D(
     inputDepth: number, outputDepth: number, filterHeight: number,
-    filterWidth: number): [number, number, number, number] {
-  return [outputDepth, inputDepth, filterHeight, filterWidth];
+    filterWidth: number,
+    dataFormat: 'NHWC'|'NCHW' = 'NHWC'): [number, number, number, number] {
+  if (dataFormat === 'NHWC') {
+    return [filterHeight, filterWidth, inputDepth, outputDepth];
+  } else if (dataFormat === 'NCHW') {
+    return [outputDepth, inputDepth, filterHeight, filterWidth];
+  } else {
+    throw new Error(`Unknown data format ${dataFormat}`);
+  }
 }
 
 export function computeDilatedRC(

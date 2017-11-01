@@ -62,7 +62,6 @@ export class ConvGPUBenchmark extends ConvBenchmark {
     const W = Array4D.randUniform(wShape, -1, 1);
     const b = Array1D.randUniform([outDepth], -1, 1);
     const inputs = [x, W, b];
-    console.log(x.shape, W.shape, b.shape, out.shape);
     const binary = gpgpu_math.compileProgram(gpgpu, program, inputs, out);
 
     const benchmark = () => {

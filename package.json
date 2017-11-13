@@ -17,7 +17,6 @@
     "@types/seedrandom": "~2.4.27",
     "browserify": "~14.4.0",
     "cross-spawn": "~5.1.0",
-    "d3": "~4.10.2",
     "http-server": "~0.10.0",
     "jasmine-core": "~2.6.4",
     "karma": "~1.7.0",

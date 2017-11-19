@@ -4,7 +4,7 @@ import { PolymerElement, PolymerHTMLElement } from '../polymer-spec';
 import { Array1D, CostReduction, Graph, InputProvider, NDArray, NDArrayMath, NDArrayMathCPU, NDArrayMathGPU, Scalar, Session, SGDOptimizer, Tensor } from 'deeplearn';
 import { TypedArray } from '../../src/util';
 
-import * as gan_lab_util from './gan_lab_util';
+import * as gan_lab_input_providers from './gan_lab_input_providers';
 
 const BATCH_SIZE = 100;
 const ATLAS_SIZE = 10000;
@@ -285,22 +285,22 @@ class GANLab extends GANLabPolymer {
     this.session = new Session(this.graph, this.math);
 
     // Input providers.
-    const noiseProviderBuilder = new gan_lab_util.GANLabNoiseProviderBuilder(
-      this.math, this.noiseSize, NUM_SAMPLES_VISUALIZED);
+    const noiseProviderBuilder =
+      new gan_lab_input_providers.GANLabNoiseProviderBuilder(
+        this.math, this.noiseSize, NUM_SAMPLES_VISUALIZED);
     noiseProviderBuilder.generateAtlas();
     this.noiseProvider = noiseProviderBuilder.getInputProvider();
 
     const trueSampleProviderBuilder =
-      new gan_lab_util.GANLabTrueSampleProviderBuilder(
-        this.math, ATLAS_SIZE,
-        this.selectedShapeName, this.drawingPositions,
+      new gan_lab_input_providers.GANLabTrueSampleProviderBuilder(
+        this.math, ATLAS_SIZE, this.selectedShapeName, this.drawingPositions,
         this.sampleFromTrueDistribution);
     trueSampleProviderBuilder.generateAtlas();
     this.trueSampleProvider = trueSampleProviderBuilder.getInputProvider();
 
     if (this.noiseSize <= 2) {
       const uniformNoiseProviderBuilder =
-        new gan_lab_util.GANLabUniformNoiseProviderBuilder(
+        new gan_lab_input_providers.GANLabUniformNoiseProviderBuilder(
           this.math, this.noiseSize, NUM_MANIFOLD_CELLS);
       uniformNoiseProviderBuilder.generateAtlas();
       this.uniformNoiseProvider =
@@ -308,7 +308,7 @@ class GANLab extends GANLabPolymer {
     }
 
     const uniformSampleProviderBuilder =
-      new gan_lab_util.GANLabUniformSampleProviderBuilder(
+      new gan_lab_input_providers.GANLabUniformSampleProviderBuilder(
         this.math, NUM_GRID_CELLS);
     uniformSampleProviderBuilder.generateAtlas();
     this.uniformInputProvider = uniformSampleProviderBuilder.getInputProvider();
@@ -324,26 +324,28 @@ class GANLab extends GANLabPolymer {
       case 'Drawing': {
         const index = Math.floor(drawingPositions.length * rand);
         return [
-          drawingPositions[index][0] + 0.02 * gan_lab_util.randNormal(),
-          drawingPositions[index][1] + 0.02 * gan_lab_util.randNormal()
+          drawingPositions[index][0] +
+          0.02 * gan_lab_input_providers.randNormal(),
+          drawingPositions[index][1] +
+          0.02 * gan_lab_input_providers.randNormal()
         ];
       }
       case 'Line': {
         return [
-          0.8 - 0.75 * rand + 0.01 * gan_lab_util.randNormal(),
-          0.6 + 0.3 * rand + 0.01 * gan_lab_util.randNormal()
+          0.8 - 0.75 * rand + 0.01 * gan_lab_input_providers.randNormal(),
+          0.6 + 0.3 * rand + 0.01 * gan_lab_input_providers.randNormal()
         ];
       }
       case 'Two Gaussian Hills': {
         if (rand < 0.5)
           return [
-            0.3 + 0.1 * gan_lab_util.randNormal(),
-            0.7 + 0.1 * gan_lab_util.randNormal()
+            0.3 + 0.1 * gan_lab_input_providers.randNormal(),
+            0.7 + 0.1 * gan_lab_input_providers.randNormal()
           ];
         else
           return [
-            0.7 + 0.05 * gan_lab_util.randNormal(),
-            0.4 + 0.2 * gan_lab_util.randNormal()
+            0.7 + 0.05 * gan_lab_input_providers.randNormal(),
+            0.4 + 0.2 * gan_lab_input_providers.randNormal()
           ];
       }
       default: {

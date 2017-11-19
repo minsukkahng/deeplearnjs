@@ -5,6 +5,7 @@ import { Array1D, CostReduction, Graph, InputProvider, NDArray, NDArrayMath, NDA
 import { TypedArray } from '../../src/util';
 
 import * as gan_lab_input_providers from './gan_lab_input_providers';
+import * as gan_lab_drawing from './gan_lab_drawing';
 
 const BATCH_SIZE = 100;
 const ATLAS_SIZE = 10000;
@@ -62,9 +63,7 @@ class GANLab extends GANLabPolymer {
   private plotSizePx: number;
 
   private canvas: HTMLCanvasElement;
-  private context: CanvasRenderingContext2D;
-  private isDrawing: boolean;
-  private drawingPositions: Array<[number, number]>;
+  private drawing: gan_lab_drawing.GANLabDrawing;
 
   ready() {
     // HTML elements.
@@ -151,7 +150,7 @@ class GANLab extends GANLabPolymer {
         this.selectedShapeName = event.detail.selected;
         if (this.selectedShapeName === 'Drawing') {
           this.pause();
-          this.prepareDrawing();
+          this.drawing.prepareDrawing();
         } else {
           this.createExperiment();
         }
@@ -205,37 +204,6 @@ class GANLab extends GANLabPolymer {
     this.iterCountElement =
       document.getElementById('iteration-count') as HTMLElement;
 
-    // Drawing-related.
-    this.drawingPositions = [];
-    this.isDrawing = false;
-    this.canvas =
-      document.getElementById('input-drawing-canvas') as HTMLCanvasElement;
-    this.context = this.canvas.getContext('2d')!;
-    this.context.strokeStyle = 'rgba(0, 136, 55, 0.25)';
-    this.context.lineJoin = 'round';
-    this.context.lineWidth = 10;
-    const drawingContainer =
-      document.getElementById('visualization-container') as HTMLDivElement;
-    const offsetLeft = drawingContainer.offsetLeft + 10;
-    const offsetTop = drawingContainer.offsetTop + 10;
-
-    this.canvas.addEventListener('mousedown', (event: MouseEvent) => {
-      this.isDrawing = true;
-      this.draw([event.pageX - offsetLeft, event.pageY - offsetTop]);
-    });
-    this.canvas.addEventListener('mousemove', (event: MouseEvent) => {
-      if (this.isDrawing) {
-        this.draw([event.pageX - offsetLeft, event.pageY - offsetTop]);
-      }
-    });
-    this.canvas.addEventListener('mouseup', (event: Event) => {
-      this.isDrawing = false;
-    });
-    this.finishDrawingButton =
-      document.getElementById('finish-drawing') as HTMLInputElement;
-    this.finishDrawingButton.addEventListener(
-      'click', () => this.onClickFinishDrawingButton());
-
     // Visualization.
     this.plotSizePx = 500;
 
@@ -248,6 +216,18 @@ class GANLab extends GANLabPolymer {
       '#af8dc3', '#f5f5f5', '#7fbf7b'
     ]);
 
+    // Drawing-related.
+    this.canvas =
+      document.getElementById('input-drawing-canvas') as HTMLCanvasElement;
+    this.drawing = new gan_lab_drawing.GANLabDrawing(
+      this.canvas, this.plotSizePx);
+
+    this.finishDrawingButton =
+      document.getElementById('finish-drawing') as HTMLInputElement;
+    this.finishDrawingButton.addEventListener(
+      'click', () => this.onClickFinishDrawingButton());
+
+    // Math.
     this.mathGPU = new NDArrayMathGPU();
     this.mathCPU = new NDArrayMathCPU();
     this.math = this.mathCPU;
@@ -291,9 +271,11 @@ class GANLab extends GANLabPolymer {
     noiseProviderBuilder.generateAtlas();
     this.noiseProvider = noiseProviderBuilder.getInputProvider();
 
+    const drawingPositions = this.drawing.drawingPositions;
     const trueSampleProviderBuilder =
       new gan_lab_input_providers.GANLabTrueSampleProviderBuilder(
-        this.math, ATLAS_SIZE, this.selectedShapeName, this.drawingPositions,
+        this.math, ATLAS_SIZE, this.selectedShapeName,
+        drawingPositions,
         this.sampleFromTrueDistribution);
     trueSampleProviderBuilder.generateAtlas();
     this.trueSampleProvider = trueSampleProviderBuilder.getInputProvider();
@@ -370,18 +352,6 @@ class GANLab extends GANLabPolymer {
       .attr('cy', (d: number[]) => (1.0 - d[1]) * this.plotSizePx)
       .append('title')
       .text((d: number[]) => `${d[0].toFixed(2)}, ${d[1].toFixed(2)}`);
-  }
-
-  private prepareDrawing() {
-    this.drawingPositions = [];
-    this.context.clearRect(
-      0, 0, this.context.canvas.width, this.context.canvas.height);
-    const drawingElement =
-      this.querySelector('#drawing-container') as HTMLElement;
-    drawingElement.style.display = 'block';
-    const drawingBackgroundElement =
-      this.querySelector('#drawing-disable-background') as HTMLDivElement;
-    drawingBackgroundElement.style.display = 'block';
   }
 
   private onClickFinishDrawingButton() {
@@ -795,16 +765,6 @@ class GANLab extends GANLabPolymer {
         }
       }
     });
-  }
-
-  private draw(position: [number, number]) {
-    this.drawingPositions.push(
-      [position[0] / this.plotSizePx, 1.0 - position[1] / this.plotSizePx]);
-    this.context.beginPath();
-    this.context.moveTo(position[0] - 1, position[1]);
-    this.context.lineTo(position[0], position[1]);
-    this.context.closePath();
-    this.context.stroke();
   }
 }
 

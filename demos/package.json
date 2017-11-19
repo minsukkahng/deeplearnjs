@@ -4,7 +4,7 @@
   "description": "deeplearn.js demos - not actually published",
   "private": true,
   "dependencies": {
-    "deeplearn": "~0.3.7",
+    "deeplearn": "~0.3.8",
     "deeplearn-squeezenet": "~0.1.2",
     "deeplearn-knn-image-classifier": "~0.1.2"
   },
@@ -13,7 +13,9 @@
     "url": "https://github.com/PAIR-code/deeplearnjs.git"
   },
   "devDependencies": {
+    "@types/d3": "~4.10.0",
     "bower": "~1.8.0",
+    "d3": "~4.10.2",
     "mkdirp": "~0.5.1",
     "polymer-bundler": "~3.0.1",
     "tsify": "~3.0.3",

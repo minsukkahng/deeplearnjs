@@ -1,7 +1,9 @@
 import * as d3 from 'd3';
 
 import { PolymerElement, PolymerHTMLElement } from '../polymer-spec';
-import { Array1D, CostReduction, Graph, InputProvider, NDArray, NDArrayMath, NDArrayMathCPU, NDArrayMathGPU, Scalar, Session, SGDOptimizer, Tensor } from 'deeplearn';
+import { Array1D, CostReduction, Graph, InputProvider, NDArray, NDArrayMath,
+  NDArrayMathCPU, NDArrayMathGPU, Scalar, Session, SGDOptimizer,
+  Tensor } from 'deeplearn';
 import { TypedArray } from '../../src/util';
 
 import * as gan_lab_input_providers from './gan_lab_input_providers';
@@ -67,7 +69,14 @@ class GANLab extends GANLabPolymer {
 
   ready() {
     // HTML elements.
-    const noiseSlider = this.querySelector('#noise-slider') as HTMLInputElement;
+    this.querySelector('#environment-toggle')!.addEventListener(
+      'change', (event: Event) => {
+        this.math =
+            // tslint:disable-next-line:no-any
+            (event.target as any).active ? this.mathGPU : this.mathCPU;
+      });
+
+  const noiseSlider = this.querySelector('#noise-slider') as HTMLInputElement;
     const noiseSizeElement = this.querySelector('#noise-size') as HTMLElement;
     this.noiseSize = +noiseSlider.value;
     noiseSlider.addEventListener('value-change', (event) => {

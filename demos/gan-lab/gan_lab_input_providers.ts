@@ -57,7 +57,7 @@ export class GANLabTrueSampleProviderBuilder extends
     private selectedShapeName: string,
     private drawingPositions: Array<[number, number]>,
     private sampleFromTrueDistribution: Function, batchSize: number) {
-      super(batchSize);
+    super(batchSize);
     this.inputAtlasList = [];
   }
 
@@ -101,7 +101,7 @@ export class GANLabUniformNoiseProviderBuilder extends
   constructor(
     private math: NDArrayMath, private noiseSize: number,
     private numManifoldCells: number, batchSize: number) {
-      super(batchSize);
+    super(batchSize);
   }
 
   generateAtlas() {
@@ -147,7 +147,7 @@ export class GANLabUniformSampleProviderBuilder extends
   constructor(
     private math: NDArrayMath, private numGridCells: number,
     batchSize: number) {
-      super(batchSize);
+    super(batchSize);
   }
 
   generateAtlas() {

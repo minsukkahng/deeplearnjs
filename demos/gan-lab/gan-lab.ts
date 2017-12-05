@@ -1,4 +1,6 @@
-import * as d3 from 'd3';
+import * as d3 from 'd3-selection';
+import { scaleLinear } from 'd3-scale';
+import { line } from 'd3-shape';
 
 import { PolymerElement, PolymerHTMLElement } from '../polymer-spec';
 import { Array1D, CostReduction, Graph, InputProvider, NDArray, NDArrayMath,
@@ -221,7 +223,7 @@ class GANLab extends GANLabPolymer {
     this.visDiscriminator = d3.select('#vis-discriminator-output');
     this.visManifold = d3.select('#vis-manifold');
 
-    this.colorScale = d3.scaleLinear<string>().domain([0.0, 0.5, 1.0]).range([
+    this.colorScale = scaleLinear<string>().domain([0.0, 0.5, 1.0]).range([
       '#af8dc3', '#f5f5f5', '#7fbf7b'
     ]);
 
@@ -567,7 +569,7 @@ class GANLab extends GANLabPolymer {
           }
 
           const manifoldCell =
-            d3.line()
+            line()
               .x((d: number[]) => d[0] * this.plotSizePx)
               .y((d: number[]) => (1.0 - d[1]) * this.plotSizePx);
 

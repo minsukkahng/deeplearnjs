@@ -11,13 +11,13 @@ import { TypedArray } from '../../src/util';
 import * as gan_lab_input_providers from './gan_lab_input_providers';
 import * as gan_lab_drawing from './gan_lab_drawing';
 
-const BATCH_SIZE = 100;
-const ATLAS_SIZE = 10000;
-const NUM_GRID_CELLS = 25;
+const BATCH_SIZE = 150;
+const ATLAS_SIZE = 12000;
+const NUM_GRID_CELLS = 30;
 const NUM_MANIFOLD_CELLS = 10;
 const GENERATED_SAMPLES_VISUALIZATION_INTERVAL = 10;
-const NUM_SAMPLES_VISUALIZED = 250;
-const NUM_TRUE_SAMPLES_VISUALIZED = 250;
+const NUM_SAMPLES_VISUALIZED = 240;
+const NUM_TRUE_SAMPLES_VISUALIZED = 240;
 
 // tslint:disable-next-line:variable-name
 const GANLabPolymer: new () => PolymerHTMLElement = PolymerElement({
@@ -278,7 +278,7 @@ class GANLab extends GANLabPolymer {
     // Input providers.
     const noiseProviderBuilder =
       new gan_lab_input_providers.GANLabNoiseProviderBuilder(
-        this.math, this.noiseSize, NUM_SAMPLES_VISUALIZED);
+        this.math, this.noiseSize, NUM_SAMPLES_VISUALIZED, BATCH_SIZE);
     noiseProviderBuilder.generateAtlas();
     this.noiseProvider = noiseProviderBuilder.getInputProvider();
 
@@ -286,15 +286,14 @@ class GANLab extends GANLabPolymer {
     const trueSampleProviderBuilder =
       new gan_lab_input_providers.GANLabTrueSampleProviderBuilder(
         this.math, ATLAS_SIZE, this.selectedShapeName,
-        drawingPositions,
-        this.sampleFromTrueDistribution);
+        drawingPositions, this.sampleFromTrueDistribution, BATCH_SIZE);
     trueSampleProviderBuilder.generateAtlas();
     this.trueSampleProvider = trueSampleProviderBuilder.getInputProvider();
 
     if (this.noiseSize <= 2) {
       const uniformNoiseProviderBuilder =
         new gan_lab_input_providers.GANLabUniformNoiseProviderBuilder(
-          this.math, this.noiseSize, NUM_MANIFOLD_CELLS);
+          this.math, this.noiseSize, NUM_MANIFOLD_CELLS, BATCH_SIZE);
       uniformNoiseProviderBuilder.generateAtlas();
       this.uniformNoiseProvider =
         uniformNoiseProviderBuilder.getInputProvider();
@@ -302,7 +301,7 @@ class GANLab extends GANLabPolymer {
 
     const uniformSampleProviderBuilder =
       new gan_lab_input_providers.GANLabUniformSampleProviderBuilder(
-        this.math, NUM_GRID_CELLS);
+        this.math, NUM_GRID_CELLS, BATCH_SIZE);
     uniformSampleProviderBuilder.generateAtlas();
     this.uniformInputProvider = uniformSampleProviderBuilder.getInputProvider();
 
@@ -428,7 +427,7 @@ class GANLab extends GANLabPolymer {
             { tensor: this.inputTensor, data: this.trueSampleProvider },
             { tensor: this.noiseTensor, data: this.noiseProvider }
           ],
-          BATCH_SIZE, this.dOptimizer, CostReduction.MEAN);
+          1, this.dOptimizer, CostReduction.MEAN);
       }
 
       const dCost = this.session.train(
@@ -437,12 +436,12 @@ class GANLab extends GANLabPolymer {
           { tensor: this.inputTensor, data: this.trueSampleProvider },
           { tensor: this.noiseTensor, data: this.noiseProvider }
         ],
-        BATCH_SIZE, this.dOptimizer, CostReduction.MEAN);
+        1, this.dOptimizer, CostReduction.MEAN);
 
       const gCost = this.session.train(
         this.gCostTensor,
-        [{ tensor: this.noiseTensor, data: this.noiseProvider }], BATCH_SIZE,
-        this.gOptimizer, CostReduction.MEAN);
+        [{ tensor: this.noiseTensor, data: this.noiseProvider }],
+        1, this.gOptimizer, CostReduction.MEAN);
 
       this.iterCountElement.innerText = this.iterationCount;
 
@@ -462,11 +461,14 @@ class GANLab extends GANLabPolymer {
 
         // Visualize discriminator's output.
         const dData = [];
-        for (let i = 0; i < NUM_GRID_CELLS * NUM_GRID_CELLS; ++i) {
+        for (let i = 0; i < NUM_GRID_CELLS * NUM_GRID_CELLS / BATCH_SIZE; ++i) {
           const result = this.session.eval(
             this.predictionTensor1,
             [{ tensor: this.inputTensor, data: this.uniformInputProvider }]);
-          dData.push(await result.data());
+          const resultData = await result.data();
+          for (let j = 0; j < resultData.length; ++j) {
+            dData.push(resultData[j]);
+          }
         }
 
         const gridDots =
@@ -495,11 +497,12 @@ class GANLab extends GANLabPolymer {
 
         // Visualize generated samples.
         const gData = [];
-        for (let i = 0; i < NUM_SAMPLES_VISUALIZED; ++i) {
-          const result = this.session.eval(
-            this.generatedTensor,
-            [{ tensor: this.noiseTensor, data: this.noiseProvider }]);
-          gData.push(await result.data());
+        const gResult = this.session.eval(
+          this.generatedTensor,
+          [{ tensor: this.noiseTensor, data: this.noiseProvider }]);
+        const gResultData = await gResult.data();
+        for (let j = 0; j < gResultData.length / 2; ++j) {
+          gData.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
         }
 
         const gDots =
@@ -522,13 +525,14 @@ class GANLab extends GANLabPolymer {
         }
 
         if (this.noiseSize <= 2) {
-          const manifoldData = [];
-          for (let i = 0; i < Math.pow(NUM_MANIFOLD_CELLS + 1, this.noiseSize);
-            ++i) {
-            const result = this.session.eval(
+          const result = this.session.eval(
               this.generatedTensor,
               [{ tensor: this.noiseTensor, data: this.uniformNoiseProvider }]);
-            manifoldData.push(await result.data());
+
+          const maniResult: Float32Array = await result.data() as Float32Array;
+          const manifoldData: Float32Array[] = [];
+          for (let i = 0; i < Math.pow(NUM_MANIFOLD_CELLS + 1, 2); ++i) {
+            manifoldData.push(maniResult.slice(i * 2, i * 2 + 2));
           }
 
           // Create grid cells.
@@ -625,31 +629,59 @@ class GANLab extends GANLabPolymer {
     const g = this.graph;
 
     // Noise.
-    const noise = g.placeholder('noise', [this.noiseSize]);
+    const noise = g.placeholder('noise', [BATCH_SIZE, this.noiseSize]);
     this.noiseTensor = noise;
 
     // Generator.
-    let network = g.layers.dense(
-      'gfc0', noise, this.numGeneratorNeurons, (x) => g.relu(x));
+    const gfc0W = g.variable(
+      'gfc0W',
+      NDArray.randNormal(
+        [this.noiseSize, this.numGeneratorNeurons], 0, 1.0 / Math.sqrt(2)));
+    const gfc0B =
+      g.variable('gfc0B', Array1D.zeros([this.numGeneratorNeurons]));
+
+    let network = g.matmul(this.noiseTensor, gfc0W);
+    network = g.add(network, gfc0B);
+    network = g.relu(network);
 
     for (let i = 0; i < this.numGeneratorLayers; ++i) {
-      network = g.layers.dense(
-        `gfc${i + 1}`, network, this.numGeneratorNeurons, (x) => g.relu(x));
+      const gfcW = g.variable(
+        'gfc' + (i + 1) + 'W',
+        NDArray.randNormal(
+          [this.numGeneratorNeurons, this.numGeneratorNeurons], 0,
+          1.0 / Math.sqrt(this.numGeneratorNeurons)));
+      const gfcB = g.variable(
+        'gfc' + (i + 1) + 'B', Array1D.zeros([this.numGeneratorNeurons]));
+
+      network = g.matmul(network, gfcW);
+      network = g.add(network, gfcB);
+      network = g.relu(network);
     }
 
-    this.generatedTensor =
-      g.layers.dense('gfcLast', network, 2, (x) => g.sigmoid(x));
+    const gfcLastW = g.variable(
+      'gfcLastW',
+      NDArray.randNormal(
+        [this.numGeneratorNeurons, 2], 0,
+        1.0 / Math.sqrt(this.numGeneratorNeurons)));
+    const gfcLastB = g.variable('gfcLastB', Array1D.zeros([2]));
+
+    network = g.matmul(network, gfcLastW);
+    network = g.add(network, gfcLastB);
+    this.generatedTensor = g.sigmoid(network);
 
     // Real samples.
-    this.inputTensor = g.placeholder('input', [2]);
+    this.inputTensor = g.placeholder('input', [BATCH_SIZE, 2]);
 
     // Discriminator.
     const dfc0W = g.variable(
       'dfc0W',
-      NDArray.randTruncatedNormal(
+      NDArray.randNormal(
         [2, this.numDiscriminatorNeurons], 0, 1.0 / Math.sqrt(2)));
     const dfc0B =
-      g.variable('dfc0B', NDArray.zeros([this.numDiscriminatorNeurons]));
+      g.variable('dfc0B',
+      NDArray.randNormal(
+        [this.numDiscriminatorNeurons], 0,
+        1.0 / Math.sqrt(this.numDiscriminatorNeurons)));
 
     let network1 = g.matmul(this.inputTensor, dfc0W);
     network1 = g.add(network1, dfc0B);
@@ -662,7 +694,7 @@ class GANLab extends GANLabPolymer {
     for (let i = 0; i < this.numDiscriminatorLayers; ++i) {
       const dfcW = g.variable(
         `dfc${i + 1}W`,
-        NDArray.randTruncatedNormal(
+        NDArray.randNormal(
           [this.numDiscriminatorNeurons, this.numDiscriminatorNeurons], 0,
           1.0 / Math.sqrt(this.numDiscriminatorNeurons)));
       const dfcB = g.variable(
@@ -679,7 +711,7 @@ class GANLab extends GANLabPolymer {
 
     const dfcLastW = g.variable(
       'dfcLastW',
-      NDArray.randTruncatedNormal(
+      NDArray.randNormal(
         [this.numDiscriminatorNeurons, 1], 0,
         1.0 / Math.sqrt(this.numDiscriminatorNeurons)));
     const dfcLastB = g.variable('dfcLastB', NDArray.zeros([1]));
@@ -687,13 +719,13 @@ class GANLab extends GANLabPolymer {
     network1 = g.matmul(network1, dfcLastW);
     network1 = g.add(network1, dfcLastB);
     network1 = g.sigmoid(network1);
-    network1 = g.reshape(network1, []);
+    network1 = g.reshape(network1, [BATCH_SIZE]);
     this.predictionTensor1 = network1;
 
     network2 = g.matmul(network2, dfcLastW);
     network2 = g.add(network2, dfcLastB);
     network2 = g.sigmoid(network2);
-    network2 = g.reshape(network2, []);
+    network2 = g.reshape(network2, [BATCH_SIZE]);
     this.predictionTensor2 = network2;
 
     // Define losses.
@@ -704,6 +736,11 @@ class GANLab extends GANLabPolymer {
       g.add(dRealCostTensor, dFakeCostTensor), g.constant(Scalar.new(-1)));
     this.gCostTensor = g.multiply(
       g.log(this.predictionTensor2), g.constant(Scalar.new(-1)));
+
+    this.dCostTensor = g.divide(g.reduceSum(this.dCostTensor),
+      g.constant(Scalar.new(BATCH_SIZE)));
+    this.gCostTensor = g.divide(g.reduceSum(this.gCostTensor),
+      g.constant(Scalar.new(BATCH_SIZE)));
 
     // Filter variable nodes for optimizers.
     const gNodes = g.getNodes().filter(v => {

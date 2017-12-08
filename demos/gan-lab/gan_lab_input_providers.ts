@@ -4,7 +4,7 @@ export abstract class GANLabInputProviderBuilder {
   protected atlas: Array2D;
   protected providerCounter: number;
 
-  constructor() {
+  constructor(protected batchSize: number) {
     this.providerCounter = -1;
   }
 
@@ -18,13 +18,13 @@ export class GANLabNoiseProviderBuilder extends
 
   constructor(
     private math: NDArrayMath, private noiseSize: number,
-    private numSamplesVisualized: number) {
-    super();
+    private numSamplesVisualized: number, batchSize: number) {
+    super(batchSize);
   }
 
   generateAtlas() {
     this.atlas = Array2D.randUniform(
-      [this.numSamplesVisualized, this.noiseSize], 0.0, 1.0);
+      [this.numSamplesVisualized * this.batchSize, this.noiseSize], 0.0, 1.0);
   }
 
   getInputProvider(): InputProvider {
@@ -35,9 +35,9 @@ export class GANLabNoiseProviderBuilder extends
         return provider.math.scope(() => {
           return provider.math.slice2D(
             provider.atlas,
-            [provider.providerCounter % provider.numSamplesVisualized, 0],
-            [1, provider.noiseSize])
-            .as1D();
+            [(provider.providerCounter * provider.batchSize) %
+              provider.numSamplesVisualized, 0],
+            [provider.batchSize, provider.noiseSize]);
         });
       },
       disposeCopy(math: NDArrayMath, copy: NDArray) {
@@ -56,8 +56,8 @@ export class GANLabTrueSampleProviderBuilder extends
     private math: NDArrayMath, private atlasSize: number,
     private selectedShapeName: string,
     private drawingPositions: Array<[number, number]>,
-    private sampleFromTrueDistribution: Function) {
-    super();
+    private sampleFromTrueDistribution: Function, batchSize: number) {
+    super(batchSize);
     this.inputAtlasList = [];
   }
 
@@ -78,9 +78,10 @@ export class GANLabTrueSampleProviderBuilder extends
         provider.providerCounter++;
         return provider.math.scope(() => {
           return provider.math.slice2D(
-            provider.atlas, [provider.providerCounter % provider.atlasSize, 0],
-            [1, 2])
-            .as1D();
+            provider.atlas,
+            [(provider.providerCounter * provider.batchSize) %
+              provider.atlasSize, 0],
+            [provider.batchSize, 2]);
         });
       },
       disposeCopy(math: NDArrayMath, copy: NDArray) {
@@ -99,8 +100,8 @@ export class GANLabUniformNoiseProviderBuilder extends
 
   constructor(
     private math: NDArrayMath, private noiseSize: number,
-    private numManifoldCells: number) {
-    super();
+    private numManifoldCells: number, batchSize: number) {
+    super(batchSize);
   }
 
   generateAtlas() {
@@ -117,9 +118,11 @@ export class GANLabUniformNoiseProviderBuilder extends
         }
       }
     }
+    while (inputAtlasList.length < this.batchSize * this.noiseSize) {
+      inputAtlasList.push(0.5);
+    }
     this.atlas = Array2D.new(
-      [Math.pow(this.numManifoldCells + 1, this.noiseSize), this.noiseSize],
-      inputAtlasList);
+      [this.batchSize, this.noiseSize], inputAtlasList);
   }
 
   getInputProvider(): InputProvider {
@@ -128,14 +131,7 @@ export class GANLabUniformNoiseProviderBuilder extends
       getNextCopy(): NDArray {
         provider.providerCounter++;
         return provider.math.scope(() => {
-          const begin: [number, number] = [
-            provider.providerCounter %
-            Math.pow(provider.numManifoldCells + 1, provider.noiseSize),
-            0
-          ];
-          return provider.math
-            .slice2D(provider.atlas, begin, [1, provider.noiseSize])
-            .as1D();
+          return provider.math.clone(provider.atlas);
         });
       },
       disposeCopy(math: NDArrayMath, copy: NDArray) {
@@ -149,8 +145,9 @@ export class GANLabUniformSampleProviderBuilder extends
   GANLabInputProviderBuilder {
 
   constructor(
-    private math: NDArrayMath, private numGridCells: number) {
-    super();
+    private math: NDArrayMath, private numGridCells: number,
+    batchSize: number) {
+    super(batchSize);
   }
 
   generateAtlas() {
@@ -172,12 +169,12 @@ export class GANLabUniformSampleProviderBuilder extends
         provider.providerCounter++;
         return provider.math.scope(() => {
           const begin: [number, number] = [
-            provider.providerCounter %
+            (provider.providerCounter * provider.batchSize) %
             (provider.numGridCells * provider.numGridCells),
             0
           ];
-          return provider.math.slice2D(provider.atlas, begin, [1, 2])
-            .as1D();
+          return provider.math.slice2D(provider.atlas, begin,
+            [provider.batchSize, 2]);
         });
       },
       disposeCopy(math: NDArrayMath, copy: NDArray) {

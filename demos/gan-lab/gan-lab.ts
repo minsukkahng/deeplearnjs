@@ -3,9 +3,10 @@ import { scaleLinear } from 'd3-scale';
 import { line } from 'd3-shape';
 
 import { PolymerElement, PolymerHTMLElement } from '../polymer-spec';
-import { Array1D, CostReduction, Graph, InputProvider, NDArray, NDArrayMath,
-  NDArrayMathCPU, NDArrayMathGPU, Scalar, Session, SGDOptimizer,
-  Tensor } from 'deeplearn';
+import {
+  Array1D, CostReduction, Graph, InputProvider, NDArray, NDArrayMath,
+  NDArrayMathGPU, Scalar, Session, SGDOptimizer, Tensor
+} from 'deeplearn';
 import { TypedArray } from '../../src/util';
 
 import * as gan_lab_input_providers from './gan_lab_input_providers';
@@ -33,7 +34,6 @@ const GANLabPolymer: new () => PolymerHTMLElement = PolymerElement({
 class GANLab extends GANLabPolymer {
   private math: NDArrayMath;
   private mathGPU: NDArrayMathGPU;
-  private mathCPU: NDArrayMathCPU;
 
   private graph: Graph;
   private session: Session;
@@ -71,13 +71,6 @@ class GANLab extends GANLabPolymer {
 
   ready() {
     // HTML elements.
-    this.querySelector('#environment-toggle')!.addEventListener(
-      'change', (event: Event) => {
-        this.math =
-            // tslint:disable-next-line:no-any
-            (event.target as any).active ? this.mathGPU : this.mathCPU;
-      });
-
     const noiseSlider = this.querySelector('#noise-slider') as HTMLInputElement;
     const noiseSizeElement = this.querySelector('#noise-size') as HTMLElement;
     this.noiseSize = +noiseSlider.value;
@@ -240,8 +233,7 @@ class GANLab extends GANLabPolymer {
 
     // Math.
     this.mathGPU = new NDArrayMathGPU();
-    this.mathCPU = new NDArrayMathCPU();
-    this.math = this.mathCPU;
+    this.math = this.mathGPU;
 
     this.createExperiment();
   }
@@ -412,14 +404,14 @@ class GANLab extends GANLabPolymer {
     this.createExperiment();
   }
 
-  private iterateTraining(keepIterating: boolean) {
+  private async iterateTraining(keepIterating: boolean) {
     if (!this.isPlaying) {
       return;
     }
 
     this.iterationCount++;
 
-    this.math.scope(async () => {
+    await this.math.scope(async () => {
       for (let j = 0; j < this.kSteps - 1; j++) {
         this.session.train(
           this.dCostTensor,
@@ -526,11 +518,11 @@ class GANLab extends GANLabPolymer {
 
         if (this.noiseSize <= 2) {
           const result = this.session.eval(
-              this.generatedTensor,
-              [{ tensor: this.noiseTensor, data: this.uniformNoiseProvider }]);
+            this.generatedTensor,
+            [{ tensor: this.noiseTensor, data: this.uniformNoiseProvider }]);
 
-          const maniResult: Float32Array = await result.data() as Float32Array;
-          const manifoldData: Float32Array[] = [];
+          const maniResult: TypedArray = await result.data() as TypedArray;
+          const manifoldData: TypedArray[] = [];
           for (let i = 0; i < Math.pow(NUM_MANIFOLD_CELLS + 1, 2); ++i) {
             manifoldData.push(maniResult.slice(i * 2, i * 2 + 2));
           }
@@ -646,12 +638,12 @@ class GANLab extends GANLabPolymer {
 
     for (let i = 0; i < this.numGeneratorLayers; ++i) {
       const gfcW = g.variable(
-        'gfc' + (i + 1) + 'W',
+        `gfc${i + 1}W`,
         NDArray.randNormal(
           [this.numGeneratorNeurons, this.numGeneratorNeurons], 0,
           1.0 / Math.sqrt(this.numGeneratorNeurons)));
       const gfcB = g.variable(
-        'gfc' + (i + 1) + 'B', Array1D.zeros([this.numGeneratorNeurons]));
+        `gfc${i + 1}B`, Array1D.zeros([this.numGeneratorNeurons]));
 
       network = g.matmul(network, gfcW);
       network = g.add(network, gfcB);
@@ -679,9 +671,9 @@ class GANLab extends GANLabPolymer {
         [2, this.numDiscriminatorNeurons], 0, 1.0 / Math.sqrt(2)));
     const dfc0B =
       g.variable('dfc0B',
-      NDArray.randNormal(
-        [this.numDiscriminatorNeurons], 0,
-        1.0 / Math.sqrt(this.numDiscriminatorNeurons)));
+        NDArray.randNormal(
+          [this.numDiscriminatorNeurons], 0,
+          1.0 / Math.sqrt(this.numDiscriminatorNeurons)));
 
     let network1 = g.matmul(this.inputTensor, dfc0W);
     network1 = g.add(network1, dfc0B);

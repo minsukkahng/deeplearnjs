@@ -608,22 +608,15 @@ class GANLab extends GANLabPolymer {
         }
 
         if (this.noiseSize <= 2) {
+          const result = this.session.eval(
+            this.generatedTensor,
+            [{ tensor: this.noiseTensor, data: this.uniformNoiseProvider }]);
+
+          const maniResult: TypedArray = await result.data() as TypedArray;
           const manifoldData: TypedArray[] = [];
-          const numBatches = Math.ceil(Math.pow(
-            NUM_MANIFOLD_CELLS + 1, this.noiseSize) / BATCH_SIZE);
-          const remainingDummy = BATCH_SIZE * numBatches - Math.pow(
-            NUM_MANIFOLD_CELLS + 1, this.noiseSize) * 2;
-          for (let k = 0; k < numBatches; ++k) {
-            const result = this.session.eval(
-              this.generatedTensor,
-              [{ tensor: this.noiseTensor, data: this.uniformNoiseProvider }]);
-
-            const maniResult: TypedArray = await result.data() as TypedArray;
-
-            for (let i = 0; i < (k + 1 < numBatches ?
-              BATCH_SIZE : BATCH_SIZE - remainingDummy); ++i) {
-              manifoldData.push(maniResult.slice(i * 2, i * 2 + 2));
-            }
+          for (let i = 0; i < Math.pow(
+            NUM_MANIFOLD_CELLS + 1, this.noiseSize); ++i) {
+            manifoldData.push(maniResult.slice(i * 2, i * 2 + 2));
           }
 
           // Create grid cells.

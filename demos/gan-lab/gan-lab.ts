@@ -569,7 +569,8 @@ class GANLab extends GANLabPolymer {
 
           const maniResult: TypedArray = await result.data() as TypedArray;
           const manifoldData: TypedArray[] = [];
-          for (let i = 0; i < Math.pow(NUM_MANIFOLD_CELLS + 1, 2); ++i) {
+          for (let i = 0; i < Math.pow(
+            NUM_MANIFOLD_CELLS + 1, this.noiseSize); ++i) {
             manifoldData.push(maniResult.slice(i * 2, i * 2 + 2));
           }
 
@@ -640,17 +641,19 @@ class GANLab extends GANLabPolymer {
                 'none';
             });
 
-          const manifoldDots =
-            this.visManifold.selectAll('.uniform-generated-dot')
-              .data(manifoldData);
-          if (this.iterationCount === 1) {
-            manifoldDots.enter()
-              .append('circle')
-              .attr('class', 'uniform-generated-dot gan-lab')
-              .attr('r', 1);
+          if (this.noiseSize === 1) {
+            const manifoldDots =
+              this.visManifold.selectAll('.uniform-generated-dot')
+                .data(manifoldData);
+            if (this.iterationCount === 1) {
+              manifoldDots.enter()
+                .append('circle')
+                .attr('class', 'uniform-generated-dot gan-lab')
+                .attr('r', 1);
+            }
+            manifoldDots.attr('cx', (d: number[]) => d[0] * this.plotSizePx)
+              .attr('cy', (d: number[]) => (1.0 - d[1]) * this.plotSizePx);
           }
-          manifoldDots.attr('cx', (d: number[]) => d[0] * this.plotSizePx)
-            .attr('cy', (d: number[]) => (1.0 - d[1]) * this.plotSizePx);
         }
       }
     });

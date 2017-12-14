@@ -22,7 +22,7 @@ const NUM_GRID_CELLS = 30;
 const NUM_MANIFOLD_CELLS = 20;
 const GENERATED_SAMPLES_VISUALIZATION_INTERVAL = 10;
 const NUM_SAMPLES_VISUALIZED = 300;
-const NUM_TRUE_SAMPLES_VISUALIZED = 1200;
+const NUM_TRUE_SAMPLES_VISUALIZED = 240;
 
 // tslint:disable-next-line:variable-name
 const GANLabPolymer: new () => PolymerHTMLElement = PolymerElement({
@@ -245,6 +245,7 @@ class GANLab extends GANLabPolymer {
     this.visTrueSamples = d3.select('#vis-true-samples');
     this.visTrueSamplesContour = d3.select('#vis-true-samples-contour');
     this.visGeneratedSamples = d3.select('#vis-generated-samples');
+    this.visGeneratedSamplesContour = d3.select('#vis-gen-samples-contour');
     this.visDiscriminator = d3.select('#vis-discriminator-output');
     this.visManifold = d3.select('#vis-manifold');
 
@@ -284,6 +285,7 @@ class GANLab extends GANLabPolymer {
       .data([])
       .exit()
       .remove();
+    this.visGeneratedSamplesContour.selectAll('path').data([]).exit().remove();
     this.visDiscriminator.selectAll('.uniform-dot').data([]).exit().remove();
     this.visManifold.selectAll('.uniform-generated-dot')
       .data([])
@@ -566,14 +568,25 @@ class GANLab extends GANLabPolymer {
           gData.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
         }
 
-        const score1 = this.evaluator.testGeneratedOnTrue(gData);
-        this.evaluator.updateGridsForGenerated(gData);
-        const score2 = this.evaluator.testTrueOnGenerated();
-        const score3 = this.evaluator.getScore();
-        this.evalChartData1.push({ x: this.iterationCount, y: score1 });
-        this.evalChartData2.push({ x: this.iterationCount, y: score2 });
-        this.evalChartData3.push({ x: this.iterationCount, y: score3 });
-        this.evalChart.update();
+        const gColor = scaleSequential(interpolateYlGnBu)
+          .domain([0, 0.05]);
+
+        const contour = contourDensity()
+          .x((d: number[]) => d[0] * this.plotSizePx)
+          .y((d: number[]) => (1.0 - d[1]) * this.plotSizePx)
+          .size([this.plotSizePx, this.plotSizePx])
+          .bandwidth(15)
+          .thresholds(5);
+        this.visGeneratedSamplesContour
+          .selectAll('path').data([]).exit().remove();
+        this.visGeneratedSamplesContour
+          .selectAll('path')
+          .data(contour(gData))
+          .enter()
+          .append('path')
+          .attr('fill', (d: any) => gColor(d.value))
+          .attr('data-value', (d: any) => d.value)
+          .attr('d', geoPath());
 
         const gDots =
           this.visGeneratedSamples.selectAll('.generated-dot').data(gData);

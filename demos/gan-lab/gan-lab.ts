@@ -1,5 +1,8 @@
 import * as d3 from 'd3-selection';
-import { scaleLinear } from 'd3-scale';
+import { contourDensity } from 'd3-contour';
+import { geoPath } from 'd3-geo';
+import { scaleLinear, scaleSequential } from 'd3-scale';
+import { interpolateYlGnBu } from 'd3-scale-chromatic';
 import { line } from 'd3-shape';
 
 import { PolymerElement, PolymerHTMLElement } from '../polymer-spec';
@@ -17,7 +20,7 @@ const ATLAS_SIZE = 12000;
 const NUM_GRID_CELLS = 30;
 const NUM_MANIFOLD_CELLS = 10;
 const GENERATED_SAMPLES_VISUALIZATION_INTERVAL = 10;
-const NUM_SAMPLES_VISUALIZED = 240;
+const NUM_SAMPLES_VISUALIZED = 300;
 const NUM_TRUE_SAMPLES_VISUALIZED = 240;
 
 // tslint:disable-next-line:variable-name
@@ -212,7 +215,9 @@ class GANLab extends GANLabPolymer {
     this.plotSizePx = 500;
 
     this.visTrueSamples = d3.select('#vis-true-samples');
+    this.visTrueSamplesContour = d3.select('#vis-true-samples-contour');
     this.visGeneratedSamples = d3.select('#vis-generated-samples');
+    this.visGeneratedSamplesContour = d3.select('#vis-gen-samples-contour');
     this.visDiscriminator = d3.select('#vis-discriminator-output');
     this.visManifold = d3.select('#vis-manifold');
 
@@ -247,10 +252,12 @@ class GANLab extends GANLabPolymer {
     this.recreateCharts();
 
     this.visTrueSamples.selectAll('.true-dot').data([]).exit().remove();
+    this.visTrueSamplesContour.selectAll('path').data([]).exit().remove();
     this.visGeneratedSamples.selectAll('.generated-dot')
       .data([])
       .exit()
       .remove();
+    this.visGeneratedSamplesContour.selectAll('path').data([]).exit().remove();
     this.visDiscriminator.selectAll('.uniform-dot').data([]).exit().remove();
     this.visManifold.selectAll('.uniform-generated-dot')
       .data([])
@@ -339,10 +346,29 @@ class GANLab extends GANLabPolymer {
   }
 
   private visualizeTrueDistribution(inputAtlasList: number[]) {
-    const trueDistribution = [];
+    const color = scaleSequential(interpolateYlGnBu)
+      .domain([0, 0.05]);
+
+    const trueDistribution: Array<[number, number]> = [];
     while (trueDistribution.length < NUM_TRUE_SAMPLES_VISUALIZED) {
-      trueDistribution.push(inputAtlasList.splice(0, 2));
+      const values = inputAtlasList.splice(0, 2);
+      trueDistribution.push([values[0], values[1]]);
     }
+
+    const contour = contourDensity()
+      .x((d: number[]) => d[0] * this.plotSizePx)
+      .y((d: number[]) => (1.0 - d[1]) * this.plotSizePx)
+      .size([this.plotSizePx, this.plotSizePx])
+      .bandwidth(15)
+      .thresholds(5);
+    this.visTrueSamplesContour
+      .selectAll('path')
+      .data(contour(trueDistribution))
+      .enter()
+      .append('path')
+      .attr('fill', (d: any) => color(d.value))
+      .attr('data-value', (d: any) => d.value)
+      .attr('d', geoPath());
 
     this.visTrueSamples.selectAll('.true-dot')
       .data(trueDistribution)
@@ -368,15 +394,15 @@ class GANLab extends GANLabPolymer {
 
   private play() {
     this.isPlaying = true;
-    document.getElementById("play-pause-button")!.classList.add("playing");
+    document.getElementById('play-pause-button')!.classList.add('playing');
     this.iterateTraining(true);
   }
 
   private pause() {
     this.isPlaying = false;
-    const button = document.getElementById("play-pause-button");
-    if (button.classList.contains("playing")) {
-      button.classList.remove("playing");
+    const button = document.getElementById('play-pause-button');
+    if (button.classList.contains('playing')) {
+      button.classList.remove('playing');
     }
   }
 
@@ -488,7 +514,7 @@ class GANLab extends GANLabPolymer {
         gridDots.select('title').text((d: number) => Number(d).toFixed(3));
 
         // Visualize generated samples.
-        const gData = [];
+        const gData: Array<[number, number]> = [];
         const gResult = this.session.eval(
           this.generatedTensor,
           [{ tensor: this.noiseTensor, data: this.noiseProvider }]);
@@ -496,6 +522,26 @@ class GANLab extends GANLabPolymer {
         for (let j = 0; j < gResultData.length / 2; ++j) {
           gData.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
         }
+
+        const gColor = scaleSequential(interpolateYlGnBu)
+          .domain([0, 0.05]);
+
+        const contour = contourDensity()
+          .x((d: number[]) => d[0] * this.plotSizePx)
+          .y((d: number[]) => (1.0 - d[1]) * this.plotSizePx)
+          .size([this.plotSizePx, this.plotSizePx])
+          .bandwidth(15)
+          .thresholds(5);
+        this.visGeneratedSamplesContour
+          .selectAll('path').data([]).exit().remove();
+        this.visGeneratedSamplesContour
+          .selectAll('path')
+          .data(contour(gData))
+          .enter()
+          .append('path')
+          .attr('fill', (d: any) => gColor(d.value))
+          .attr('data-value', (d: any) => d.value)
+          .attr('d', geoPath());
 
         const gDots =
           this.visGeneratedSamples.selectAll('.generated-dot').data(gData);

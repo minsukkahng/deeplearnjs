@@ -65,7 +65,8 @@ class GANLab extends GANLabPolymer {
   private numDiscriminatorNeurons: number;
 
   private learningRate: number;
-  private kSteps: number;
+  private kDSteps: number;
+  private kGSteps: number;
 
   private plotSizePx: number;
 
@@ -130,14 +131,22 @@ class GANLab extends GANLabPolymer {
       this.createExperiment();
     });
 
-    const kStepsSlider =
-      this.querySelector('#k-steps-slider') as HTMLInputElement;
-    const kStepsElement = this.querySelector('#k-steps') as HTMLElement;
-    this.kSteps = +kStepsSlider.value;
-    kStepsSlider.addEventListener('value-change', (event) => {
-      kStepsElement.innerText = kStepsSlider.value;
-      this.kSteps = +kStepsSlider.value;
-      this.createExperiment();
+    const kDStepsSlider =
+      this.querySelector('#k-d-steps-slider') as HTMLInputElement;
+    const kDStepsElement = this.querySelector('#k-d-steps') as HTMLElement;
+    this.kDSteps = +kDStepsSlider.value;
+    kDStepsSlider.addEventListener('value-change', (event) => {
+      kDStepsElement.innerText = kDStepsSlider.value;
+      this.kDSteps = +kDStepsSlider.value;
+    });
+
+    const kGStepsSlider =
+      this.querySelector('#k-g-steps-slider') as HTMLInputElement;
+    const kGStepsElement = this.querySelector('#k-g-steps') as HTMLElement;
+    this.kGSteps = +kGStepsSlider.value;
+    kGStepsSlider.addEventListener('value-change', (event) => {
+      kGStepsElement.innerText = kGStepsSlider.value;
+      this.kGSteps = +kGStepsSlider.value;
     });
 
     this.learningRateOptions = [0.001, 0.01, 0.05, 0.1, 0.5];
@@ -215,6 +224,14 @@ class GANLab extends GANLabPolymer {
       document.getElementById('reset-button') as HTMLInputElement;
     resetButton.addEventListener(
       'click', () => this.onClickResetButton());
+    const nextStepDButton =
+      document.getElementById('next-step-d-button') as HTMLInputElement;
+    nextStepDButton.addEventListener(
+      'click', () => this.onClickNextStepButton("D"));
+    const nextStepGButton =
+      document.getElementById('next-step-g-button') as HTMLInputElement;
+    nextStepGButton.addEventListener(
+      'click', () => this.onClickNextStepButton("G"));
 
     this.iterCountElement =
       document.getElementById('iteration-count') as HTMLElement;
@@ -420,12 +437,12 @@ class GANLab extends GANLabPolymer {
     }
   }
 
-  private onClickNextStepButton() {
+  private onClickNextStepButton(type?: string) {
     if (this.isPlaying) {
       this.pause();
     }
     this.isPlaying = true;
-    this.iterateTraining(false);
+    this.iterateTraining(false, type);
     this.isPlaying = false;
   }
 
@@ -436,7 +453,7 @@ class GANLab extends GANLabPolymer {
     this.createExperiment();
   }
 
-  private async iterateTraining(keepIterating: boolean) {
+  private async iterateTraining(keepIterating: boolean, type?: string) {
     if (!this.isPlaying) {
       return;
     }
@@ -444,28 +461,33 @@ class GANLab extends GANLabPolymer {
     this.iterationCount++;
 
     await this.math.scope(async () => {
-      for (let j = 0; j < this.kSteps - 1; j++) {
-        this.session.train(
+      const kDSteps = type === "D" ? 1 : (type === "G" ? 0 : this.kDSteps);
+      const kGSteps = type === "G" ? 1 : (type === "D" ? 0 : this.kGSteps);
+
+      let dCostVal = null;
+      for (let j = 0; j < kDSteps; j++) {
+        const dCost = this.session.train(
           this.dCostTensor,
           [
             { tensor: this.inputTensor, data: this.trueSampleProvider },
             { tensor: this.noiseTensor, data: this.noiseProvider }
           ],
           1, this.dOptimizer, CostReduction.MEAN);
+        if (j + 1 === this.kDSteps) {
+          dCostVal = dCost.get();
+        }
       }
 
-      const dCost = this.session.train(
-        this.dCostTensor,
-        [
-          { tensor: this.inputTensor, data: this.trueSampleProvider },
-          { tensor: this.noiseTensor, data: this.noiseProvider }
-        ],
-        1, this.dOptimizer, CostReduction.MEAN);
-
-      const gCost = this.session.train(
-        this.gCostTensor,
-        [{ tensor: this.noiseTensor, data: this.noiseProvider }],
-        1, this.gOptimizer, CostReduction.MEAN);
+      let gCostVal = null;
+      for (let j = 0; j < kGSteps; j++) {
+        const gCost = this.session.train(
+          this.gCostTensor,
+          [{ tensor: this.noiseTensor, data: this.noiseProvider }],
+          1, this.gOptimizer, CostReduction.MEAN);
+        if (j + 1 === this.kDSteps) {
+          gCostVal = gCost.get();
+        }
+      }
 
       this.iterCountElement.innerText = this.iterationCount;
 
@@ -479,8 +501,8 @@ class GANLab extends GANLabPolymer {
           chartContainer.style.visibility = 'visible';
         }
 
-        this.dCostChartData.push({ x: this.iterationCount, y: dCost.get() });
-        this.gCostChartData.push({ x: this.iterationCount, y: gCost.get() });
+        this.dCostChartData.push({ x: this.iterationCount, y: dCostVal });
+        this.gCostChartData.push({ x: this.iterationCount, y: gCostVal });
         this.costChart.update();
 
         // Visualize discriminator's output.

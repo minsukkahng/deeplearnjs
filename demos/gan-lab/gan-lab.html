@@ -31,11 +31,11 @@
     }
 
     #model-menu {
-      width: 170px;
+      width: 185px;
     }
 
     #training-menu {
-      width: 160px;
+      width: 165px;
     }
 
     #visualization-container {
@@ -197,8 +197,13 @@
         </div>
 
         <div class="config-item">
-          <label>More Steps for Discriminator: <span id="k-steps">1</span></label>
-          <paper-slider pin min="1" max="5" value="1" id="k-steps-slider"></paper-slider>
+          <label># Discriminator Updates per Iter: <span id="k-d-steps">1</span></label>
+          <paper-slider pin min="0" max="10" value="1" id="k-d-steps-slider"></paper-slider>
+        </div>
+
+        <div class="config-item">
+          <label># Generator Updates per Iter: <span id="k-g-steps">1</span></label>
+          <paper-slider pin min="0" max="10" value="1" id="k-g-steps-slider"></paper-slider>
         </div>
 
         <div class="separator">Generator:</div>
@@ -242,6 +247,12 @@
           </button>
           <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-button" title="Step">
             <i class="material-icons">skip_next</i>
+          </button>
+          <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-d-button" title="Step only discriminator">
+            <i>D</i>
+          </button>
+          <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-g-button" title="Step only generator">
+            <i>G</i>
           </button>
         </div>
 

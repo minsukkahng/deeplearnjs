@@ -194,6 +194,14 @@ class GANLab extends GANLabPolymer {
         container.style.visibility =
           (event.target as any).active ? 'visible' : 'hidden';
       });
+    this.querySelector('#show-t-contour')!.addEventListener(
+      'change', (event: Event) => {
+        const container =
+          this.querySelector('#vis-true-samples-contour') as SVGGElement;
+        // tslint:disable-next-line:no-any
+        container.style.visibility =
+          (event.target as any).active ? 'visible' : 'hidden';
+      });
 
     const playButton =
       document.getElementById('play-pause-button') as HTMLInputElement;
@@ -217,7 +225,6 @@ class GANLab extends GANLabPolymer {
     this.visTrueSamples = d3.select('#vis-true-samples');
     this.visTrueSamplesContour = d3.select('#vis-true-samples-contour');
     this.visGeneratedSamples = d3.select('#vis-generated-samples');
-    this.visGeneratedSamplesContour = d3.select('#vis-gen-samples-contour');
     this.visDiscriminator = d3.select('#vis-discriminator-output');
     this.visManifold = d3.select('#vis-manifold');
 
@@ -257,7 +264,6 @@ class GANLab extends GANLabPolymer {
       .data([])
       .exit()
       .remove();
-    this.visGeneratedSamplesContour.selectAll('path').data([]).exit().remove();
     this.visDiscriminator.selectAll('.uniform-dot').data([]).exit().remove();
     this.visManifold.selectAll('.uniform-generated-dot')
       .data([])

@@ -197,8 +197,8 @@
         </div>
 
         <div class="config-item">
-          <label># Discriminator Updates per Iter: <span id="k-d-steps">1</span></label>
-          <paper-slider pin min="0" max="10" value="1" id="k-d-steps-slider"></paper-slider>
+          <label># Discriminator Updates per Iter: <span id="k-d-steps">2</span></label>
+          <paper-slider pin min="0" max="10" value="2" id="k-d-steps-slider"></paper-slider>
         </div>
 
         <div class="config-item">
@@ -272,10 +272,6 @@
           <paper-toggle-button id="show-t-contour" checked>True Contour</paper-toggle-button>
         </div>
 
-        <div id="t-contour-toggle" class="two-way-toggle config-item">
-          <paper-toggle-button id="show-t-contour" checked>True Contour</paper-toggle-button>
-        </div>
-
         <div id="g-samples-toggle" class="two-way-toggle config-item">
           <paper-toggle-button id="show-g-samples">Generated Samples</paper-toggle-button>
         </div>
@@ -299,9 +295,8 @@
             </g>
             <g id="vis-samples" class="vis-panel">
               <g id="vis-true-samples-contour" class="contour"></g>
-              <g id="vis-true-samples"></g>
-              <g id="vis-gen-samples-contour" class="contour"></g>
-              <g id="vis-generated-samples"></g>
+              <g id="vis-true-samples" style="visibility: hidden;"></g>
+              <g id="vis-generated-samples" style="visibility: hidden;"></g>
               <rect class="plot-border" width="500" height="500" x="0" y="0"></rect>
             </g>
             <g id="vis-manifold"></g>

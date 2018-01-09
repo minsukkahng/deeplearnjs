@@ -18,10 +18,10 @@ import * as gan_lab_drawing from './gan_lab_drawing';
 const BATCH_SIZE = 150;
 const ATLAS_SIZE = 12000;
 const NUM_GRID_CELLS = 30;
-const NUM_MANIFOLD_CELLS = 10;
+const NUM_MANIFOLD_CELLS = 20;
 const GENERATED_SAMPLES_VISUALIZATION_INTERVAL = 10;
 const NUM_SAMPLES_VISUALIZED = 300;
-const NUM_TRUE_SAMPLES_VISUALIZED = 240;
+const NUM_TRUE_SAMPLES_VISUALIZED = 1200;
 
 // tslint:disable-next-line:variable-name
 const GANLabPolymer: new () => PolymerHTMLElement = PolymerElement({
@@ -523,26 +523,6 @@ class GANLab extends GANLabPolymer {
           gData.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
         }
 
-        const gColor = scaleSequential(interpolateYlGnBu)
-          .domain([0, 0.05]);
-
-        const contour = contourDensity()
-          .x((d: number[]) => d[0] * this.plotSizePx)
-          .y((d: number[]) => (1.0 - d[1]) * this.plotSizePx)
-          .size([this.plotSizePx, this.plotSizePx])
-          .bandwidth(15)
-          .thresholds(5);
-        this.visGeneratedSamplesContour
-          .selectAll('path').data([]).exit().remove();
-        this.visGeneratedSamplesContour
-          .selectAll('path')
-          .data(contour(gData))
-          .enter()
-          .append('path')
-          .attr('fill', (d: any) => gColor(d.value))
-          .attr('data-value', (d: any) => d.value)
-          .attr('d', geoPath());
-
         const gDots =
           this.visGeneratedSamples.selectAll('.generated-dot').data(gData);
         if (this.iterationCount === 1) {
@@ -563,15 +543,22 @@ class GANLab extends GANLabPolymer {
         }
 
         if (this.noiseSize <= 2) {
-          const result = this.session.eval(
-            this.generatedTensor,
-            [{ tensor: this.noiseTensor, data: this.uniformNoiseProvider }]);
-
-          const maniResult: TypedArray = await result.data() as TypedArray;
           const manifoldData: TypedArray[] = [];
-          for (let i = 0; i < Math.pow(
-            NUM_MANIFOLD_CELLS + 1, this.noiseSize); ++i) {
-            manifoldData.push(maniResult.slice(i * 2, i * 2 + 2));
+          const numBatches = Math.ceil(Math.pow(
+            NUM_MANIFOLD_CELLS + 1, this.noiseSize) / BATCH_SIZE);
+          const remainingDummy = BATCH_SIZE * numBatches - Math.pow(
+            NUM_MANIFOLD_CELLS + 1, this.noiseSize) * 2;
+          for (let k = 0; k < numBatches; ++k) {
+            const result = this.session.eval(
+              this.generatedTensor,
+              [{ tensor: this.noiseTensor, data: this.uniformNoiseProvider }]);
+
+            const maniResult: TypedArray = await result.data() as TypedArray;
+
+            for (let i = 0; i < (k + 1 < numBatches ?
+              BATCH_SIZE : BATCH_SIZE - remainingDummy); ++i) {
+              manifoldData.push(maniResult.slice(i * 2, i * 2 + 2));
+            }
           }
 
           // Create grid cells.

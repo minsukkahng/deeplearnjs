@@ -118,11 +118,12 @@ export class GANLabUniformNoiseProviderBuilder extends
         }
       }
     }
-    while (inputAtlasList.length < this.batchSize * this.noiseSize) {
+    while (inputAtlasList.length % this.batchSize * this.noiseSize > 0) {
       inputAtlasList.push(0.5);
     }
     this.atlas = Array2D.new(
-      [this.batchSize, this.noiseSize], inputAtlasList);
+      [inputAtlasList.length / this.noiseSize, this.noiseSize],
+      inputAtlasList);
   }
 
   getInputProvider(): InputProvider {
@@ -130,8 +131,18 @@ export class GANLabUniformNoiseProviderBuilder extends
     return {
       getNextCopy(): NDArray {
         provider.providerCounter++;
+        if (provider.providerCounter * provider.batchSize >
+          Math.pow(provider.numManifoldCells + 1, provider.noiseSize)) {
+          provider.providerCounter = 0;
+        }
         return provider.math.scope(() => {
-          return provider.math.clone(provider.atlas);
+          const begin: [number, number] = [
+            (provider.providerCounter * provider.batchSize) %
+            Math.pow(provider.numManifoldCells + 1, provider.noiseSize),
+            0
+          ];
+          return provider.math.slice2D(provider.atlas, begin,
+            [provider.batchSize, 2]);
         });
       },
       disposeCopy(math: NDArrayMath, copy: NDArray) {

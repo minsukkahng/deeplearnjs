@@ -197,8 +197,8 @@
         </div>
 
         <div class="config-item">
-          <label># Discriminator Updates per Iter: <span id="k-d-steps">1</span></label>
-          <paper-slider pin min="0" max="10" value="1" id="k-d-steps-slider"></paper-slider>
+          <label># Discriminator Updates per Iter: <span id="k-d-steps">2</span></label>
+          <paper-slider pin min="0" max="10" value="2" id="k-d-steps-slider"></paper-slider>
         </div>
 
         <div class="config-item">
@@ -210,7 +210,7 @@
 
         <div class="config-item">
           <label>Noise Dimension: <span id="noise-size">2</span></label>
-          <paper-slider pin min="1" max="3" value="2" id="noise-slider"></paper-slider>
+          <paper-slider pin min="1" max="4" value="2" id="noise-slider"></paper-slider>
         </div>
 
         <div class="config-item">
@@ -219,8 +219,8 @@
         </div>
 
         <div class="config-item">
-          <label># Neurons in Hidden Layer: <span id="num-g-neurons">10</span></label>
-          <paper-slider pin min="1" max="25" value="10" id="g-neurons-slider"></paper-slider>
+          <label># Neurons in Hidden Layer: <span id="num-g-neurons">8</span></label>
+          <paper-slider pin min="1" max="32" value="8" id="g-neurons-slider"></paper-slider>
         </div>
 
         <div class="separator">Discriminator:</div>
@@ -231,8 +231,8 @@
         </div>
 
         <div class="config-item">
-          <label># Neurons in Hidden Layer: <span id="num-d-neurons">10</span></label>
-          <paper-slider pin min="1" max="25" value="10" id="d-neurons-slider"></paper-slider>
+          <label># Neurons in Hidden Layer: <span id="num-d-neurons">8</span></label>
+          <paper-slider pin min="1" max="32" value="8" id="d-neurons-slider"></paper-slider>
         </div>
       </div>
 
@@ -265,7 +265,7 @@
         <div class="separator">Visualization:</div>
 
         <div id="t-samples-toggle" class="two-way-toggle config-item">
-          <paper-toggle-button id="show-t-samples" checked>True Samples</paper-toggle-button>
+          <paper-toggle-button id="show-t-samples">True Samples</paper-toggle-button>
         </div>
 
         <div id="t-contour-toggle" class="two-way-toggle config-item">
@@ -273,7 +273,7 @@
         </div>
 
         <div id="g-samples-toggle" class="two-way-toggle config-item">
-          <paper-toggle-button id="show-g-samples" checked>Generated Samples</paper-toggle-button>
+          <paper-toggle-button id="show-g-samples">Generated Samples</paper-toggle-button>
         </div>
 
         <div id="manifold-toggle" class="two-way-toggle config-item">
@@ -295,9 +295,8 @@
             </g>
             <g id="vis-samples" class="vis-panel">
               <g id="vis-true-samples-contour" class="contour"></g>
-              <g id="vis-true-samples"></g>
-              <g id="vis-gen-samples-contour" class="contour"></g>
-              <g id="vis-generated-samples"></g>
+              <g id="vis-true-samples" style="visibility: hidden;"></g>
+              <g id="vis-generated-samples" style="visibility: hidden;"></g>
               <rect class="plot-border" width="500" height="500" x="0" y="0"></rect>
             </g>
             <g id="vis-manifold"></g>

@@ -159,7 +159,7 @@ class GANLab extends GANLabPolymer {
       });
 
     this.shapeNames = ['Line', 'Two Gaussian Hills', 'Drawing'];
-    this.selectedShapeName = 'Line';
+    this.selectedShapeName = 'Two Gaussian Hills';
     this.querySelector('#shape-dropdown')!.addEventListener(
       // tslint:disable-next-line:no-any event has no type
       'iron-activate', (event: any) => {
@@ -484,7 +484,7 @@ class GANLab extends GANLabPolymer {
           this.gCostTensor,
           [{ tensor: this.noiseTensor, data: this.noiseProvider }],
           1, this.gOptimizer, CostReduction.MEAN);
-        if (j + 1 === this.kDSteps) {
+        if (j + 1 === this.kGSteps) {
           gCostVal = gCost.get();
         }
       }
@@ -651,8 +651,8 @@ class GANLab extends GANLabPolymer {
               return this.noiseSize === 2 ? '#7b3294' : 'none';
             })
             .style('fill-opacity', (d: ManifoldCell) => {
-              return this.noiseSize === 2 ?
-                Math.max(0.95 - d.area! * 45.0, 0.05) :
+              return this.noiseSize === 2 ? Math.max(
+                0.9 - d.area! * 0.4 * Math.pow(NUM_MANIFOLD_CELLS, 2), 0.1) :
                 'none';
             });
 

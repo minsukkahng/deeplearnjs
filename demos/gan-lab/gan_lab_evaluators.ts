@@ -4,18 +4,19 @@ export abstract class GANLabEvaluator {
   abstract getScore(): number;
 }
 
-export class GANLabEvaluatorAvgTrueGrid extends
+export class GANLabEvaluatorGridDensities extends
   GANLabEvaluator {
 
-  private gridSampleCount: number[];
-  private gridDensities: number[];
-  private currentScore: number;
+  private gridTrueSampleCount: number[];
+  private gridTrueDensities: number[];
+  private gridGeneratedDensities: number[];
 
   constructor(private numGrid: number) {
     super();
 
-    this.gridSampleCount = new Array(numGrid * numGrid).fill(0);
-    this.gridDensities = new Array(numGrid * numGrid).fill(0.0);
+    this.gridTrueSampleCount = new Array(numGrid * numGrid).fill(0);
+    this.gridTrueDensities = new Array(numGrid * numGrid).fill(0.0);
+    this.gridGeneratedDensities = new Array(numGrid * numGrid);
   }
 
   private mapPointToGridIndex(point: [number, number]) {
@@ -26,24 +27,51 @@ export class GANLabEvaluatorAvgTrueGrid extends
   createGridsForTrue(trueAtlas: number[], numTrueSamples: number) {
     for (let i = 0; i < numTrueSamples; ++i) {
       const values = trueAtlas.splice(i * 2, i * 2 + 2);
-      this.gridSampleCount[this.mapPointToGridIndex(
+      this.gridTrueSampleCount[this.mapPointToGridIndex(
         [values[0], values[1]])]++;
+      this.gridTrueDensities[this.mapPointToGridIndex(
+        [values[0], values[1]])] += 1.0 / numTrueSamples;
     }
-    this.gridDensities = this.gridSampleCount.map(c => {
-      return c / numTrueSamples;
-    });
   }
 
-  testGeneratedSamples(generatedSamples: Array<[number, number]>) {
-    this.currentScore = 0.0;
+  testGeneratedOnTrue(generatedSamples: Array<[number, number]>): number {
+    let score = 0.0;
     const numGeneratedSamples = generatedSamples.length;
     for (let i = 0; i < numGeneratedSamples; ++i) {
-      this.currentScore += this.gridDensities[this.mapPointToGridIndex(
-        generatedSamples[i])] / numGeneratedSamples;
+      score += this.gridTrueDensities[this.mapPointToGridIndex(
+        generatedSamples[i])];
     }
+    return score;
+  }
+
+  updateGridsForGenerated(generatedSamples: Array<[number, number]>) {
+    const numGeneratedSamples = generatedSamples.length;
+    this.gridGeneratedDensities.fill(0.0);
+    for (let i = 0; i < numGeneratedSamples; ++i) {
+      this.gridGeneratedDensities[this.mapPointToGridIndex(
+        generatedSamples[i])] += 1.0 / numGeneratedSamples;
+    }
+  }
+
+  testTrueOnGenerated(): number {
+    let score = 0.0;
+    for (let j = 0; j < this.gridTrueSampleCount.length; ++j) {
+      score += this.gridTrueSampleCount[j] * this.gridGeneratedDensities[j];
+    }
+    return score;
   }
 
   getScore(): number {
-    return this.currentScore;
+    let leftJS = 0.0;
+    let rightJS = 0.0;
+    for (let j = 0; j < this.gridTrueDensities.length; ++j) {
+      leftJS += this.gridTrueDensities[j] * Math.log(
+        (this.gridTrueDensities[j] + 0.0001) /
+        (this.gridGeneratedDensities[j] + 0.0001));
+      rightJS += this.gridGeneratedDensities[j] * Math.log(
+        (this.gridGeneratedDensities[j] + 0.0001) /
+        (this.gridTrueDensities[j] + 0.0001));
+    }
+    return 0.5 * (leftJS + rightJS);
   }
 }

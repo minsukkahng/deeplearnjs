@@ -71,7 +71,7 @@ class GANLab extends GANLabPolymer {
 
   private plotSizePx: number;
 
-  private evaluator: gan_lab_evaluators.GANLabEvaluatorAvgTrueGrid;
+  private evaluator: gan_lab_evaluators.GANLabEvaluatorGridDensities;
 
   private canvas: HTMLCanvasElement;
   private drawing: gan_lab_drawing.GANLabDrawing;
@@ -335,7 +335,7 @@ class GANLab extends GANLabPolymer {
 
     // Initialize evaluator.
     this.evaluator =
-      new gan_lab_evaluators.GANLabEvaluatorAvgTrueGrid(NUM_GRID_CELLS);
+      new gan_lab_evaluators.GANLabEvaluatorGridDensities(NUM_GRID_CELLS);
     this.evaluator.createGridsForTrue(
       trueSampleProviderBuilder.getInputAtlas(), NUM_TRUE_SAMPLES_VISUALIZED);
   }
@@ -563,9 +563,13 @@ class GANLab extends GANLabPolymer {
           gData.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
         }
 
-        this.evaluator.testGeneratedSamples(gData);
-        const score = this.evaluator.getScore();
-        this.evalChartData1.push({ x: this.iterationCount, y: score });
+        const score1 = this.evaluator.testGeneratedOnTrue(gData);
+        this.evaluator.updateGridsForGenerated(gData);
+        const score2 = this.evaluator.testTrueOnGenerated();
+        const score3 = this.evaluator.getScore();
+        this.evalChartData1.push({ x: this.iterationCount, y: score1 });
+        this.evalChartData2.push({ x: this.iterationCount, y: score2 });
+        this.evalChartData3.push({ x: this.iterationCount, y: score3 });
         this.evalChart.update();
 
         const gDots =
@@ -846,11 +850,13 @@ class GANLab extends GANLabPolymer {
 
     this.evalChartData1 = [];
     this.evalChartData2 = [];
+    this.evalChartData3 = [];
     if (this.evalChart != null) {
       this.evalChart.destroy();
     }
     this.evalChart = this.createEvalChart(
-      'eval-chart', 'Cost', this.evalChartData1, this.evalChartData2, 0);
+      'eval-chart', 'Cost',
+      this.evalChartData1, this.evalChartData2, this.evalChartData3, 0);
   }
 
   private createChart(
@@ -901,7 +907,8 @@ class GANLab extends GANLabPolymer {
   }
 
   private createEvalChart(
-    canvasId: string, label: string, data1: ChartData[], data2: ChartData[],
+    canvasId: string, label: string,
+    data1: ChartData[], data2: ChartData[], data3: ChartData[],
     min?: number, max?: number): Chart {
     const context = (document.getElementById(canvasId) as HTMLCanvasElement)
       .getContext('2d') as CanvasRenderingContext2D;
@@ -912,7 +919,7 @@ class GANLab extends GANLabPolymer {
           {
             data: data1,
             fill: false,
-            label: 'True Grid Likelihood for G Samples',
+            label: 'True Likelihood for G Samples',
             pointRadius: 0,
             borderColor: 'rgba(5, 117, 176, 0.5)',
             borderWidth: 1,
@@ -922,10 +929,20 @@ class GANLab extends GANLabPolymer {
           {
             data: data2,
             fill: false,
-            label: 'Reverse',
+            label: 'G Likelihood for True Samples',
             pointRadius: 0,
             borderColor: 'rgba(123, 50, 148, 0.5)',
             borderWidth: 1,
+            lineTension: 0,
+            pointHitRadius: 8
+          },
+          {
+            data: data3,
+            fill: false,
+            label: 'JS Divergence (grid)',
+            pointRadius: 0,
+            borderColor: 'rgba(220, 120, 64, 0.5)',
+            borderWidth: 2,
             lineTension: 0,
             pointHitRadius: 8
           }

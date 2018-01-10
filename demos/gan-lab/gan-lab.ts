@@ -14,6 +14,7 @@ import { TypedArray } from '../../src/util';
 
 import * as gan_lab_input_providers from './gan_lab_input_providers';
 import * as gan_lab_drawing from './gan_lab_drawing';
+import * as gan_lab_evaluators from './gan_lab_evaluators';
 
 const BATCH_SIZE = 150;
 const ATLAS_SIZE = 12000;
@@ -69,6 +70,8 @@ class GANLab extends GANLabPolymer {
   private kGSteps: number;
 
   private plotSizePx: number;
+
+  private evaluator: gan_lab_evaluators.GANLabEvaluatorAvgTrueGrid;
 
   private canvas: HTMLCanvasElement;
   private drawing: gan_lab_drawing.GANLabDrawing;
@@ -329,6 +332,12 @@ class GANLab extends GANLabPolymer {
 
     // Visualize true samples.
     this.visualizeTrueDistribution(trueSampleProviderBuilder.getInputAtlas());
+
+    // Initialize evaluator.
+    this.evaluator =
+      new gan_lab_evaluators.GANLabEvaluatorAvgTrueGrid(NUM_GRID_CELLS);
+    this.evaluator.createGridsForTrue(
+      trueSampleProviderBuilder.getInputAtlas(), NUM_TRUE_SAMPLES_VISUALIZED);
   }
 
   private sampleFromTrueDistribution(
@@ -499,6 +508,9 @@ class GANLab extends GANLabPolymer {
           const chartContainer =
             document.getElementById('chart-container') as HTMLElement;
           chartContainer.style.visibility = 'visible';
+          const evalChartContainer =
+            document.getElementById('eval-chart-container') as HTMLElement;
+          evalChartContainer.style.visibility = 'visible';
         }
 
         this.dCostChartData.push({ x: this.iterationCount, y: dCostVal });
@@ -550,6 +562,11 @@ class GANLab extends GANLabPolymer {
         for (let j = 0; j < gResultData.length / 2; ++j) {
           gData.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
         }
+
+        this.evaluator.testGeneratedSamples(gData);
+        const score = this.evaluator.getScore();
+        this.evalChartData1.push({ x: this.iterationCount, y: score });
+        this.evalChart.update();
 
         const gDots =
           this.visGeneratedSamples.selectAll('.generated-dot').data(gData);
@@ -822,6 +839,18 @@ class GANLab extends GANLabPolymer {
     }
     this.costChart = this.createChart(
       'cost-chart', 'Cost', this.dCostChartData, this.gCostChartData, 0, 2);
+
+    const evalChartContainer =
+      document.getElementById('eval-chart-container') as HTMLElement;
+    evalChartContainer.style.visibility = 'hidden';
+
+    this.evalChartData1 = [];
+    this.evalChartData2 = [];
+    if (this.evalChart != null) {
+      this.evalChart.destroy();
+    }
+    this.evalChart = this.createEvalChart(
+      'eval-chart', 'Cost', this.evalChartData1, this.evalChartData2, 0);
   }
 
   private createChart(
@@ -847,6 +876,53 @@ class GANLab extends GANLabPolymer {
             data: data2,
             fill: false,
             label: 'Generator\'s Loss',
+            pointRadius: 0,
+            borderColor: 'rgba(123, 50, 148, 0.5)',
+            borderWidth: 1,
+            lineTension: 0,
+            pointHitRadius: 8
+          }
+        ]
+      },
+      options: {
+        animation: { duration: 0 },
+        responsive: false,
+        scales: {
+          xAxes: [{ type: 'linear', position: 'bottom' }],
+          yAxes: [{
+            ticks: {
+              max,
+              min,
+            }
+          }]
+        }
+      }
+    });
+  }
+
+  private createEvalChart(
+    canvasId: string, label: string, data1: ChartData[], data2: ChartData[],
+    min?: number, max?: number): Chart {
+    const context = (document.getElementById(canvasId) as HTMLCanvasElement)
+      .getContext('2d') as CanvasRenderingContext2D;
+    return new Chart(context, {
+      type: 'line',
+      data: {
+        datasets: [
+          {
+            data: data1,
+            fill: false,
+            label: 'True Grid Likelihood for G Samples',
+            pointRadius: 0,
+            borderColor: 'rgba(5, 117, 176, 0.5)',
+            borderWidth: 1,
+            lineTension: 0,
+            pointHitRadius: 8
+          },
+          {
+            data: data2,
+            fill: false,
+            label: 'Reverse',
             pointRadius: 0,
             borderColor: 'rgba(123, 50, 148, 0.5)',
             borderWidth: 1,

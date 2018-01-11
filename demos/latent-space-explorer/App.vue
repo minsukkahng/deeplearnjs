@@ -28,7 +28,13 @@ limitations under the License.
         />
         <div class="description">This demo allows you to interactively explore
            a 40-dimensional latent space of typefaces. The model used here
-           was created by James Wexler, based on work by <a href="https://erikbern.com/2016/01/21/analyzing-50k-fonts-using-deep-neural-networks.html">Erik Bernhardsson</a>.</div>
+           was created by <a href="https://twitter.com/bengiswex">James Wexler</a>,
+           based on work by
+           <a href="https://erikbern.com/2016/01/21/analyzing-50k-fonts-using-deep-neural-networks.html">Erik Bernhardsson</a>,
+           and is used in the distill.pub article
+           <a href="https://distill.pub/2017/aia/">Using Artificial Intelligence to Augment Human Intelligence"</a>,
+           which describes the model in greater detail.
+        </div>
       </div>
     </div>
     <!-- Dimensions -->
@@ -76,8 +82,7 @@ import BasisDimensions from './components/BasisDimensions.vue';
 import FontChooser from './components/FontChooser.vue';
 import Alphabet from './components/Alphabet.vue';
 import {FontModel} from './utils/FontModel';
-
-import {Array1D, NDArray, NDArrayMathCPU} from 'deeplearn';
+import {Array1D} from 'deeplearn';
 
 export default {
   components: {
@@ -133,17 +138,18 @@ export default {
       if (event.isInitialSelection && window.location.hash) {
         this.parseUrlHash();
       } else {
-        this.selectedSample = event.selectedSample
+        this.selectedSample = event.selectedSample;
         this.updateHash();
       }
     },
     updateHash: function() {
       if (this.selectedSample) {
-        const vals = this.selectedSample.getValues();
-        const hashStr = '#' + Array.from(vals).map(
-          val => parseFloat(val).toFixed(3))
-          .join(',');
+        this.selectedSample.data().then(vals => {
+          const hashStr = '#' + Array.from(vals)
+            .map(val => parseFloat(val).toFixed(3))
+            .join(',');
         history.replaceState(undefined, undefined, hashStr);
+        });
       }
     },
     parseUrlHash: function() {

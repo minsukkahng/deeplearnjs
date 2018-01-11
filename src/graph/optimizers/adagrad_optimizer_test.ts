@@ -15,7 +15,7 @@
  * =============================================================================
  */
 import {InputProvider} from '../../data/input_provider';
-import {NDArrayMathCPU} from '../../math/backends/backend_cpu';
+import {ENV} from '../../environment';
 import {Array1D, NDArray} from '../../math/ndarray';
 import * as test_util from '../../test_util';
 import {Graph} from '../graph';
@@ -25,17 +25,8 @@ import {AdagradOptimizer} from './adagrad_optimizer';
 
 describe('adagrad optimizer', () => {
   it('basic', () => {
-    const g = new Graph();
+    const math = ENV.math;
 
-    const x = g.placeholder('x', [2]);
-    const w = g.variable('w', NDArray.zeros([1, 2]));
-    const b = g.variable('b', NDArray.zeros([1]));
-    const y = g.reduceSum(g.add(g.matmul(w, x), b));
-
-    const safeMode = true;
-    const optimizer = new AdagradOptimizer(0.1);
-    const math = new NDArrayMathCPU(safeMode);
-    const session = new Session(g, math);
     const inputProvider: InputProvider = {
       getNextCopy() {
         return Array1D.new([2, 4]);
@@ -44,6 +35,13 @@ describe('adagrad optimizer', () => {
     };
 
     math.scope(() => {
+      const g = new Graph();
+      const x = g.placeholder('x', [2]);
+      const w = g.variable('w', NDArray.zeros([1, 2]));
+      const b = g.variable('b', NDArray.zeros([1]));
+      const y = g.reduceSum(g.add(g.matmul(w, x), b));
+      const optimizer = new AdagradOptimizer(0.1);
+      const session = new Session(g, math);
       // w = reduce_sum(w_1*x_1 + w_2*x_2 + b)
       // cache = [old_cache_w1 + grad_w1**2,
       //                old_cache_w2 + grad_w2**2] = [4,16]
@@ -51,7 +49,7 @@ describe('adagrad optimizer', () => {
       //                w2_old - lr*grad_w1/sqrt(cahce_w2 + eps)]
       //                = [-0.1, -0.1]
       session.train(y, [{tensor: x, data: inputProvider}], 1, optimizer);
-      const dydw = session.activationArrayMap.get(w).getValues();
+      const dydw = session.activationArrayMap.get(w).dataSync();
       test_util.expectArraysClose(dydw, new Float32Array([-.1, -0.1]));
       // cache = [old_cache_w1 + grad_w1**2,
       //                old_cache_w2 + grad_w2**2] = [4,16]
@@ -59,7 +57,7 @@ describe('adagrad optimizer', () => {
       //                w2_old - lr*grad_w1/sqrt(cahce_w2 + eps)]
       //                = [-0.1707, -0.1707]
       session.train(y, [{tensor: x, data: inputProvider}], 1, optimizer);
-      const dydw2 = session.activationArrayMap.get(w).getValues();
+      const dydw2 = session.activationArrayMap.get(w).dataSync();
       test_util.expectArraysClose(dydw2, new Float32Array([-.1707, -.1707]));
     });
   });

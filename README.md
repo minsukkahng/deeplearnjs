@@ -25,9 +25,9 @@ See the [TypeScript starter project](https://github.com/PAIR-code/deeplearnjs/tr
 short example that sums an array with a scalar (broadcasted):
 
 ```ts
-import {Array1D, NDArrayMathGPU, Scalar} from 'deeplearn';
+import {Array1D, ENV, Scalar} from 'deeplearn';
 
-const math = new NDArrayMathGPU();
+const math = ENV.math;
 const a = Array1D.new([1, 2, 3]);
 const b = Scalar.new(2);
 
@@ -48,9 +48,11 @@ console.log(result.dataSync());
 #### ES3/ES5 JavaScript
 
 You can also use **deeplearn.js** with plain JavaScript. Load the latest version
-of the library from [unpkg](https://unpkg.com):
+of the library from [jsDelivr](https://www.jsdelivr.com/) or [unpkg](https://unpkg.com):
 
 ```html
+<script src="https://cdn.jsdelivr.net/npm/deeplearn"></script>
+<!-- or -->
 <script src="https://unpkg.com/deeplearn"></script>
 ```
 
@@ -61,7 +63,7 @@ After importing the library, the API will be available as `dl` in the global
 namespace.
 
 ```js
-var math = new dl.NDArrayMathGPU();
+var math = dl.ENV.math;
 var a = dl.Array1D.new([1, 2, 3]);
 var b = dl.Scalar.new(2);
 
@@ -87,7 +89,13 @@ $ yarn prep # Installs dependencies.
 ```
 
 We recommend using [Visual Studio Code](https://code.visualstudio.com/) for
-development. Make sure to install [TSLint VSCode extension](https://marketplace.visualstudio.com/items?itemName=eg2.tslint) and the `clang-format` command line tool with the [Clang-Format VSCode extension](https://marketplace.visualstudio.com/items?itemName=xaver.clang-format) for auto-formatting.
+development. Make sure to install
+[TSLint VSCode extension](https://marketplace.visualstudio.com/items?itemName=eg2.tslint)
+and the npm [clang-format](https://github.com/angular/clang-format) `1.2.2` or later
+with the
+[Clang-Format VSCode extension](https://marketplace.visualstudio.com/items?itemName=xaver.clang-format)
+for auto-formatting.
+
 
 To interactively develop any of the demos (e.g. `demos/nn-art/`):
 
@@ -139,10 +147,12 @@ To do a dry run and test building an npm package:
 
 ```bash
 $ ./scripts/build-npm.sh
->> Stored npm package at dist/deeplearn-VERSION.tgz
+...
+Stored standalone library at dist/deeplearn(.min).js
+deeplearn-VERSION.tgz
 ```
 
-To install it locally, run `npm install ./dist/deeplearn-VERSION.tgz`.
+To install it locally, run `npm install ./deeplearn-VERSION.tgz`.
 
 > On Windows, use bash (available through git) to use the scripts above.
 

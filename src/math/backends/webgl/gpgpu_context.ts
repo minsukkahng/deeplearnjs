@@ -17,7 +17,6 @@
 
 import {ENV} from '../../../environment';
 import * as util from '../../../util';
-
 import * as gpgpu_util from './gpgpu_util';
 import * as tex_util from './tex_util';
 import * as webgl_util from './webgl_util';
@@ -43,7 +42,6 @@ export class GPGPUContext {
     } else {
       this.gl = gpgpu_util.createWebGLContext();
     }
-
     // WebGL 2.0 enables texture floats without an extension.
     if (ENV.get('WEBGL_VERSION') === 1) {
       this.textureFloatExtension =
@@ -70,7 +68,9 @@ export class GPGPUContext {
   }
 
   public dispose() {
-    this.throwIfDisposed();
+    if (this.disposed) {
+      return;
+    }
     if (this.program != null) {
       console.warn(
           'Disposing a GPGPUContext that still has a bound WebGLProgram.' +
@@ -109,7 +109,7 @@ export class GPGPUContext {
 
   public uploadPixelDataToTexture(
       texture: WebGLTexture,
-      pixels: ImageData|HTMLImageElement|HTMLCanvasElement|HTMLVideoElement) {
+      pixels: ImageData|HTMLImageElement|HTMLCanvasElement) {
     this.throwIfDisposed();
     gpgpu_util.uploadPixelDataToTexture(this.gl, texture, pixels);
   }

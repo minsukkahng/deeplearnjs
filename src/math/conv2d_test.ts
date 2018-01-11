@@ -23,7 +23,7 @@ import {Array1D, Array2D, Array3D, Array4D} from './ndarray';
 // math.conv2d
 {
   const tests: MathTests = it => {
-    it('input=2x2x1,d2=1,f=1,s=1,p=0', math => {
+    it('x=[2,2,1] f=[1,1,1,2] s=1 p=0', math => {
       const inputDepth = 1;
       const inputShape: [number, number, number] = [2, 2, inputDepth];
       const outputDepth = 1;
@@ -36,15 +36,11 @@ import {Array1D, Array2D, Array3D, Array4D} from './ndarray';
       const bias = Array1D.new([-1]);
 
       const result = math.conv2d(x, w, bias, stride, pad);
-      const expected = new Float32Array([1, 3, 5, 7]);
 
-      test_util.expectArraysClose(result.getValues(), expected);
-      x.dispose();
-      w.dispose();
-      bias.dispose();
+      test_util.expectArraysClose(result, [1, 3, 5, 7]);
     });
 
-    it('input=2x2x1,d2=1,f=1,s=1,p=0,batch=2', math => {
+    it('x=[2,2,2,1] f=[1,1,1,1] s=1 p=0', math => {
       const inputDepth = 1;
       const inShape: [number, number, number, number] = [2, 2, 2, inputDepth];
       const outputDepth = 1;
@@ -58,15 +54,12 @@ import {Array1D, Array2D, Array3D, Array4D} from './ndarray';
 
       const result = math.conv2d(x, w, bias, stride, pad);
       expect(result.shape).toEqual([2, 2, 2, 1]);
-      const expected = new Float32Array([1, 3, 5, 7, 9, 11, 13, 15]);
+      const expected = [1, 3, 5, 7, 9, 11, 13, 15];
 
-      test_util.expectArraysClose(result.getValues(), expected);
-      x.dispose();
-      w.dispose();
-      bias.dispose();
+      test_util.expectArraysClose(result, expected);
     });
 
-    it('input=2x2x1,d2=1,f=2,s=1,p=0', math => {
+    it('x=[2,2,1] f=[2,2,1,1] s=1 p=0', math => {
       const inputDepth = 1;
       const inputShape: [number, number, number] = [2, 2, inputDepth];
       const outputDepth = 1;
@@ -80,13 +73,7 @@ import {Array1D, Array2D, Array3D, Array4D} from './ndarray';
       const bias = Array1D.new([-1]);
 
       const result = math.conv2d(x, w, bias, stride, pad);
-      const expected = new Float32Array([19]);
-
-      test_util.expectArraysClose(result.getValues(), expected);
-
-      x.dispose();
-      w.dispose();
-      bias.dispose();
+      test_util.expectArraysClose(result, [19]);
     });
 
     it('throws when x is not rank 3', math => {
@@ -103,10 +90,6 @@ import {Array1D, Array2D, Array3D, Array4D} from './ndarray';
       const bias = Array1D.new([-1]);
 
       expect(() => math.conv2d(x, w, bias, stride, pad)).toThrowError();
-
-      x.dispose();
-      w.dispose();
-      bias.dispose();
     });
 
     it('throws when weights is not rank 4', math => {
@@ -121,10 +104,6 @@ import {Array1D, Array2D, Array3D, Array4D} from './ndarray';
       const bias = Array1D.new([-1]);
 
       expect(() => math.conv2d(x, w, bias, stride, pad)).toThrowError();
-
-      x.dispose();
-      w.dispose();
-      bias.dispose();
     });
 
     it('throws when biases is not rank 1', math => {
@@ -142,10 +121,6 @@ import {Array1D, Array2D, Array3D, Array4D} from './ndarray';
       const bias: any = Array2D.new([2, 2], [2, 2, 2, 2]);
 
       expect(() => math.conv2d(x, w, bias, stride, pad)).toThrowError();
-
-      x.dispose();
-      w.dispose();
-      bias.dispose();
     });
 
     it('throws when x depth does not match weight depth', math => {
@@ -163,10 +138,90 @@ import {Array1D, Array2D, Array3D, Array4D} from './ndarray';
       const bias = Array1D.new([-1]);
 
       expect(() => math.conv2d(x, w, bias, stride, pad)).toThrowError();
+    });
 
-      x.dispose();
-      w.dispose();
-      bias.dispose();
+    it('throws when dimRoundingMode is set and pad is not a number', math => {
+      const inputDepth = 1;
+      const inputShape: [number, number, number] = [2, 2, inputDepth];
+      const outputDepth = 1;
+      const fSize = 2;
+      const pad = 'valid';
+      const stride = 1;
+      const dimRoundingMode = 'round';
+
+      const x = Array3D.new(inputShape, [1, 2, 3, 4]);
+      const w = Array4D.randNormal([fSize, fSize, inputDepth, outputDepth]);
+      const bias = Array1D.new([-1]);
+
+      expect(() => math.conv2d(x, w, bias, stride, pad, dimRoundingMode))
+          .toThrowError();
+    });
+
+    it('gradient input=[3,3,1] f=[2,2,1,1] s=1 p=0', math => {
+      const inputDepth = 1;
+      const outputDepth = 1;
+      const inputShape: [number, number, number] = [3, 3, inputDepth];
+      const filterSize = 2;
+      const stride = 1;
+      const pad = 0;
+
+      const filterShape: [number, number, number, number] =
+          [filterSize, filterSize, inputDepth, outputDepth];
+      const filter = Array4D.ones(filterShape);
+      const bias = Array1D.new([-1]);
+
+      const x = Array3D.new(inputShape, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+      const dy = Array3D.new([2, 2, 1], [3, 1, 2, 0]);
+
+      const vjp = math.vjp(
+          () => math.conv2d(x, filter, bias, stride, pad), {x, filter, bias},
+          dy);
+
+      expect(vjp.x.shape).toEqual(x.shape);
+      test_util.expectArraysClose(vjp.x, [3, 4, 1, 5, 6, 1, 2, 2, 0]);
+
+      expect(vjp.filter.shape).toEqual(filterShape);
+      // TODO(nsthorat): Fix the precision for byte textures.
+      test_util.expectArraysClose(vjp.filter, [13, 19, 31, 37], 1e-1);
+
+      expect(vjp.bias.shape).toEqual(bias.shape);
+      test_util.expectArraysClose(vjp.bias, [6], 1e-1);
+    });
+
+    it('gradient x=[2,3,3,1] f=[2,2,1,1] s=1 p=0', math => {
+      const inputDepth = 1;
+      const outputDepth = 1;
+      const inputShape: [number, number, number, number] =
+          [2, 3, 3, inputDepth];
+      const filterSize = 2;
+      const stride = 1;
+      const pad = 0;
+
+      const filterShape: [number, number, number, number] =
+          [filterSize, filterSize, inputDepth, outputDepth];
+      const filter = Array4D.ones(filterShape);
+
+      const bias = Array1D.new([-1]);
+
+      const x = Array4D.new(
+          inputShape, [1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+      const dy = Array4D.new([2, 2, 2, 1], [3, 1, 2, 0, 3, 1, 2, 0]);
+
+      const vjp = math.vjp(
+          () => math.conv2d(x, filter, bias, stride, pad), {x, filter, bias},
+          dy);
+
+      expect(vjp.x.shape).toEqual(x.shape);
+      test_util.expectArraysClose(
+          vjp.x, [3, 4, 1, 5, 6, 1, 2, 2, 0, 3, 4, 1, 5, 6, 1, 2, 2, 0]);
+
+      expect(vjp.filter.shape).toEqual(filterShape);
+      // TODO(nsthorat): Fix the precision for byte textures.
+      test_util.expectArraysClose(
+          vjp.filter, [13 * 2, 19 * 2, 31 * 2, 37 * 2], 1e-1);
+
+      expect(vjp.bias.shape).toEqual(bias.shape);
+      test_util.expectArraysClose(vjp.bias, [12]);
     });
   };
 

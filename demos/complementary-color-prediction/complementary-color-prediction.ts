@@ -16,21 +16,21 @@
  */
 
 // tslint:disable-next-line:max-line-length
-import {Array1D, CostReduction, FeedEntry, Graph, InCPUMemoryShuffledInputProviderBuilder, NDArrayMath, NDArrayMathGPU, Session, SGDOptimizer, Tensor} from 'deeplearn';
+import {Array1D, CostReduction, ENV, FeedEntry, Graph, InCPUMemoryShuffledInputProviderBuilder, Session, SGDOptimizer, Tensor} from 'deeplearn';
 
 class ComplementaryColorModel {
   // Runs training.
   session: Session;
 
   // Encapsulates math operations on the CPU and GPU.
-  math: NDArrayMath = new NDArrayMathGPU();
+  math = ENV.math;
 
-  // An optimizer with a certain initial learning rate. Used for training.
-  initialLearningRate = 0.042;
+  // An optimizer with a certain learning rate. Used for training.
+  learningRate = 0.1;
   optimizer: SGDOptimizer;
 
   // Each training batch will be on this many examples.
-  batchSize = 300;
+  batchSize = 50;
 
   inputTensor: Tensor;
   targetTensor: Tensor;
@@ -41,7 +41,7 @@ class ComplementaryColorModel {
   feedEntries: FeedEntry[];
 
   constructor() {
-    this.optimizer = new SGDOptimizer(this.initialLearningRate);
+    this.optimizer = new SGDOptimizer(this.learningRate);
   }
 
   /**
@@ -94,7 +94,7 @@ class ComplementaryColorModel {
   train1Batch(shouldFetchCost: boolean): number {
     // Every 42 steps, lower the learning rate by 15%.
     const learningRate =
-        this.initialLearningRate * Math.pow(0.85, Math.floor(step / 42));
+        this.learningRate * Math.pow(0.85, Math.floor(step / 42));
     this.optimizer.setLearningRate(learningRate);
 
     // Train 1 batch.
@@ -126,13 +126,13 @@ class ComplementaryColorModel {
 
   predict(rgbColor: number[]): number[] {
     let complementColor: number[] = [];
-    this.math.scope((keep, track) => {
+    this.math.scope(() => {
       const mapping = [{
         tensor: this.inputTensor,
         data: Array1D.new(this.normalizeColor(rgbColor)),
       }];
       const evalOutput = this.session.eval(this.predictionTensor, mapping);
-      const values = evalOutput.getValues();
+      const values = evalOutput.dataSync();
       const colors = this.denormalizeColor(Array.prototype.slice.call(values));
 
       // Make sure the values are within range.
@@ -155,36 +155,34 @@ class ComplementaryColorModel {
    * to pass data into the model. Generates `exampleCount` data points.
    */
   private generateTrainingData(exampleCount: number) {
-    this.math.scope(() => {
-      const rawInputs = new Array(exampleCount);
-      for (let i = 0; i < exampleCount; i++) {
-        rawInputs[i] = [
-          this.generateRandomChannelValue(), this.generateRandomChannelValue(),
-          this.generateRandomChannelValue()
-        ];
-      }
+    const rawInputs = new Array(exampleCount);
 
-      // Store the data within Array1Ds so that learnjs can use it.
-      const inputArray: Array1D[] =
-          rawInputs.map(c => Array1D.new(this.normalizeColor(c)));
-      const targetArray: Array1D[] = rawInputs.map(
-          c => Array1D.new(
-              this.normalizeColor(this.computeComplementaryColor(c))));
-
-      // This provider will shuffle the training data (and will do so in a way
-      // that does not separate the input-target relationship).
-      const shuffledInputProviderBuilder =
-          new InCPUMemoryShuffledInputProviderBuilder(
-              [inputArray, targetArray]);
-      const [inputProvider, targetProvider] =
-          shuffledInputProviderBuilder.getInputProviders();
-
-      // Maps tensors to InputProviders.
-      this.feedEntries = [
-        {tensor: this.inputTensor, data: inputProvider},
-        {tensor: this.targetTensor, data: targetProvider}
+    for (let i = 0; i < exampleCount; i++) {
+      rawInputs[i] = [
+        this.generateRandomChannelValue(), this.generateRandomChannelValue(),
+        this.generateRandomChannelValue()
       ];
-    });
+    }
+
+    // Store the data within Array1Ds so that learnjs can use it.
+    const inputArray: Array1D[] =
+        rawInputs.map(c => Array1D.new(this.normalizeColor(c)));
+    const targetArray: Array1D[] = rawInputs.map(
+        c => Array1D.new(
+            this.normalizeColor(this.computeComplementaryColor(c))));
+
+    // This provider will shuffle the training data (and will do so in a way
+    // that does not separate the input-target relationship).
+    const shuffledInputProviderBuilder =
+        new InCPUMemoryShuffledInputProviderBuilder([inputArray, targetArray]);
+    const [inputProvider, targetProvider] =
+        shuffledInputProviderBuilder.getInputProviders();
+
+    // Maps tensors to InputProviders.
+    this.feedEntries = [
+      {tensor: this.inputTensor, data: inputProvider},
+      {tensor: this.targetTensor, data: targetProvider}
+    ];
   }
 
   private generateRandomChannelValue() {

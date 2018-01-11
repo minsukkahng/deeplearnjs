@@ -33,29 +33,28 @@ export {InCPUMemoryShuffledInputProviderBuilder, InGPUMemoryShuffledInputProvide
 export {XhrDataset, XhrDatasetConfig, XhrModelConfig} from './data/xhr-dataset';
 export {ENV, Environment, Features} from './environment';
 export {Graph, Tensor} from './graph/graph';
+// tslint:disable-next-line:max-line-length
+export {GraphRunner, GraphRunnerEventObserver, MetricReduction} from './graph/graph_runner';
 export {AdadeltaOptimizer} from './graph/optimizers/adadelta_optimizer';
 export {AdagradOptimizer} from './graph/optimizers/adagrad_optimizer';
 export {AdamOptimizer} from './graph/optimizers/adam_optimizer';
 export {AdamaxOptimizer} from './graph/optimizers/adamax_optimizer';
 export {MomentumOptimizer} from './graph/optimizers/momentum_optimizer';
-export {Optimizer} from './graph/optimizers/optimizer';
 export {RMSPropOptimizer} from './graph/optimizers/rmsprop_optimizer';
-export {SGDOptimizer} from './graph/optimizers/sgd_optimizer';
 export {CostReduction, FeedEntry, Session} from './graph/session';
 // tslint:disable-next-line:max-line-length
-export {GraphRunner, GraphRunnerEventObserver, MetricReduction} from './graph_runner';
-// tslint:disable-next-line:max-line-length
 export {ConstantInitializer, Initializer, NDArrayInitializer, OnesInitializer, RandomNormalInitializer, RandomTruncatedNormalInitializer, RandomUniformInitializer, VarianceScalingInitializer, ZerosInitializer} from './initializers';
-export {MatrixOrientation} from './math/backends/backend';
-export {NDArrayMathCPU} from './math/backends/backend_cpu';
-export {NDArrayMathGPU} from './math/backends/backend_webgl';
+export {MathBackendCPU, NDArrayMathCPU} from './math/backends/backend_cpu';
+export {MathBackendWebGL, NDArrayMathGPU} from './math/backends/backend_webgl';
+export {MatrixOrientation} from './math/backends/types/matmul';
 export {GPGPUContext} from './math/backends/webgl/gpgpu_context';
 // tslint:disable-next-line:max-line-length
 export {LSTMCell, NDArrayMath} from './math/math';
-// TODO(nsthorat): Remove this once we decouple NDArray from storage mechanism.
-export {initializeGPU} from './math/ndarray';
 // tslint:disable-next-line:max-line-length
 export {Array1D, Array2D, Array3D, Array4D, NDArray, Scalar} from './math/ndarray';
+export {variable} from './math/ndarray';
+export {Optimizer} from './math/optimizers/optimizer';
+export {SGDOptimizer} from './math/optimizers/sgd_optimizer';
 export {Model} from './model';
 export {version};
 // Second level exports.

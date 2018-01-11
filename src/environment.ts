@@ -16,6 +16,8 @@
  */
 
 import * as device_util from './device_util';
+import {MathBackend} from './math/backends/backend';
+import {NDArrayMath} from './math/math';
 import * as util from './util';
 
 export enum Type {
@@ -155,8 +157,14 @@ function isWebGLGetBufferSubDataAsyncExtensionEnabled(webGLVersion: number) {
   return isEnabled;
 }
 
+export type BackendType = 'webgl'|'cpu';
+
 export class Environment {
   private features: Features = {};
+  private globalMath: NDArrayMath = null;
+  // tslint:disable-next-line:no-any
+  private backendRegistry: {[id in BackendType]: MathBackend} = {} as any;
+  private prevBackendRegistry: {[id in BackendType]: MathBackend} = null;
 
   constructor(features?: Features) {
     if (features != null) {
@@ -172,6 +180,17 @@ export class Environment {
     this.features[feature] = this.evaluateFeature(feature);
 
     return this.features[feature];
+  }
+
+  getBestBackend(): MathBackend {
+    const orderedBackends: BackendType[] = ['webgl', 'cpu'];
+    for (let i = 0; i < orderedBackends.length; ++i) {
+      const backendId = orderedBackends[i];
+      if (backendId in this.backendRegistry) {
+        return this.backendRegistry[backendId];
+      }
+    }
+    throw new Error('No backend found in registry.');
   }
 
   private evaluateFeature<K extends keyof Features>(feature: K): Features[K] {
@@ -201,6 +220,71 @@ export class Environment {
           this.get('WEBGL_VERSION'));
     }
     throw new Error(`Unknown feature ${feature}.`);
+  }
+
+  setFeatures(features: Features) {
+    this.empty();
+    this.features = features;
+  }
+
+  reset() {
+    this.features = getFeaturesFromURL();
+    if (this.globalMath != null) {
+      this.globalMath.dispose();
+      this.globalMath = null;
+    }
+    if (this.prevBackendRegistry != null) {
+      for (const name in this.backendRegistry) {
+        this.backendRegistry[name as BackendType].dispose();
+      }
+      this.backendRegistry = this.prevBackendRegistry;
+      this.prevBackendRegistry = null;
+    }
+  }
+
+  setMath(math: NDArrayMath) {
+    this.globalMath = math;
+  }
+
+  getBackend(name: BackendType): MathBackend {
+    return this.backendRegistry[name];
+  }
+
+  /**
+   * Registers the backend to the global environment.
+   *
+   * @param factory: The backend factory function. When called, it should return
+   *     an instance of the backend.
+   * @return False if the creation/registration failed. True otherwise.
+   */
+  registerBackend(name: BackendType, factory: () => MathBackend): boolean {
+    if (name in this.backendRegistry) {
+      throw new Error(`${name} backend was already registered`);
+    }
+    try {
+      const backend = factory();
+      this.backendRegistry[name] = backend;
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  get math(): NDArrayMath {
+    if (this.globalMath == null) {
+      const bestBackend = this.getBestBackend();
+      const safeMode = false;
+      this.globalMath = new NDArrayMath(bestBackend, safeMode);
+    }
+    return this.globalMath;
+  }
+
+  private empty() {
+    this.globalMath = null;
+    this.prevBackendRegistry = this.backendRegistry;
+    // tslint:disable-next-line:no-any
+    this.backendRegistry = {} as any;
+    this.features = null;
   }
 }
 
@@ -242,8 +326,23 @@ function getFeaturesFromURL(): Features {
   return features;
 }
 
-export let ENV = new Environment(getFeaturesFromURL());
-
-export function setEnvironment(environment: Environment) {
-  ENV = environment;
+function getGlobalNamespace(): {ENV: Environment} {
+  // tslint:disable-next-line:no-any
+  let ns: any;
+  if (typeof (window) !== 'undefined') {
+    ns = window;
+  } else if (typeof (global) !== 'undefined') {
+    ns = global;
+  } else {
+    throw new Error('Could not find a global object');
+  }
+  return ns;
 }
+
+function getOrMakeEnvironment(): Environment {
+  const ns = getGlobalNamespace();
+  ns.ENV = ns.ENV || new Environment(getFeaturesFromURL());
+  return ns.ENV;
+}
+
+export let ENV = getOrMakeEnvironment();

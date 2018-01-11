@@ -25,24 +25,12 @@ const commonTests: MathTests = it => {
     const a = Array2D.new([3, 3], [1, 2, 3, 4, 5, 6, 7, 8, 9]);
     const aPrime = math.clone(a);
     expect(aPrime.shape).toEqual(a.shape);
-    test_util.expectArraysClose(aPrime.getValues(), a.getValues());
-    a.dispose();
-  });
-};
-
-const gpuTests: MathTests = it => {
-  it('returns a ndarray with a different texture handle', math => {
-    const a = Array2D.new([3, 3], [1, 2, 3, 4, 5, 6, 7, 8, 9]);
-    const aPrime = math.clone(a);
-    expect(a.inGPU()).toEqual(true);
-    expect(aPrime.inGPU()).toEqual(true);
-    expect(aPrime.getTexture()).not.toBe(a.getTexture());
-    a.dispose();
+    test_util.expectArraysClose(aPrime, a);
   });
 };
 
 test_util.describeMathCPU('clone', [commonTests]);
-test_util.describeMathGPU('clone', [commonTests, gpuTests], [
+test_util.describeMathGPU('clone', [commonTests], [
   {'WEBGL_FLOAT_TEXTURE_ENABLED': true, 'WEBGL_VERSION': 1},
   {'WEBGL_FLOAT_TEXTURE_ENABLED': true, 'WEBGL_VERSION': 2},
   {'WEBGL_FLOAT_TEXTURE_ENABLED': false, 'WEBGL_VERSION': 1}

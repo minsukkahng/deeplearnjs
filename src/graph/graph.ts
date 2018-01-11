@@ -189,13 +189,46 @@ export class Graph {
   }
 
   /**
-   * Concats two 3D tensors along a given axis.
+   * Concats two 1D tensors along a given axis.
    * @param x1 The first input tensor.
    * @param x2 The second input tensor.
    * @return The tensor representing concat of two tensors along axis.
    */
+  concat1d(x1: Tensor, x2: Tensor): Tensor {
+    return this.addNodeAndReturnOutput(new Concat1DNode(this, x1, x2));
+  }
+
+  /**
+   * Concats two 2D tensors along a given axis.
+   * @param x1 The first input tensor.
+   * @param x2 The second input tensor.
+   * @param axis The axis to concatenate along.
+   * @return The tensor representing concat of two tensors along axis.
+   */
+  concat2d(x1: Tensor, x2: Tensor, axis: number): Tensor {
+    return this.addNodeAndReturnOutput(new Concat2DNode(this, x1, x2, axis));
+  }
+
+  /**
+   * Concats two 3D tensors along a given axis.
+   * @param x1 The first input tensor.
+   * @param x2 The second input tensor.
+   * @param axis The axis to concatenate along.
+   * @return The tensor representing concat of two tensors along axis.
+   */
   concat3d(x1: Tensor, x2: Tensor, axis: number): Tensor {
     return this.addNodeAndReturnOutput(new Concat3DNode(this, x1, x2, axis));
+  }
+
+  /**
+   * Concats two 4D tensors along a given axis.
+   * @param x1 The first input tensor.
+   * @param x2 The second input tensor.
+   * @param axis The axis to concatenate along.
+   * @return The tensor representing concat of two tensors along axis.
+   */
+  concat4d(x1: Tensor, x2: Tensor, axis: number): Tensor {
+    return this.addNodeAndReturnOutput(new Concat4DNode(this, x1, x2, axis));
   }
 
   /**
@@ -274,6 +307,16 @@ export class Graph {
    */
   leakyRelu(x: Tensor, alpha: number): Tensor {
     return this.addNodeAndReturnOutput(new LeakyReLUNode(this, x, alpha));
+  }
+
+  /**
+   * Computes PReLU of x element-wise.
+   * @param x The input tensor to the LeakyReLU.
+   * @param alpha Negative slope coefficient tensor.
+   * @return The tensor representing the PReLU operation.
+   */
+  prelu(x: Tensor, alpha: Tensor): Tensor {
+    return this.addNodeAndReturnOutput(new PReLUNode(this, x, alpha));
   }
 
   /**
@@ -531,8 +574,8 @@ export class AddNode extends Node {
   constructor(graph: Graph, private t1: Tensor, private t2: Tensor) {
     super(
         graph, 'Add', {t1, t2},
-        new Tensor(util.sizeFromShape(t1.shape) === 1 
-            ? t2.shape 
+        new Tensor(util.sizeFromShape(t1.shape) === 1
+            ? t2.shape
             : (t1.shape.length < t2.shape.length ? t2.shape : t1.shape)));
   }
 
@@ -634,6 +677,42 @@ export class ReduceSumNode extends Node {
 }
 
 /**
+ * Concat1DNode represents a 1D concatenation of two tensors along an axis.
+ * @hidden
+ */
+export class Concat1DNode extends Node {
+  static readonly X1 = 'x1';
+  static readonly X2 = 'x2';
+  constructor(
+      graph: Graph, x1: Tensor, x2: Tensor) {
+    super(
+        graph, 'Concat1D', {x1, x2},
+        new Tensor(concat_util.computeOutShape1D(x1.shape, x2.shape)));
+  }
+  validate() {}
+}
+
+/**
+ * Concat2DNode represents a 2D concatenation of two tensors along an axis.
+ * @hidden
+ */
+export class Concat2DNode extends Node {
+  static readonly X1 = 'x1';
+  static readonly X2 = 'x2';
+  static readonly AXIS = 'axis';
+  constructor(
+      graph: Graph, private x1: Tensor, private x2: Tensor,
+      public axis: number) {
+    super(
+        graph, 'Concat2D', {x1, x2},
+        new Tensor(concat_util.computeOutShape(x1.shape, x2.shape, axis)));
+  }
+  validate() {
+    concat_util.assertParams(this.x1.shape, this.x2.shape, this.axis);
+  }
+}
+
+/**
  * Concat3DNode represents a 3D concatenation of two tensors along an axis.
  * @hidden
  */
@@ -646,6 +725,26 @@ export class Concat3DNode extends Node {
       public axis: number) {
     super(
         graph, 'Concat3D', {x1, x2},
+        new Tensor(concat_util.computeOutShape(x1.shape, x2.shape, axis)));
+  }
+  validate() {
+    concat_util.assertParams(this.x1.shape, this.x2.shape, this.axis);
+  }
+}
+
+/**
+ * Concat4DNode represents a 4D concatenation of two tensors along an axis.
+ * @hidden
+ */
+export class Concat4DNode extends Node {
+  static readonly X1 = 'x1';
+  static readonly X2 = 'x2';
+  static readonly AXIS = 'axis';
+  constructor(
+      graph: Graph, private x1: Tensor, private x2: Tensor,
+      public axis: number) {
+    super(
+        graph, 'Concat4D', {x1, x2},
         new Tensor(concat_util.computeOutShape(x1.shape, x2.shape, axis)));
   }
   validate() {
@@ -788,6 +887,25 @@ export class LeakyReLUNode extends Node {
     this.alpha = alpha;
   }
   validate() {}
+}
+
+/**
+ * PReLUNode represents a PReLU operation in the graph.
+ * @hidden
+ */
+export class PReLUNode extends Node {
+  static readonly X = 'x';
+  static readonly ALPHA = 'alpha';
+
+  constructor(graph: Graph, private x: Tensor, private alpha: Tensor) {
+    super(graph, 'PReLU', {x, alpha}, new Tensor(x.shape));
+  }
+
+  validate() {
+    util.assert(util.arraysEqual(this.x.shape, this.alpha.shape),
+      'Error adding pRelu op: the ' +
+        `shapes x: ${this.x.shape} and alpha: ${this.alpha.shape} must match.`);
+  }
 }
 
 export class EluNode extends Node {

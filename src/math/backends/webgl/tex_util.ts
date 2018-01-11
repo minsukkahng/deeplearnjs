@@ -1,3 +1,5 @@
+import {DataType, DataTypeMap} from '../../ndarray';
+
 /**
  * @license
  * Copyright 2017 Google Inc. All Rights Reserved.
@@ -19,6 +21,17 @@ export enum TextureType {
   DEFAULT,
   // When using a standard RGBA-packed color image.
   RGBA_COLOR
+}
+
+export interface TextureData {
+  texture: WebGLTexture;
+  shape: number[];
+  /** [rows, columns] shape of the texture. */
+  texShape: [number, number];
+  textureType: TextureType;
+  dtype: DataType;
+  numChannels?: number;
+  values: DataTypeMap[DataType];
 }
 
 export function getUnpackedMatrixTextureShapeWidthHeight(

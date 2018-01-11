@@ -17,21 +17,10 @@
 
 import {ENV} from '../environment';
 import * as util from '../util';
-import {ArrayData, TypedArray} from '../util';
-
-import {GPGPUContext} from './backends/webgl/gpgpu_context';
-import {TextureType} from './backends/webgl/tex_util';
-import {TextureManager} from './backends/webgl/texture_manager';
-import * as webgl_util from './backends/webgl/webgl_util';
+import {ArrayData} from '../util';
+import {NDArrayMath} from './math';
 import {RandNormalDataTypes} from './rand';
 import {MPRandGauss} from './rand';
-
-// These global variables need to be initialized to null so that closure knows
-// not to seal them.
-/** @hidden */
-export let GPGPU: GPGPUContext = null;
-/** @hidden */
-export let TEXTURE_MANAGER: TextureManager = null;
 
 export enum DType {
   float32 = 'float32',
@@ -40,79 +29,81 @@ export enum DType {
 }
 
 /** @hidden */
-export interface DataTypes {
+export interface DataTypeMap {
   float32: Float32Array;
   int32: Int32Array;
   bool: Uint8Array;
 }
+export type DataType = keyof DataTypeMap;
 
 /** @hidden */
-export interface NDArrayData<T extends keyof DataTypes> {
-  values?: DataTypes[T];
-  texture?: WebGLTexture;
-  /** [rows, columns] shape of the texture. */
-  textureShapeRC?: [number, number];
-  textureType?: TextureType;
-  isDisposed?: boolean;
+export interface RankMap<D extends DataType> {
+  0: Scalar<D>;
+  1: Array1D<D>;
+  2: Array2D<D>;
+  3: Array3D<D>;
+  4: Array4D<D>;
+  higher: NDArray<D, 'higher'>;
 }
+export type Rank = keyof RankMap<DataType>;
 
 /** @hidden */
-export function initializeGPU(
-    gpgpu: GPGPUContext, textureManager: TextureManager) {
-  GPGPU = gpgpu;
-  TEXTURE_MANAGER = textureManager;
+export interface NDArrayData<D extends DataType> {
+  dataId?: number;
+  values?: DataTypeMap[D];
 }
 
-function throwIfGPUNotInitialized() {
-  if (GPGPU == null || TEXTURE_MANAGER == null) {
-    throw new Error('GPU not intialized.');
-  }
+export interface ShapeMap {
+  0: number[];
+  1: [number];
+  2: [number, number];
+  3: [number, number, number];
+  4: [number, number, number, number];
+  higher: number[];
 }
 
-export class NDArray<T extends keyof DataTypes = keyof DataTypes> {
+export class NDArray<D extends DataType = DataType, R extends Rank = Rank> {
+  private static nextId = 0;
+  private static nextDataId = 0;
+
+  /** Unique id of this ndarray. */
+  id: number;
+  /**
+   * Id of the bucket holding the data for this ndarray. Multiple arrays can
+   * point to the same bucket (e.g. when calling array.reshape()).
+   */
+  dataId: number;
   /** The shape of the ndarray. */
-  shape: number[];
+  shape: ShapeMap[R];
   /** Number of elements in the ndarray. */
   size: number;
   /** The data type for the array. */
-  dtype: T;
+  dtype: D;
+  /** The rank type for the array ('0','1','2','3','4','higher'). */
+  rankType: R;
 
   /**
    * Number of elements to skip in each dimension when indexing. See
    * https://docs.scipy.org/doc/numpy/reference/generated
    *     /numpy.ndarray.strides.html
    */
-  protected strides: number[];
+  strides: number[];
 
-  private ndarrayData: NDArrayData<T>;
+  protected math: NDArrayMath;
 
-  protected constructor(shape: number[], data: NDArrayData<T>, dtype: T) {
-    // Sanity checks.
-    util.assert(
-        data.values != null || data.texture != null,
-        'Either `values` or `texture` must be defined');
-
-    util.assert(
-        data.texture == null || (data.textureShapeRC != null),
-        '`textureShape` must be defined when `texture` is defined');
-
+  protected constructor(
+      shape: number[], dtype: D, values?: DataTypeMap[D], dataId?: number,
+      math?: NDArrayMath) {
+    this.math = math || ENV.math;
     this.size = util.sizeFromShape(shape);
-
-    if (data.values != null) {
+    if (values != null) {
       util.assert(
-          this.size === data.values.length,
+          this.size === values.length,
           `Constructing ndarray of shape (${this.size}) should match the ` +
-              `length of values (${data.values.length})`);
+              `length of values (${values.length})`);
     }
-
     this.shape = shape;
-
-    if (data.textureType == null) {
-      data.textureType = TextureType.DEFAULT;
-    }
-
-    this.ndarrayData = data;
-    this.dtype = dtype || ('float32' as T);
+    this.dtype = dtype || ('float32' as D);
     const dim = this.shape.length;
 
     if (dim < 2) {
@@ -126,162 +117,182 @@ export class NDArray<T extends keyof DataTypes = keyof DataTypes> {
         this.strides[i] = this.strides[i + 1] * this.shape[i + 1];
       }
     }
+    this.dataId = dataId != null ? dataId : NDArray.nextDataId++;
+    this.id = NDArray.nextId++;
+    this.rankType = (this.rank < 5 ? this.rank.toString() : 'higher') as R;
+    this.math.register(this);
+    if (values != null) {
+      this.math.write(this.dataId, values);
+    }
+  }
+
+  /** Creates a ndarray of ones with the specified shape. */
+  static ones<D extends DataType = DataType, R extends Rank = Rank>(
+      shape: number[], dtype?: D): RankMap<D>[R] {
+    const values = makeOnesTypedArray(util.sizeFromShape(shape), dtype);
+    return NDArray.make(shape, {values}, dtype);
   }
 
   /** Creates a ndarray of zeros with the specified shape. */
-  static zeros<T extends keyof DataTypes = keyof DataTypes>(
-      shape: number[], dtype?: T): NDArray<T> {
+  static zeros<D extends DataType = DataType, R extends Rank = Rank>(
+      shape: number[], dtype?: D): RankMap<D>[R] {
     const values = makeZerosTypedArray(util.sizeFromShape(shape), dtype);
     return NDArray.make(shape, {values}, dtype);
   }
 
   /**
+   * Creates a ndarray of ones with the same shape as the specified ndarray.
+   */
+  static onesLike<T extends NDArray>(another: T): T {
+    return NDArray.ones(another.shape, another.dtype) as T;
+  }
+
+  /**
    * Creates a ndarray of zeros with the same shape as the specified ndarray.
    */
-  static zerosLike<G extends keyof DataTypes, T extends NDArray<G>>(another: T):
-      T {
+  static zerosLike<T extends NDArray>(another: T): T {
     return NDArray.zeros(another.shape, another.dtype) as T;
   }
 
   /** Creates a ndarray with the same values/shape as the specified ndarray. */
-  static like<G extends keyof DataTypes, T extends NDArray<G>>(another: T): T {
-    const newValues = copyTypedArray(another.getValues(), another.dtype);
-    return NDArray.make(another.shape, {values: newValues}, another.dtype) as T;
+  static like<T extends NDArray>(another: T): T {
+    const newValues = copyTypedArray(another.dataSync(), another.dtype);
+    return NDArray.make(
+               another.shape, {values: newValues}, another.dtype,
+               another.math) as T;
   }
 
   /**
    * Makes a new ndarray with the provided shape and values. Values should be in
    * a flat array.
    */
-  static make<T extends keyof DataTypes = keyof DataTypes>(
-      shape: number[], data: NDArrayData<T>, dtype?: T): NDArray<T> {
-    if (data.isDisposed) {
-      throw new Error(`Cannot make new NDArray from disposed NDArrayData.`);
-    }
+  static make<D extends DataType = 'float32', R extends Rank = Rank>(
+      shape: number[], data: NDArrayData<D>, dtype?: D,
+      math?: NDArrayMath): RankMap<D>[R] {
     switch (shape.length) {
       case 0:
-        return new Scalar(data, dtype);
+        return new Scalar(shape, dtype, data.values, data.dataId, math);
       case 1:
-        return new Array1D(data, dtype);
+        return new Array1D(shape, dtype, data.values, data.dataId, math);
       case 2:
-        return new Array2D(shape as [number, number], data, dtype);
+        return new Array2D(
+            shape as [number, number], dtype, data.values, data.dataId, math);
       case 3:
-        return new Array3D(shape as [number, number, number], data, dtype);
+        return new Array3D(
+            shape as [number, number, number], dtype, data.values, data.dataId,
+            math);
       case 4:
         return new Array4D(
-            shape as [number, number, number, number], data, dtype);
+            shape as [number, number, number, number], dtype, data.values,
+            data.dataId, math);
       default:
-        return new NDArray(shape, data, dtype);
+        return new NDArray(shape, dtype, data.values, data.dataId, math) as
+            RankMap<D>[R];
     }
   }
 
   static fromPixels(
       pixels: ImageData|HTMLImageElement|HTMLCanvasElement|HTMLVideoElement,
-      numChannels = 3): Array3D<'int32'> {
+      numChannels = 3, math?: NDArrayMath): Array3D<'int32'> {
     if (numChannels > 4) {
       throw new Error(
           'Cannot construct NDArray with more than 4 channels from pixels.');
     }
+    const ndarrayData: NDArrayData<'int32'> = {};
     const shape: [number, number, number] =
         [pixels.height, pixels.width, numChannels];
-    const textureShapeRC: [number, number] = [shape[0], shape[1]];
-    const texture = TEXTURE_MANAGER.acquireTexture(textureShapeRC);
-    const textureType = TextureType.RGBA_COLOR;
-
-    GPGPU.uploadPixelDataToTexture(texture, pixels);
-
-    return Array3D.make<'int32'>(
-               shape, {texture, textureShapeRC, textureType}) as
-        Array3D<'int32'>;
+    math = math || ENV.math;
+    const res =
+        NDArray.make(shape, ndarrayData, 'int32', math) as Array3D<'int32'>;
+    math.writePixels(res.dataId, pixels, numChannels);
+    return res;
   }
 
   /** Reshapes the current ndarray into the provided shape. */
-  reshape(newShape: number[]): NDArray<T> {
+  reshape<R2 extends Rank>(newShape: number[]): RankMap<D>[R2] {
     this.throwIfDisposed();
-
-    newShape = util.inferFromImplicitShape(newShape, this.size);
-    if (util.arraysEqual(this.shape, newShape)) {
-      // No-op.
-      return this;
-    }
-
-    util.assert(
-        this.size === util.sizeFromShape(newShape),
-        'new shape and old shape must have the same number of elements.');
-
-    return NDArray.make(newShape, this.ndarrayData, this.dtype);
+    return this.math.reshape(this, newShape);
   }
 
   /**
-   * Flatten a NDArray to a 1D array
-   * @param {T1} ndarray
-   * @returns {Array1D}
+   * @param axis An optional list of number. If specified, only
+   * squeezes the dimensions listed. The dimension index starts at 0. It is an
+   * error to squeeze a dimension that is not 1.
    */
-  flatten(): Array1D<T> {
+  squeeze<T extends NDArray<D>>(axis?: number[]): T {
+    return this.reshape(util.squeezeShape(this.shape, axis).newShape) as T;
+  }
+
+  /** Flatten a NDArray to a 1D array. */
+  flatten(): Array1D<D> {
+    this.throwIfDisposed();
     if (this instanceof Array1D) {
       return this;
     }
     return this.as1D();
   }
 
-  asScalar(): Scalar<T> {
+  asScalar(): Scalar<D> {
+    this.throwIfDisposed();
     util.assert(this.size === 1, 'The array must have only 1 element.');
-    return this.reshape([]);
+    return this.reshape<'0'>([]);
   }
 
-  as1D(): Array1D<T> {
-    return this.reshape([this.size]) as Array1D<T>;
+  as1D(): Array1D<D> {
+    this.throwIfDisposed();
+    return this.reshape<'1'>([this.size]);
   }
 
-  as2D(rows: number, columns: number): Array2D<T> {
-    return this.reshape([rows, columns]) as Array2D<T>;
+  as2D(rows: number, columns: number): Array2D<D> {
+    this.throwIfDisposed();
+    return this.reshape<'2'>([rows, columns]);
   }
 
-  as3D(rows: number, columns: number, depth: number): Array3D<T> {
-    return this.reshape([rows, columns, depth]) as Array3D<T>;
+  as3D(rows: number, columns: number, depth: number): Array3D<D> {
+    this.throwIfDisposed();
+    return this.reshape<'3'>([rows, columns, depth]);
   }
 
   as4D(rows: number, columns: number, depth: number, depth2: number):
-      Array4D<T> {
-    return this.reshape([rows, columns, depth, depth2]) as Array4D<T>;
+      Array4D<D> {
+    this.throwIfDisposed();
+    return this.reshape<'4'>([rows, columns, depth, depth2]);
   }
 
-  asType<G extends keyof DataTypes>(dtype: G): NDArray<G> {
+  asType<D2 extends DataType>(dtype: D2): NDArray<D2, R> {
     this.throwIfDisposed();
-
-    let newData: NDArrayData<T> = this.getData();
-    if (newData.values != null) {
-      newData = {values: toTypedArray(newData.values, dtype)};
-    }
-    return NDArray.make<G>(this.shape, newData, dtype);
+    return this.math.cast(this, dtype) as NDArray<D2, R>;
   }
 
   get rank(): number {
-    this.throwIfDisposed();
     return this.shape.length;
   }
 
   get(...locs: number[]) {
-    this.throwIfDisposed();
     let index = locs[locs.length - 1];
     for (let i = 0; i < locs.length - 1; ++i) {
       index += this.strides[i] * locs[i];
     }
-    return this.getValues()[index];
+    return this.dataSync()[index];
   }
 
   add(value: number, ...locs: number[]) {
-    this.throwIfDisposed();
     this.set(this.get(...locs) + value, ...locs);
   }
 
   set(value: number, ...locs: number[]) {
     this.throwIfDisposed();
-    let index = locs[locs.length - 1];
+    util.assert(
+        locs.length === this.rank,
+        `The number of provided coordinates (${locs.length}) must ` +
+            `match the rank (${this.rank})`);
+    let index = locs.length > 0 ? locs[locs.length - 1] : 0;
     for (let i = 0; i < locs.length - 1; ++i) {
       index += this.strides[i] * locs[i];
     }
-    this.getValues()[index] = value;
+    const vals = this.dataSync();
+    vals[index] = value;
+    this.math.write(this.dataId, vals);
   }
 
   async val(...locs: number[]): Promise<number> {
@@ -290,7 +301,11 @@ export class NDArray<T extends keyof DataTypes = keyof DataTypes> {
     return this.get(...locs);
   }
 
-  locToIndex(locs: number[]): number {
+  locToIndex(locs: ShapeMap[R]): number {
+    this.throwIfDisposed();
+    if (locs.length === 0) {
+      return 0;
+    }
     let index = locs[locs.length - 1];
     for (let i = 0; i < locs.length - 1; ++i) {
       index += this.strides[i] * locs[i];
@@ -298,7 +313,8 @@ export class NDArray<T extends keyof DataTypes = keyof DataTypes> {
     return index;
   }
 
-  indexToLoc(index: number): number[] {
+  indexToLoc(index: number): ShapeMap[R] {
+    this.throwIfDisposed();
     const locs: number[] = new Array(this.shape.length);
     for (let i = 0; i < locs.length - 1; ++i) {
       locs[i] = Math.floor(index / this.strides[i]);
@@ -310,20 +326,18 @@ export class NDArray<T extends keyof DataTypes = keyof DataTypes> {
 
   fill(value: number) {
     this.throwIfDisposed();
-    this.getValues().fill(value);
-  }
-
-  getData(): NDArrayData<T> {
-    return this.ndarrayData;
+    const vals = this.dataSync();
+    vals.fill(value);
+    this.math.write(this.dataId, vals);
   }
 
   /** @deprecated Use dataSync() instead. */
-  getValues(): DataTypes[T] {
+  getValues(): DataTypeMap[D] {
     return this.dataSync();
   }
 
   /** @deprecated Use data() instead. */
-  getValuesAsync(): Promise<DataTypes[T]> {
+  getValuesAsync(): Promise<DataTypeMap[D]> {
     return this.data();
   }
 
@@ -331,134 +345,36 @@ export class NDArray<T extends keyof DataTypes = keyof DataTypes> {
    * Asynchronously downloads the values from the NDArray. Returns a promise
    * that resolves when the data is ready.
    */
-  async data(): Promise<DataTypes[T]> {
+  async data(): Promise<DataTypeMap[D]> {
     this.throwIfDisposed();
-    if (this.ndarrayData.values != null) {
-      return this.ndarrayData.values;
-    }
-
-    if (ENV.get('WEBGL_GET_BUFFER_SUB_DATA_ASYNC_EXTENSION_ENABLED') &&
-        this.ndarrayData.textureType === TextureType.DEFAULT) {
-      this.ndarrayData.values = await GPGPU.downloadMatrixFromTextureAsync(
-          this.ndarrayData.texture, this.ndarrayData.textureShapeRC[0],
-          this.ndarrayData.textureShapeRC[1]);
-      return this.ndarrayData.values;
-    }
-
-    if (!ENV.get('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_ENABLED')) {
-      return await this.dataSync();
-    }
-
-    // Construct an empty query. We're just interested in getting a callback
-    // when the GPU command queue has executed until this point in time.
-    const queryFn = () => {};
-    await GPGPU.runQuery(queryFn);
-    return this.dataSync();
+    return this.math.read(this.dataId);
   }
 
   /**
    * Synchronously downloads the values from the NDArray. This blocks the UI
    * thread until the values are ready, which can cause performance issues.
    */
-  dataSync(): DataTypes[T] {
+  dataSync(): DataTypeMap[D] {
     this.throwIfDisposed();
-    if (this.ndarrayData.values == null) {
-      throwIfGPUNotInitialized();
-
-      let values: Float32Array;
-      if (this.ndarrayData.textureType === TextureType.DEFAULT) {
-        values = GPGPU.downloadMatrixFromTexture(
-            this.ndarrayData.texture, this.ndarrayData.textureShapeRC[0],
-            this.ndarrayData.textureShapeRC[1]);
-      } else {
-        values = GPGPU.downloadMatrixFromRGBAColorTexture(
-            this.ndarrayData.texture, this.ndarrayData.textureShapeRC[0],
-            this.ndarrayData.textureShapeRC[1], this.shape[2]);
-      }
-
-      this.ndarrayData.values = float32ToTypedArray(values, this.dtype);
-
-      this.disposeTexture();
-    }
-    return this.ndarrayData.values;
-  }
-
-  private uploadToGPU() {
-    throwIfGPUNotInitialized();
-    this.throwIfDisposed();
-    this.ndarrayData.textureShapeRC =
-        webgl_util.getTextureShapeFromLogicalShape(GPGPU.gl, this.shape);
-    this.ndarrayData.texture =
-        TEXTURE_MANAGER.acquireTexture(this.ndarrayData.textureShapeRC);
-    this.ndarrayData.textureType = TextureType.DEFAULT;
-
-    GPGPU.uploadMatrixToTexture(
-        this.ndarrayData.texture, this.ndarrayData.textureShapeRC[0],
-        // TODO(smilkov): Propagate the original typed array to gpgpu.
-        this.ndarrayData.textureShapeRC[1],
-        typedArrayToFloat32(this.ndarrayData.values, this.dtype));
-
-    this.ndarrayData.values = null;
-  }
-
-  getTexture(): WebGLTexture {
-    this.throwIfDisposed();
-    if (this.ndarrayData.texture == null) {
-      this.uploadToGPU();
-    }
-    return this.ndarrayData.texture;
-  }
-
-  getTextureShapeRC(): [number, number] {
-    this.throwIfDisposed();
-    if (this.ndarrayData.textureShapeRC == null) {
-      this.uploadToGPU();
-    }
-    return this.ndarrayData.textureShapeRC;
-  }
-
-  private throwIfDisposed() {
-    if (this.ndarrayData.isDisposed) {
-      throw new Error(`NDArray is disposed.`);
-    }
+    return this.math.readSync(this.dataId);
   }
 
   dispose(): void {
-    this.ndarrayData.values = null;
-    this.shape = null;
-
-    // TODO(nsthorat): Construct an error and save the stack trace for debugging
-    // when in debug mode. Creating a stack trace is too expensive to do
-    // unconditionally.
-    this.ndarrayData.isDisposed = true;
-
-    if (this.ndarrayData.texture != null) {
-      this.disposeTexture();
+    if (this.isDisposed) {
+      return;
     }
+    this.isDisposed = true;
+    this.math.disposeData(this.dataId);
   }
 
-  private disposeTexture() {
-    throwIfGPUNotInitialized();
-    TEXTURE_MANAGER.releaseTexture(
-        this.ndarrayData.texture, this.ndarrayData.textureShapeRC);
-    this.ndarrayData.texture = null;
-    this.ndarrayData.textureShapeRC = null;
-    this.ndarrayData.textureType = null;
-  }
-
-  inGPU(): boolean {
-    this.throwIfDisposed();
-    return this.ndarrayData.texture != null;
-  }
-
-  equals(t: NDArray<T>): boolean {
+  equals(t: NDArray<D, R>): boolean {
     this.throwIfDisposed();
     return this.dtype === t.dtype && util.arraysEqual(this.shape, t.shape) &&
-        util.arraysEqual(this.getValues(), t.getValues());
+        util.arraysEqual(this.dataSync(), t.dataSync());
   }
 
-  static rand<T extends keyof DataTypes>(
-      shape: number[], randFunction: () => number, dtype?: T): NDArray<T> {
+  static rand<D extends DataType, R extends Rank>(
+      shape: number[], randFunction: () => number, dtype?: D): RankMap<D>[R] {
     const size = util.sizeFromShape(shape);
 
     let values = null;
@@ -478,9 +394,9 @@ export class NDArray<T extends keyof DataTypes = keyof DataTypes> {
     return NDArray.make(shape, {values}, dtype);
   }
 
-  static randNormal<T extends keyof RandNormalDataTypes>(
-      shape: number[], mean = 0, stdDev = 1, dtype?: T,
-      seed?: number): NDArray<T> {
+  static randNormal<D extends keyof RandNormalDataTypes, R extends Rank>(
+      shape: number[], mean = 0, stdDev = 1, dtype?: D,
+      seed?: number): RankMap<D>[R] {
     if (dtype != null && dtype === 'bool') {
       throw new Error(`Unsupported data type ${dtype}`);
     }
@@ -489,9 +405,10 @@ export class NDArray<T extends keyof DataTypes = keyof DataTypes> {
     return NDArray.rand(shape, () => randGauss.nextValue(), dtype);
   }
 
-  static randTruncatedNormal<T extends keyof RandNormalDataTypes>(
-      shape: number[], mean = 0, stdDev = 1, dtype?: T,
-      seed?: number): NDArray<T> {
+  static randTruncatedNormal<D extends keyof RandNormalDataTypes,
+                                       R extends Rank>(
+      shape: number[], mean = 0, stdDev = 1, dtype?: D,
+      seed?: number): RankMap<D>[R] {
     if (dtype != null && dtype === 'bool') {
       throw new Error(`Unsupported data type ${dtype}`);
     }
@@ -500,34 +417,28 @@ export class NDArray<T extends keyof DataTypes = keyof DataTypes> {
     return NDArray.rand(shape, () => randGauss.nextValue(), dtype);
   }
 
-  static randUniform<T extends keyof DataTypes>(
-      shape: number[], a: number, b: number, dtype?: T): NDArray<T> {
+  static randUniform<D extends DataType, R extends Rank>(
+      shape: number[], a: number, b: number, dtype?: D): RankMap<D>[R] {
     return NDArray.rand(shape, () => util.randUniform(a, b), dtype);
+  }
+
+  private isDisposed = false;
+  private throwIfDisposed() {
+    if (this.isDisposed) {
+      throw new Error(`NDArray is disposed.`);
+    }
   }
 }
 
-export class Scalar<T extends keyof DataTypes = keyof DataTypes> extends
-    NDArray<T> {
-  constructor(data: NDArrayData<T>, dtype: T) {
-    if (data.texture != null) {
-      data.textureShapeRC = [1, 1];
-    }
-    super([], data, dtype);
-  }
-
-  static new<T extends keyof DataTypes = keyof DataTypes>(
-      value: number|boolean, dtype?: T) {
+export class Scalar<D extends DataType = DataType> extends NDArray<D, '0'> {
+  static new<D extends DataType = 'float32'>(value: number|boolean, dtype?: D):
+      Scalar<D> {
     const values = [value] as number[] | boolean[];
-    return new Scalar({values: toTypedArray(values, dtype)}, dtype);
+    return new Scalar([], dtype, toTypedArray(values, dtype));
   }
-
-  static ZERO = Scalar.new(0);
-  static ONE = Scalar.new(1);
-  static TWO = Scalar.new(2);
-  static NEG_ONE = Scalar.new(-1);
 
   get(): number {
-    return this.getValues()[0];
+    return this.dataSync()[0];
   }
 
   async val(): Promise<number> {
@@ -535,15 +446,11 @@ export class Scalar<T extends keyof DataTypes = keyof DataTypes> extends
     return this.get();
   }
 
-  set(value: number) {
-    this.getValues()[0] = value;
-  }
-
   add(value: number) {
-    this.getValues()[0] += value;
+    this.dataSync()[0] += value;
   }
 
-  asType<G extends keyof DataTypes>(dtype: G): Scalar<G> {
+  asType<D2 extends DataType>(dtype: D2): Scalar<D2> {
     return super.asType(dtype);
   }
 
@@ -556,19 +463,9 @@ export class Scalar<T extends keyof DataTypes = keyof DataTypes> extends
   }
 }
 
-export class Array1D<T extends keyof DataTypes = keyof DataTypes> extends
-    NDArray<T> {
-  shape: [number];
-
-  constructor(data: NDArrayData<T>, dtype: T) {
-    const shape = (data.values != null) ?
-        [data.values.length] :
-        [util.sizeFromShape(data.textureShapeRC)];
-    super(shape, data, dtype);
-  }
-
-  static new<T extends keyof DataTypes = keyof DataTypes>(
-      values: DataTypes[T]|number[]|boolean[], dtype?: T): Array1D<T> {
+export class Array1D<D extends DataType = DataType> extends NDArray<D, '1'> {
+  static new<D extends DataType = 'float32'>(
+      values: DataTypeMap[D]|number[]|boolean[], dtype?: D): Array1D<D> {
     if (!instanceofTypedArray(values)) {
       const inferredShape = util.inferShape(values as number[] | boolean[]);
       util.assert(
@@ -576,15 +473,11 @@ export class Array1D<T extends keyof DataTypes = keyof DataTypes> extends
           `Error constructing Array1D. Shape of values ${inferredShape} is ` +
               `not 1 dimensional.`);
     }
-    return new Array1D({values: toTypedArray(values, dtype)}, dtype);
+    return new Array1D([values.length], dtype, toTypedArray(values, dtype));
   }
 
   get(i: number): number {
-    return this.getValues()[i];
-  }
-
-  set(value: number, i: number) {
-    this.getValues()[i] = value;
+    return this.dataSync()[i];
   }
 
   async val(i: number): Promise<number> {
@@ -593,7 +486,7 @@ export class Array1D<T extends keyof DataTypes = keyof DataTypes> extends
   }
 
   add(value: number, i: number) {
-    this.getValues()[i] += value;
+    this.dataSync()[i] += value;
   }
 
   locToIndex(loc: [number]): number {
@@ -604,62 +497,63 @@ export class Array1D<T extends keyof DataTypes = keyof DataTypes> extends
     return [index];
   }
 
-  asType<G extends keyof DataTypes>(dtype: G): Array1D<G> {
-    return super.asType(dtype) as Array1D<G>;
+  asType<D2 extends DataType>(dtype: D2): Array1D<D2> {
+    return super.asType(dtype) as Array1D<D2>;
   }
 
-  static zeros<T extends keyof DataTypes = keyof DataTypes>(
-      shape: [number], dtype?: T): Array1D<T> {
-    return NDArray.zeros(shape, dtype) as Array1D<T>;
+  static ones<D extends DataType = DataType>(shape: [number], dtype?: D):
+      Array1D<D> {
+    return NDArray.ones<D, '1'>(shape, dtype);
   }
 
-  static randNormal<T extends keyof RandNormalDataTypes>(
-      shape: [number], mean = 0, stdDev = 1, dtype?: T,
-      seed?: number): Array1D<T> {
+  static zeros<D extends DataType = DataType>(shape: [number], dtype?: D):
+      Array1D<D> {
+    return NDArray.zeros<D, '1'>(shape, dtype);
+  }
+
+  static randNormal<D extends keyof RandNormalDataTypes>(
+      shape: [number], mean = 0, stdDev = 1, dtype?: D,
+      seed?: number): Array1D<D> {
     if (dtype != null && dtype === 'bool') {
       throw new Error(`Unsupported data type ${dtype}`);
     }
     const randGauss =
         new MPRandGauss(mean, stdDev, dtype, false /* truncated */, seed);
     return NDArray.rand(shape, () => randGauss.nextValue(), dtype) as
-        Array1D<T>;
+        Array1D<D>;
   }
 
-  static randTruncatedNormal<T extends keyof RandNormalDataTypes>(
-      shape: [number], mean = 0, stdDev = 1, dtype?: T,
-      seed?: number): Array1D<T> {
+  static randTruncatedNormal<D extends keyof RandNormalDataTypes>(
+      shape: [number], mean = 0, stdDev = 1, dtype?: D,
+      seed?: number): Array1D<D> {
     if (dtype != null && dtype === 'bool') {
       throw new Error(`Unsupported data type ${dtype}`);
     }
     const randGauss =
         new MPRandGauss(mean, stdDev, dtype, true /* truncated */, seed);
     return NDArray.rand(shape, () => randGauss.nextValue(), dtype) as
-        Array1D<T>;
+        Array1D<D>;
   }
 
-  static randUniform<T extends keyof DataTypes>(
-      shape: [number], a: number, b: number, dtype?: T): Array1D<T> {
+  static randUniform<D extends DataType>(
+      shape: [number], a: number, b: number, dtype?: D): Array1D<D> {
     return NDArray.rand(shape, () => util.randUniform(a, b), dtype) as
-        Array1D<T>;
+        Array1D<D>;
   }
 }
 
-export class Array2D<T extends keyof DataTypes = keyof DataTypes> extends
-    NDArray<T> {
-  shape: [number, number];
-
-  private stride0: number;
-
-  constructor(shape: [number, number], data: NDArrayData<T>, dtype: T) {
+export class Array2D<D extends DataType = DataType> extends NDArray<D, '2'> {
+  constructor(
+      shape: [number, number], dtype: D, values?: DataTypeMap[D],
+      dataId?: number, math?: NDArrayMath) {
     util.assert(shape.length === 2, 'Shape should be of length 2');
-    super(shape, data, dtype);
-    this.stride0 = this.strides[0];
+    super(shape, dtype, values, dataId, math);
   }
 
-  static new<T extends keyof DataTypes = keyof DataTypes>(
+  static new<D extends DataType = 'float32'>(
       shape: [number, number],
-      values: DataTypes[T]|number[]|number[][]|boolean[]|boolean[][],
-      dtype?: T): Array2D<T> {
+      values: DataTypeMap[D]|number[]|number[][]|boolean[]|boolean[][],
+      dtype?: D): Array2D<D> {
     if (!instanceofTypedArray(values)) {
       const inferredShape = util.inferShape(values as number[] | boolean[]);
       if (inferredShape.length > 1) {
@@ -670,19 +564,15 @@ export class Array2D<T extends keyof DataTypes = keyof DataTypes> extends
                 `${shape}. `);
       }
     }
-    return new Array2D(shape, {values: toTypedArray(values, dtype)}, dtype);
+    return new Array2D(shape, dtype, toTypedArray(values, dtype));
   }
 
   get(i: number, j: number) {
-    return this.getValues()[this.stride0 * i + j];
-  }
-
-  set(value: number, i: number, j: number) {
-    this.getValues()[this.stride0 * i + j] = value;
+    return this.dataSync()[this.strides[0] * i + j];
   }
 
   add(value: number, i: number, j: number) {
-    this.getValues()[this.stride0 * i + j] += value;
+    this.dataSync()[this.strides[0] * i + j] += value;
   }
 
   async val(i: number, j: number): Promise<number> {
@@ -691,70 +581,70 @@ export class Array2D<T extends keyof DataTypes = keyof DataTypes> extends
   }
 
   locToIndex(locs: [number, number]): number {
-    return this.stride0 * locs[0] + locs[1];
+    return this.strides[0] * locs[0] + locs[1];
   }
 
   indexToLoc(index: number): [number, number] {
-    return [Math.floor(index / this.stride0), index % this.stride0];
+    return [Math.floor(index / this.strides[0]), index % this.strides[0]];
   }
 
-  asType<G extends keyof DataTypes>(dtype: G): Array2D<G> {
-    return super.asType(dtype) as Array2D<G>;
+  asType<D2 extends DataType>(dtype: D2): Array2D<D2> {
+    return super.asType(dtype) as Array2D<D2>;
   }
 
-  static zeros<T extends keyof DataTypes = keyof DataTypes>(
-      shape: [number, number], dtype?: T): Array2D<T> {
-    return NDArray.zeros(shape, dtype) as Array2D<T>;
+  static ones<D extends DataType = DataType>(
+      shape: [number, number], dtype?: D): Array2D<D> {
+    return NDArray.ones<D, '2'>(shape, dtype);
   }
 
-  static randNormal<T extends keyof RandNormalDataTypes>(
-      shape: [number, number], mean = 0, stdDev = 1, dtype?: T,
-      seed?: number): Array2D<T> {
+  static zeros<D extends DataType = DataType>(
+      shape: [number, number], dtype?: D): Array2D<D> {
+    return NDArray.zeros<D, '2'>(shape, dtype);
+  }
+
+  static randNormal<D extends keyof RandNormalDataTypes>(
+      shape: [number, number], mean = 0, stdDev = 1, dtype?: D,
+      seed?: number): Array2D<D> {
     if (dtype != null && dtype === 'bool') {
       throw new Error(`Unsupported data type ${dtype}`);
     }
     const randGauss =
         new MPRandGauss(mean, stdDev, dtype, false /* truncated */, seed);
     return NDArray.rand(shape, () => randGauss.nextValue(), dtype) as
-        Array2D<T>;
+        Array2D<D>;
   }
 
-  static randTruncatedNormal<T extends keyof RandNormalDataTypes>(
-      shape: [number, number], mean = 0, stdDev = 1, dtype?: T,
-      seed?: number): Array2D<T> {
+  static randTruncatedNormal<D extends keyof RandNormalDataTypes>(
+      shape: [number, number], mean = 0, stdDev = 1, dtype?: D,
+      seed?: number): Array2D<D> {
     if (dtype != null && dtype === 'bool') {
       throw new Error(`Unsupported data type ${dtype}`);
     }
     const randGauss =
         new MPRandGauss(mean, stdDev, dtype, true /* truncated */, seed);
     return NDArray.rand(shape, () => randGauss.nextValue(), dtype) as
-        Array2D<T>;
+        Array2D<D>;
   }
 
-  static randUniform<T extends keyof DataTypes>(
-      shape: [number, number], a: number, b: number, dtype?: T): Array2D<T> {
+  static randUniform<D extends DataType>(
+      shape: [number, number], a: number, b: number, dtype?: D): Array2D<D> {
     return NDArray.rand(shape, () => util.randUniform(a, b), dtype) as
-        Array2D<T>;
+        Array2D<D>;
   }
 }
 
-export class Array3D<T extends keyof DataTypes = keyof DataTypes> extends
-    NDArray<T> {
-  shape: [number, number, number];
-  private stride0: number;
-  private stride1: number;
-
-  constructor(shape: [number, number, number], data: NDArrayData<T>, dtype: T) {
+export class Array3D<D extends DataType = DataType> extends NDArray<D, '3'> {
+  constructor(
+      shape: [number, number, number], dtype: D, values?: DataTypeMap[D],
+      dataId?: number, math?: NDArrayMath) {
     util.assert(shape.length === 3, 'Shape should be of length 3');
-    super(shape, data, dtype);
-    this.stride0 = this.strides[0];
-    this.stride1 = this.strides[1];
+    super(shape, dtype, values, dataId, math);
   }
 
-  static new<T extends keyof DataTypes = keyof DataTypes>(
+  static new<D extends DataType = 'float32'>(
       shape: [number, number, number],
-      values: DataTypes[T]|number[]|number[][][]|boolean[]|boolean[][][],
-      dtype?: T) {
+      values: DataTypeMap[D]|number[]|number[][][]|boolean[]|boolean[][][],
+      dtype?: D): Array3D<D> {
     if (!instanceofTypedArray(values)) {
       const inferredShape = util.inferShape(values as number[] | boolean[]);
       if (inferredShape.length > 1) {
@@ -765,15 +655,11 @@ export class Array3D<T extends keyof DataTypes = keyof DataTypes> extends
                 `${shape}. `);
       }
     }
-    return new Array3D(shape, {values: toTypedArray(values, dtype)}, dtype);
+    return new Array3D(shape, dtype, toTypedArray(values, dtype));
   }
 
   get(i: number, j: number, k: number) {
-    return this.getValues()[this.stride0 * i + this.stride1 * j + k];
-  }
-
-  set(value: number, i: number, j: number, k: number) {
-    this.getValues()[this.stride0 * i + this.stride1 * j + k] = value;
+    return this.dataSync()[this.strides[0] * i + this.strides[1] * j + k];
   }
 
   async val(i: number, j: number, k: number): Promise<number> {
@@ -782,80 +668,76 @@ export class Array3D<T extends keyof DataTypes = keyof DataTypes> extends
   }
 
   add(value: number, i: number, j: number, k: number) {
-    this.getValues()[this.stride0 * i + this.stride1 * j + k] += value;
+    this.dataSync()[this.strides[0] * i + this.strides[1] * j + k] += value;
   }
 
   locToIndex(locs: [number, number, number]): number {
-    return this.stride0 * locs[0] + this.stride1 * locs[1] + locs[2];
+    return this.strides[0] * locs[0] + this.strides[1] * locs[1] + locs[2];
   }
 
   indexToLoc(index: number): [number, number, number] {
-    const i = Math.floor(index / this.stride0);
-    index -= i * this.stride0;
-    return [i, Math.floor(index / this.stride1), index % this.stride1];
+    const i = Math.floor(index / this.strides[0]);
+    index -= i * this.strides[0];
+    return [i, Math.floor(index / this.strides[1]), index % this.strides[1]];
+  }
+  static ones<D extends DataType = DataType>(
+      shape: [number, number, number], dtype?: D): Array3D<D> {
+    return NDArray.ones<D, '3'>(shape, dtype);
   }
 
-  asType<G extends keyof DataTypes>(dtype: G): Array3D<G> {
-    return super.asType(dtype) as Array3D<G>;
+  asType<D2 extends DataType>(dtype: D2): Array3D<D2> {
+    return super.asType(dtype) as Array3D<D2>;
   }
 
-  static zeros<T extends keyof DataTypes = keyof DataTypes>(
-      shape: [number, number, number], dtype?: T): Array3D<T> {
-    return NDArray.zeros(shape, dtype) as Array3D<T>;
+  static zeros<D extends DataType = DataType>(
+      shape: [number, number, number], dtype?: D): Array3D<D> {
+    return NDArray.zeros<D, '3'>(shape, dtype);
   }
 
-  static randNormal<T extends keyof RandNormalDataTypes>(
-      shape: [number, number, number], mean = 0, stdDev = 1, dtype?: T,
-      seed?: number): Array3D<T> {
+  static randNormal<D extends keyof RandNormalDataTypes>(
+      shape: [number, number, number], mean = 0, stdDev = 1, dtype?: D,
+      seed?: number): Array3D<D> {
     if (dtype != null && dtype === 'bool') {
       throw new Error(`Unsupported data type ${dtype}`);
     }
     const randGauss =
         new MPRandGauss(mean, stdDev, dtype, false /* truncated */, seed);
     return NDArray.rand(shape, () => randGauss.nextValue(), dtype) as
-        Array3D<T>;
+        Array3D<D>;
   }
 
-  static randTruncatedNormal<T extends keyof RandNormalDataTypes>(
-      shape: [number, number, number], mean = 0, stdDev = 1, dtype?: T,
-      seed?: number): Array3D<T> {
+  static randTruncatedNormal<D extends keyof RandNormalDataTypes>(
+      shape: [number, number, number], mean = 0, stdDev = 1, dtype?: D,
+      seed?: number): Array3D<D> {
     if (dtype != null && dtype === 'bool') {
       throw new Error(`Unsupported data type ${dtype}`);
     }
     const randGauss =
         new MPRandGauss(mean, stdDev, dtype, true /* truncated */, seed);
     return NDArray.rand(shape, () => randGauss.nextValue(), dtype) as
-        Array3D<T>;
+        Array3D<D>;
   }
 
-  static randUniform<T extends keyof DataTypes>(
+  static randUniform<D extends DataType>(
       shape: [number, number, number], a: number, b: number,
-      dtype?: T): Array3D<T> {
+      dtype?: D): Array3D<D> {
     return NDArray.rand(shape, () => util.randUniform(a, b), dtype) as
-        Array3D<T>;
+        Array3D<D>;
   }
 }
 
-export class Array4D<T extends keyof DataTypes = keyof DataTypes> extends
-    NDArray<T> {
-  shape: [number, number, number, number];
-  private stride0: number;
-  private stride1: number;
-  private stride2: number;
-
+export class Array4D<D extends DataType = DataType> extends NDArray<D, '4'> {
   constructor(
-      shape: [number, number, number, number], data: NDArrayData<T>, dtype: T) {
+      shape: [number, number, number, number], dtype: D,
+      values?: DataTypeMap[D], dataId?: number, math?: NDArrayMath) {
     util.assert(shape.length === 4, 'Shape should be of length 4');
-    super(shape, data, dtype);
-    this.stride0 = this.strides[0];
-    this.stride1 = this.strides[1];
-    this.stride2 = this.strides[2];
+    super(shape, dtype, values, dataId, math);
   }
 
-  static new<T extends keyof DataTypes = keyof DataTypes>(
+  static new<D extends DataType = 'float32'>(
       shape: [number, number, number, number],
-      values: DataTypes[T]|number[]|number[][][][]|boolean[]|boolean[][][][],
-      dtype?: T) {
+      values: DataTypeMap[D]|number[]|number[][][][]|boolean[]|boolean[][][][],
+      dtype?: D): Array4D<D> {
     if (!instanceofTypedArray(values)) {
       const inferredShape = util.inferShape(values as number[] | boolean[]);
       if (inferredShape.length > 1) {
@@ -866,17 +748,12 @@ export class Array4D<T extends keyof DataTypes = keyof DataTypes> extends
                 `${shape}. `);
       }
     }
-    return new Array4D(shape, {values: toTypedArray(values, dtype)}, dtype);
+    return new Array4D(shape, dtype, toTypedArray(values, dtype));
   }
 
   get(i: number, j: number, k: number, l: number) {
-    return this.getValues()
-        [this.stride0 * i + this.stride1 * j + this.stride2 * k + l];
-  }
-
-  set(value: number, i: number, j: number, k: number, l: number) {
-    this.getValues()
-        [this.stride0 * i + this.stride1 * j + this.stride2 * k + l] = value;
+    return this.dataSync()
+        [this.strides[0] * i + this.strides[1] * j + this.strides[2] * k + l];
   }
 
   async val(i: number, j: number, k: number, l: number): Promise<number> {
@@ -885,77 +762,155 @@ export class Array4D<T extends keyof DataTypes = keyof DataTypes> extends
   }
 
   add(value: number, i: number, j: number, k: number, l: number) {
-    this.getValues()
-        [this.stride0 * i + this.stride1 * j + this.stride2 * k + l] += value;
+    this.dataSync()
+        [this.strides[0] * i + this.strides[1] * j + this.strides[2] * k + l] +=
+        value;
   }
 
   locToIndex(locs: [number, number, number, number]): number {
-    return this.stride0 * locs[0] + this.stride1 * locs[1] +
-        this.stride2 * locs[2] + locs[3];
+    return this.strides[0] * locs[0] + this.strides[1] * locs[1] +
+        this.strides[2] * locs[2] + locs[3];
   }
 
   indexToLoc(index: number): [number, number, number, number] {
-    const i = Math.floor(index / this.stride0);
-    index -= i * this.stride0;
-    const j = Math.floor(index / this.stride1);
-    index -= j * this.stride1;
-    return [i, j, Math.floor(index / this.stride2), index % this.stride2];
+    const i = Math.floor(index / this.strides[0]);
+    index -= i * this.strides[0];
+    const j = Math.floor(index / this.strides[1]);
+    index -= j * this.strides[1];
+    return [i, j, Math.floor(index / this.strides[2]), index % this.strides[2]];
   }
 
-  asType<G extends keyof DataTypes>(dtype: G): Array4D<G> {
-    return super.asType(dtype) as Array4D<G>;
+  asType<D2 extends DataType>(dtype: D2): Array4D<D2> {
+    return super.asType(dtype) as Array4D<D2>;
   }
 
-  static zeros<T extends keyof DataTypes = keyof DataTypes>(
-      shape: [number, number, number, number], dtype?: T): Array4D<T> {
-    return NDArray.zeros(shape, dtype) as Array4D<T>;
+  static ones<D extends DataType = DataType>(
+      shape: [number, number, number, number], dtype?: D): Array4D<D> {
+    return NDArray.ones<D, '4'>(shape, dtype);
   }
 
-  static randNormal<T extends keyof RandNormalDataTypes>(
-      shape: [number, number, number, number], mean = 0, stdDev = 1, dtype?: T,
-      seed?: number): Array4D<T> {
+  static zeros<D extends DataType = DataType>(
+      shape: [number, number, number, number], dtype?: D): Array4D<D> {
+    return NDArray.zeros<D, '4'>(shape, dtype);
+  }
+
+  static randNormal<D extends keyof RandNormalDataTypes>(
+      shape: [number, number, number, number], mean = 0, stdDev = 1, dtype?: D,
+      seed?: number): Array4D<D> {
     if (dtype != null && dtype === 'bool') {
       throw new Error(`Unsupported data type ${dtype}`);
     }
     const randGauss =
         new MPRandGauss(mean, stdDev, dtype, false /* truncated */, seed);
     return NDArray.rand(shape, () => randGauss.nextValue(), dtype) as
-        Array4D<T>;
+        Array4D<D>;
   }
 
-  static randTruncatedNormal<T extends keyof RandNormalDataTypes>(
-      shape: [number, number, number, number], mean = 0, stdDev = 1, dtype?: T,
-      seed?: number): Array4D<T> {
+  static randTruncatedNormal<D extends keyof RandNormalDataTypes>(
+      shape: [number, number, number, number], mean = 0, stdDev = 1, dtype?: D,
+      seed?: number): Array4D<D> {
     if (dtype != null && dtype === 'bool') {
       throw new Error(`Unsupported data type ${dtype}`);
     }
     const randGauss =
         new MPRandGauss(mean, stdDev, dtype, true /* truncated */, seed);
     return NDArray.rand(shape, () => randGauss.nextValue(), dtype) as
-        Array4D<T>;
+        Array4D<D>;
   }
 
-  static randUniform<T extends keyof DataTypes>(
+  static randUniform<D extends DataType>(
       shape: [number, number, number, number], a: number, b: number,
-      dtype?: T): Array4D<T> {
+      dtype?: D): Array4D<D> {
     return NDArray.rand(shape, () => util.randUniform(a, b), dtype) as
-        Array4D<T>;
+        Array4D<D>;
   }
 }
 
-function copyTypedArray<T extends keyof DataTypes>(
-    array: DataTypes[T]|number[]|boolean[], dtype: T): DataTypes[T] {
+export class Variable<D extends DataType = DataType, R extends Rank = Rank>
+    extends NDArray<D, R> {
+  private static nextVarId = 0;
+  name: string;
+
+  /**
+   * Private constructor since we can not add logic before calling super().
+   * Instead, we expose static `Variable.variable` method below, which will be
+   * added to global namespace.
+   */
+  private constructor(
+      initialValue: NDArray<D, R>, public trainable = true, name?: string) {
+    super(
+        initialValue.shape, initialValue.dtype, null /* values */,
+        initialValue.dataId);
+    initialValue.dispose();
+    this.name = name;
+    if (this.name == null) {
+      this.name = Variable.nextVarId.toString();
+      Variable.nextVarId++;
+    }
+    this.math.registerVariable(this);
+  }
+
+  /**
+   * Creates a new variable with the provided initial value.
+   *
+   * @param initialValue An ndarray.
+   * @param trainable If true, optimizers are allowed to update it.
+   * @param name Name of the variable. Defaults to a unique id.
+   * @param dtype If set, initialValue will be converted to the given type.
+   */
+  static variable<D extends DataType, R extends Rank>(
+      initialValue: NDArray<D, R>, trainable = true, name?: string,
+      dtype?: D): Variable<D, R> {
+    if (dtype != null && dtype !== initialValue.dtype) {
+      initialValue = initialValue.asType(dtype);
+    }
+    return new Variable(initialValue, trainable, name);
+  }
+
+  /** Assign a new array to this variable. The old array will be disposed. */
+  assign(newValue: NDArray<D, R>): void {
+    if (newValue.dtype !== this.dtype) {
+      throw new Error(
+          `dtype of the new value (${newValue.dtype}) and ` +
+          `previous value (${this.dtype}) must match`);
+    }
+    if (!util.arraysEqual(newValue.shape, this.shape)) {
+      throw new Error(
+          `shape of the new value (${newValue.shape}) and ` +
+          `previous value (${this.shape}) must match`);
+    }
+    this.math.disposeData(this.dataId);
+    this.dataId = newValue.dataId;
+    this.math.register(this);
+    newValue.dispose();
+  }
+}
+
+const variable = Variable.variable;
+export {variable};
+
+function copyTypedArray<D extends DataType>(
+    array: DataTypeMap[D]|number[]|boolean[], dtype: D): DataTypeMap[D] {
   if (dtype == null || dtype === 'float32') {
     return new Float32Array(array as number[]);
   } else if (dtype === 'int32') {
-    return new Int32Array(array as number[]);
+    const vals = new Int32Array(array.length);
+    for (let i = 0; i < vals.length; ++i) {
+      const val = array[i] as number;
+      if (util.isValNaN(val, 'int32')) {
+        vals[i] = util.getNaN('int32');
+      } else {
+        vals[i] = val;
+      }
+    }
+    return vals;
   } else if (dtype === 'bool') {
     const bool = new Uint8Array(array.length);
     for (let i = 0; i < bool.length; ++i) {
-      const val = array[i];
+      const val = array[i] as number;
       if (util.isValNaN(val as number, 'bool')) {
         bool[i] = util.getNaN('bool');
-      } else if (val) {
+      } else if (Math.round(val) !== 0) {
         bool[i] = 1;
       }
     }
@@ -970,16 +925,16 @@ function instanceofTypedArray(a: ArrayData): boolean {
       a instanceof Uint8Array;
 }
 
-function noConversionNeeded(a: ArrayData, dtype: keyof DataTypes): boolean {
+function noConversionNeeded(a: ArrayData, dtype: DataType): boolean {
   return (a instanceof Float32Array && dtype === 'float32') ||
       (a instanceof Int32Array && dtype === 'int32') ||
       (a instanceof Uint8Array && dtype === 'bool');
 }
 
-function toTypedArray<T extends keyof DataTypes>(
-    a: ArrayData, dtype: T): DataTypes[T] {
+function toTypedArray<D extends DataType>(
+    a: ArrayData, dtype: D): DataTypeMap[D] {
   if (noConversionNeeded(a, dtype)) {
-    return a as DataTypes[T];
+    return a as DataTypeMap[D];
   }
   if (Array.isArray(a)) {
     a = util.flatten(a) as number[];
@@ -987,8 +942,8 @@ function toTypedArray<T extends keyof DataTypes>(
   return copyTypedArray(a, dtype);
 }
 
-function makeZerosTypedArray<T extends keyof DataTypes>(
-    size: number, dtype: T): DataTypes[T] {
+function makeZerosTypedArray<D extends DataType>(
+    size: number, dtype: D): DataTypeMap[D] {
   if (dtype == null || dtype === 'float32') {
     return new Float32Array(size);
   } else if (dtype === 'int32') {
@@ -1000,34 +955,11 @@ function makeZerosTypedArray<T extends keyof DataTypes>(
   }
 }
 
-function typedArrayToFloat32(
-    a: TypedArray, dtype: keyof DataTypes): Float32Array {
-  if (a instanceof Float32Array) {
-    return a;
-  } else {
-    const res = new Float32Array(a.length);
-    for (let i = 0; i < res.length; i++) {
-      const val = a[i];
-      res[i] = util.isValNaN(val, dtype) ? NaN : val;
-    }
-    return res;
+function makeOnesTypedArray<D extends DataType>(
+    size: number, dtype: D): DataTypeMap[D] {
+  const array = makeZerosTypedArray(size, dtype);
+  for (let i = 0; i < array.length; i++) {
+    array[i] = 1;
   }
-}
-
-function float32ToTypedArray<T extends keyof DataTypes>(
-    a: Float32Array, dtype: T): DataTypes[T] {
-  if (dtype === 'float32') {
-    return a;
-  } else if (dtype === 'int32' || dtype === 'bool') {
-    const result = (dtype === 'int32') ? new Int32Array(a.length) :
-                                         new Uint8Array(a.length);
-    for (let i = 0; i < result.length; ++i) {
-      let val = a[i];
-      val = isNaN(val) ? util.getNaN(dtype) : Math.round(val);
-      result[i] = val;
-    }
-    return result;
-  } else {
-    throw new Error(`Unknown dtype ${dtype}`);
-  }
+  return array;
 }

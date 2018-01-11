@@ -117,7 +117,6 @@ function getTextureType(gl: WebGLRenderingContext) {
   if (!ENV.get('WEBGL_FLOAT_TEXTURE_ENABLED')) {
     return gl.UNSIGNED_BYTE;
   }
-
   return gl.FLOAT;
 }
 
@@ -237,7 +236,6 @@ export function uploadMatrixToTexture(
   } else {
     unpackedArray = tex_util.encodeFloatArray(matrix);
   }
-
   uploadDataToTexture(gl, texture, w, h, unpackedArray, numChannels);
 }
 
@@ -272,7 +270,6 @@ function decodeDownloadTargetArrayBuffer(
     downloadTarget: Float32Array|Uint8Array, rows: number, columns: number,
     channelsPerPixel: number): Float32Array {
   const isFloatTexture = ENV.get('WEBGL_FLOAT_TEXTURE_ENABLED');
-
   if (isFloatTexture) {
     const matrix = new Float32Array(rows * columns);
     tex_util.decodeMatrixFromUnpackedArray(

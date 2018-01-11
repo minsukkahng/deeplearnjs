@@ -15,13 +15,13 @@
  * =============================================================================
  */
 
-import * as environment from './environment';
-import {Environment, Features} from './environment';
-import {NDArrayMathCPU} from './math/backends/backend_cpu';
-import {NDArrayMathGPU} from './math/backends/backend_webgl';
+import {ENV, Features} from './environment';
+import {MathBackendCPU} from './math/backends/backend_cpu';
+import {MathBackendWebGL} from './math/backends/backend_webgl';
 import {NDArrayMath} from './math/math';
+import {DataType, NDArray} from './math/ndarray';
 import * as util from './util';
-import {DType, TypedArray} from './util';
+import {TypedArray} from './util';
 
 /** Accuracy for tests. */
 // TODO(nsthorat || smilkov): Fix this low precision for byte-backed textures.
@@ -72,7 +72,13 @@ export function skewness(values: TypedArray|number[]) {
   return (1 / n) * sum3 / Math.pow((1 / (n - 1)) * sum2, 3 / 2);
 }
 
-export function jarqueBeraNormalityTest(values: TypedArray|number[]) {
+export function jarqueBeraNormalityTest(a: NDArray|TypedArray|number[]) {
+  let values: TypedArray|number[];
+  if (a instanceof NDArray) {
+    values = a.dataSync();
+  } else {
+    values = a;
+  }
   // https://en.wikipedia.org/wiki/Jarque%E2%80%93Bera_test
   const n = values.length;
   const s = skewness(values);
@@ -87,38 +93,82 @@ export function jarqueBeraNormalityTest(values: TypedArray|number[]) {
 }
 
 export function expectArrayInMeanStdRange(
-    actual: TypedArray|number[], expectedMean: number, expectedStdDev: number,
-    epsilon = TEST_EPSILON) {
-  const actualMean = mean(actual);
+    actual: NDArray|TypedArray|number[], expectedMean: number,
+    expectedStdDev: number, epsilon = TEST_EPSILON) {
+  let actualValues: TypedArray|number[];
+  if (actual instanceof NDArray) {
+    actualValues = actual.dataSync();
+  } else {
+    actualValues = actual;
+  }
+  const actualMean = mean(actualValues);
   expectNumbersClose(actualMean, expectedMean, epsilon);
   expectNumbersClose(
-      standardDeviation(actual, actualMean), expectedStdDev, epsilon);
+      standardDeviation(actualValues, actualMean), expectedStdDev, epsilon);
 }
 
 export function expectArraysClose(
-    actual: TypedArray|number[], expected: TypedArray|number[],
-    epsilon = TEST_EPSILON) {
-  const aType = actual.constructor.name;
-  const bType = expected.constructor.name;
+    actual: NDArray|TypedArray|number[],
+    expected: NDArray|TypedArray|number[]|boolean[], epsilon = TEST_EPSILON) {
+  if (!(actual instanceof NDArray) && !(expected instanceof NDArray)) {
+    const aType = actual.constructor.name;
+    const bType = expected.constructor.name;
 
-  if (aType !== bType) {
-    throw new Error(`Arrays are of different type ${aType} vs ${bType}`);
-  }
-  if (actual.length !== expected.length) {
-    throw new Error(
-        `Matrices have different lengths (${actual.length} vs ` +
-        `${expected.length}).`);
-  }
-  for (let i = 0; i < expected.length; ++i) {
-    const a = actual[i];
-    const e = expected[i];
-
-    if (!areClose(a, e, epsilon)) {
-      const actualStr = `actual[${i}] === ${a}`;
-      const expectedStr = `expected[${i}] === ${e}`;
-      throw new Error('Arrays differ: ' + actualStr + ', ' + expectedStr);
+    if (aType !== bType) {
+      throw new Error(
+          `Arrays are of different type actual: ${aType} ` +
+          `vs expected: ${bType}`);
+    }
+  } else if (actual instanceof NDArray && expected instanceof NDArray) {
+    if (actual.dtype !== expected.dtype) {
+      throw new Error(
+          `Arrays are of different type actual: ${actual.dtype} ` +
+          `vs expected: ${expected.dtype}.`);
+    }
+    if (!util.arraysEqual(actual.shape, expected.shape)) {
+      throw new Error(
+          `Arrays are of different shape actual: ${actual.shape} ` +
+          `vs expected: ${expected.shape}.`);
     }
   }
+
+  let actualValues: TypedArray|number[];
+  let expectedValues: TypedArray|number[]|boolean[];
+  if (actual instanceof NDArray) {
+    actualValues = actual.dataSync();
+  } else {
+    actualValues = actual;
+  }
+  if (expected instanceof NDArray) {
+    expectedValues = expected.dataSync();
+  } else {
+    expectedValues = expected;
+  }
+
+  if (actualValues.length !== expectedValues.length) {
+    throw new Error(
+        `Arrays have different lengths actual: ${actualValues.length} vs ` +
+        `expected: ${expectedValues.length}.\n` +
+        `Actual:   ${actualValues}.\n` +
+        `Expected: ${expectedValues}.`);
+  }
+  for (let i = 0; i < expectedValues.length; ++i) {
+    const a = actualValues[i];
+    const e = expectedValues[i];
+
+    if (!areClose(a, Number(e), epsilon)) {
+      throw new Error(
+          `Arrays differ: actual[${i}] = ${a}, expected[${i}] = ${e}.\n` +
+          `Actual:   ${actualValues}.\n` +
+          `Expected: ${expectedValues}.`);
+    }
+  }
+}
+
+export function expectArraysEqual(
+    actual: NDArray|TypedArray|number[],
+    expected: NDArray|TypedArray|number[]|boolean[]) {
+  return expectArraysClose(actual, expected, 0);
 }
 
 export function expectNumbersClose(
@@ -139,11 +189,17 @@ function areClose(a: number, e: number, epsilon: number): boolean {
 }
 
 export function expectValuesInRange(
-    actual: TypedArray|number[], low: number, high: number) {
-  for (let i = 0; i < actual.length; i++) {
-    if (actual[i] < low || actual[i] > high) {
+    actual: NDArray|TypedArray|number[], low: number, high: number) {
+  let actualVals: TypedArray|number[];
+  if (actual instanceof NDArray) {
+    actualVals = actual.dataSync();
+  } else {
+    actualVals = actual;
+  }
+  for (let i = 0; i < actualVals.length; i++) {
+    if (actualVals[i] < low || actualVals[i] > high) {
       throw new Error(
-          `Value out of range:${actual[i]} low: ${low}, high: ${high}`);
+          `Value out of range:${actualVals[i]} low: ${low}, high: ${high}`);
     }
   }
 }
@@ -204,9 +260,10 @@ export function describeMathCPU(
   const testNameBase = 'CPU: math.' + name;
   describeWithFeaturesAndExecutor(
       testNameBase, tests as Tests[],
-      (testName, tests, features) => executeMathTests(
-          testName, tests, () => new NDArrayMathCPU(), features),
-      featuresList);
+      (testName, tests, features) => executeMathTests(testName, tests, () => {
+        const safeMode = true;
+        return new NDArrayMath(new MathBackendCPU(), safeMode);
+      }, features), featuresList);
 }
 
 export function describeMathGPU(
@@ -214,9 +271,10 @@ export function describeMathGPU(
   const testNameBase = 'WebGL: math.' + name;
   describeWithFeaturesAndExecutor(
       testNameBase, tests as Tests[],
-      (testName, tests, features) => executeMathTests(
-          testName, tests, () => new NDArrayMathGPU(), features),
-      featuresList);
+      (testName, tests, features) => executeMathTests(testName, tests, () => {
+        const safeMode = true;
+        return new NDArrayMath(new MathBackendWebGL(), safeMode);
+      }, features), featuresList);
 }
 
 export function describeCustom(
@@ -264,8 +322,10 @@ export function executeMathTests(
     testName: string, tests: MathTests[], mathFactory: () => NDArrayMath,
     features?: Features) {
   let math: NDArrayMath;
+
   const customBeforeEach = () => {
     math = mathFactory();
+    ENV.setMath(math);
     math.startScope();
   };
   const customAfterEach = () => {
@@ -282,7 +342,7 @@ export function executeMathTests(
       customIt);
 }
 
-export function executeTests(
+function executeTests(
     testName: string, tests: Tests[], features?: Features,
     customBeforeEach?: () => void, customAfterEach?: () => void,
     customIt: (expectation: string, testFunc: () => void|Promise<void>) =>
@@ -290,7 +350,9 @@ export function executeTests(
   describe(testName, () => {
     beforeEach(() => {
       if (features != null) {
-        environment.setEnvironment(new Environment(features));
+        ENV.setFeatures(features);
+        ENV.registerBackend('webgl', () => new MathBackendWebGL());
+        ENV.registerBackend('cpu', () => new MathBackendCPU());
       }
 
       if (customBeforeEach != null) {
@@ -302,9 +364,8 @@ export function executeTests(
       if (customAfterEach != null) {
         customAfterEach();
       }
-
       if (features != null) {
-        environment.setEnvironment(new Environment());
+        ENV.reset();
       }
     });
 
@@ -312,7 +373,7 @@ export function executeTests(
   });
 }
 
-export function assertIsNan(val: number, dtype: DType) {
+export function assertIsNan(val: number, dtype: DataType) {
   if (!util.isValNaN(val, dtype)) {
     throw new Error(`Value ${val} does not represent NaN for dtype ${dtype}`);
   }

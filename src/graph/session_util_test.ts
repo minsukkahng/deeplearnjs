@@ -17,7 +17,7 @@
 
 // tslint:disable-next-line:max-line-length
 import {InputProvider} from '../data/input_provider';
-import {NDArrayMathCPU} from '../math/backends/backend_cpu';
+import {ENV} from '../environment';
 import {NDArray} from '../math/ndarray';
 // tslint:disable-next-line:max-line-length
 import {ConstantNode, Graph, Node, PlaceholderNode, Tensor, VariableNode} from './graph';
@@ -30,7 +30,6 @@ class TestNode extends Node {
 }
 
 describe('getTerminatingNodesFromFeedDictionary', () => {
-
   it('returns an empty node array from an empty FeedDictionary', () => {
     expect(session_util.getTerminatingNodesFromFeedDictionary(
                new FeedDictionary()))
@@ -38,40 +37,48 @@ describe('getTerminatingNodesFromFeedDictionary', () => {
   });
 
   it('returns the only node in the feed dictionary', () => {
-    const node = new TestNode(new Graph(), '', {}, new Tensor([]));
-    const fd =
-        new FeedDictionary([{tensor: node.output, data: NDArray.zeros([1])}]);
-    expect(session_util.getTerminatingNodesFromFeedDictionary(fd)).toEqual([
-      node
-    ]);
+    const math = ENV.math;
+    math.scope(() => {
+      const node = new TestNode(new Graph(), '', {}, new Tensor([]));
+      const fd =
+          new FeedDictionary([{tensor: node.output, data: NDArray.zeros([1])}]);
+      expect(session_util.getTerminatingNodesFromFeedDictionary(fd)).toEqual([
+        node
+      ]);
+    });
   });
 
   it('returns every node from the feed dictionary', () => {
-    const n0 = new TestNode(new Graph(), '', {}, new Tensor([]));
-    const n1 = new TestNode(new Graph(), '', {}, new Tensor([]));
-    const n2 = new TestNode(new Graph(), '', {}, new Tensor([]));
-    const n3 = new TestNode(new Graph(), '', {}, new Tensor([]));
-    const n4 = new TestNode(new Graph(), '', {}, new Tensor([]));
-    const feeds: FeedEntry[] = [
-      {tensor: n0.output, data: NDArray.zeros([1])},
-      {tensor: n1.output, data: NDArray.zeros([1])},
-      {tensor: n2.output, data: NDArray.zeros([1])},
-      {tensor: n3.output, data: NDArray.zeros([1])},
-      {tensor: n4.output, data: NDArray.zeros([1])}
-    ];
-    const fd = new FeedDictionary(feeds);
-    const nodes = session_util.getTerminatingNodesFromFeedDictionary(fd);
-    expect(nodes).toContain(n0);
-    expect(nodes).toContain(n1);
-    expect(nodes).toContain(n2);
-    expect(nodes).toContain(n3);
-    expect(nodes).toContain(n4);
+    const math = ENV.math;
+    math.scope(() => {
+      const n0 = new TestNode(new Graph(), '', {}, new Tensor([]));
+      const n1 = new TestNode(new Graph(), '', {}, new Tensor([]));
+      const n2 = new TestNode(new Graph(), '', {}, new Tensor([]));
+      const n3 = new TestNode(new Graph(), '', {}, new Tensor([]));
+      const n4 = new TestNode(new Graph(), '', {}, new Tensor([]));
+      const feeds: FeedEntry[] = [
+        {tensor: n0.output, data: NDArray.zeros([1])},
+        {tensor: n1.output, data: NDArray.zeros([1])},
+        {tensor: n2.output, data: NDArray.zeros([1])},
+        {tensor: n3.output, data: NDArray.zeros([1])},
+        {tensor: n4.output, data: NDArray.zeros([1])}
+      ];
+      const fd = new FeedDictionary(feeds);
+      const nodes = session_util.getTerminatingNodesFromFeedDictionary(fd);
+      expect(nodes).toContain(n0);
+      expect(nodes).toContain(n1);
+      expect(nodes).toContain(n2);
+      expect(nodes).toContain(n3);
+      expect(nodes).toContain(n4);
+    });
   });
 });
 
 describe('addPersistentArraysToTensorArrayMap', () => {
   let map: TensorArrayMap;
   let g: Graph;
+  const math = ENV.math;
+
   beforeEach(() => {
     map = new TensorArrayMap();
     g = new Graph();
@@ -114,15 +121,17 @@ describe('addPersistentArraysToTensorArrayMap', () => {
   });
 
   it('adds multiple ConstantNodes to the map', () => {
-    const nodes = [
-      new ConstantNode(g, NDArray.zeros([1])),
-      new ConstantNode(g, NDArray.zeros([1])),
-      new ConstantNode(g, NDArray.zeros([1]))
-    ];
-    session_util.addPersistentArraysToTensorArrayMap(nodes, map);
-    expect(map.get(nodes[0].output)).toBe(nodes[0].data);
-    expect(map.get(nodes[1].output)).toBe(nodes[1].data);
-    expect(map.get(nodes[2].output)).toBe(nodes[2].data);
+    math.scope(() => {
+      const nodes = [
+        new ConstantNode(g, NDArray.zeros([1])),
+        new ConstantNode(g, NDArray.zeros([1])),
+        new ConstantNode(g, NDArray.zeros([1]))
+      ];
+      session_util.addPersistentArraysToTensorArrayMap(nodes, map);
+      expect(map.get(nodes[0].output)).toBe(nodes[0].data);
+      expect(map.get(nodes[1].output)).toBe(nodes[1].data);
+      expect(map.get(nodes[2].output)).toBe(nodes[2].data);
+    });
   });
 
   it('skips non-VariableNode or ConstantNode entries in the set', () => {
@@ -144,10 +153,9 @@ describe('addPersistentArraysToTensorArrayMap', () => {
 
 describe('loadInputsFromFeedDictionaryToTensorArrayMap', () => {
   let map: TensorArrayMap;
-  let math: NDArrayMathCPU;
+  const math = ENV.math;
 
   beforeEach(() => {
-    math = new NDArrayMathCPU();
     map = new TensorArrayMap();
   });
 
@@ -175,7 +183,7 @@ describe('loadInputsFromFeedDictionaryToTensorArrayMap', () => {
             // right value.
             return ndarray;
           },
-      // No need to dispose when not using NDArrayMathGPU.
+      // No need to dispose when not using the webgl backend.
       disposeCopy() {}
     };
     const fd = new FeedDictionary([{tensor, data: provider}]);
@@ -244,11 +252,10 @@ describe('loadInputsFromFeedDictionaryToTensorArrayMap', () => {
 
 describe('releaseFeedDictionaryInputsFromTensorArrayMap', () => {
   let map: TensorArrayMap;
-  let math: NDArrayMathCPU;
+  const math = ENV.math;
 
   beforeEach(() => {
     map = new TensorArrayMap();
-    math = new NDArrayMathCPU();
   });
 
   it('doesn\'t remove anything when feed dictionary is empty', () => {

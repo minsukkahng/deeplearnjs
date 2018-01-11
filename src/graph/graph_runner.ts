@@ -15,12 +15,13 @@
  * =============================================================================
  */
 
-import {InputProvider} from './data/input_provider';
-import {Tensor} from './graph/graph';
-import {Optimizer} from './graph/optimizers/optimizer';
-import {CostReduction, FeedEntry, Session} from './graph/session';
-import {NDArrayMath} from './math/math';
-import {NDArray, Scalar} from './math/ndarray';
+import {InputProvider} from '../data/input_provider';
+import {NDArrayMath} from '../math/math';
+import {NDArray, Scalar} from '../math/ndarray';
+import {Optimizer} from '../math/optimizers/optimizer';
+
+import {Tensor} from './graph';
+import {CostReduction, FeedEntry, Session} from './session';
 
 const DEFAULT_EVAL_INTERVAL_MS = 1500;
 const DEFAULT_COST_INTERVAL_MS = 500;
@@ -71,7 +72,7 @@ export class GraphRunner {
   private isTraining: boolean;
   private totalBatchesTrained: number;
   private batchesTrainedThisRun: number;
-  private lastComputedMetric: NDArray;
+  private lastComputedMetric: Scalar;
 
   private isInferring: boolean;
   private lastInferTimeoutID: number;
@@ -82,7 +83,7 @@ export class GraphRunner {
   private lastCostTimestamp = 0;
   private lastEvalTimestamp = 0;
 
-  private zeroScalar: Scalar;
+  private zeroScalar: Scalar<'float32'>;
   private metricBatchSizeScalar: Scalar;
 
   constructor(
@@ -203,7 +204,6 @@ export class GraphRunner {
       if (this.eventObserver.batchesTrainedCallback != null) {
         this.eventObserver.batchesTrainedCallback(this.totalBatchesTrained);
       }
-
     });
     requestAnimationFrame(() => this.trainNetwork());
   }
@@ -248,7 +248,7 @@ export class GraphRunner {
       return;
     }
 
-    this.math.scope((keep, track) => {
+    this.math.scope(keep => {
       const feeds: FeedEntry[][] = [];
       const inferenceValues: NDArray[] = [];
 
@@ -261,8 +261,7 @@ export class GraphRunner {
           const nextCopy =
               (feedEntry.data as InputProvider).getNextCopy(this.math);
 
-          ndarrayFeedEntries.push(
-              {tensor: feedEntry.tensor, data: track(nextCopy)});
+          ndarrayFeedEntries.push({tensor: feedEntry.tensor, data: nextCopy});
         }
         feeds.push(ndarrayFeedEntries);
         inferenceValues.push(
@@ -273,7 +272,7 @@ export class GraphRunner {
         // Force a GPU download, since inference results are generally needed on
         // the CPU and it's more fair to include blocking on the GPU to complete
         // its work for the inference measurement.
-        inferenceValues[inferenceValues.length - 1].getValues();
+        inferenceValues[inferenceValues.length - 1].dataSync();
 
         const inferenceExamplesPerSecTime = performance.now() - start;
 
@@ -286,7 +285,6 @@ export class GraphRunner {
         this.eventObserver.inferenceExamplesCallback(feeds, inferenceValues);
       }
       this.inferencePassesThisRun++;
-
     });
     this.lastInferTimeoutID = window.setTimeout(
         () => this.inferNetwork(), this.inferenceExampleIntervalMs);
@@ -301,7 +299,7 @@ export class GraphRunner {
     return this.isInferring;
   }
 
-  computeMetric(): Scalar {
+  computeMetric(): Scalar<'float32'> {
     if (this.metricFeedEntries == null) {
       throw new Error('Cannot compute metric, no metric FeedEntries provided.');
     }
@@ -311,9 +309,10 @@ export class GraphRunner {
     return this.math.scope((keep) => {
       for (let i = 0; i < this.metricBatchSize; i++) {
         const metricValue =
-            this.session.eval(this.metricTensor, this.metricFeedEntries);
+            this.session.eval(this.metricTensor, this.metricFeedEntries) as
+            NDArray<'float32'>;
 
-        metric = this.math.add(metric, metricValue);
+        metric = this.math.add(metric, metricValue.asType('float32'));
       }
 
       if (this.metricReduction === MetricReduction.MEAN) {

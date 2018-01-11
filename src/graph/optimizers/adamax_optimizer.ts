@@ -17,11 +17,11 @@
 
 import {NDArrayMath} from '../../math/math';
 import {NDArray, Scalar} from '../../math/ndarray';
+import {Optimizer} from '../../math/optimizers/optimizer';
+import {NamedVariableMap} from '../../util';
 import {Node} from '../graph';
 import {SessionRuntime} from '../session';
 import {SummedTensorArrayMap, TensorArrayMap} from '../tensor_array_map';
-
-import {Optimizer} from './optimizer';
 
 export class AdamaxOptimizer extends Optimizer {
   constructor(
@@ -34,6 +34,10 @@ export class AdamaxOptimizer extends Optimizer {
     this.b2 = Scalar.new(this.beta2);
 
     this.accB1 = Scalar.new(this.beta1);
+  }
+
+  applyGradients(variableGradients: NamedVariableMap) {
+    throw new Error(`Adamax optimizer not yet implemented for eager mode.`);
   }
 
   beforeBatch(
@@ -62,7 +66,6 @@ export class AdamaxOptimizer extends Optimizer {
       gradientArrayMap: SummedTensorArrayMap) {
     math.scope((keep) => {
       this.variableNodes.forEach(node => {
-
         const oldVariable = activationArrayMap.get(node.output);
 
         const gradient = this.variableGradients.get(node.output);
@@ -82,9 +85,9 @@ export class AdamaxOptimizer extends Optimizer {
 
         const variable = math.scaledArrayAdd(
             this.one, oldVariable,
-            math.divide(this.c, math.subtract(this.one, this.accB1)),
-            math.divide(newFirstMoment, 
-              math.add(this.eps, newWeightedInfNorm)));
+            math.divideStrict(this.cGraph, math.subtract(this.one, this.accB1)),
+            math.divide(
+                newFirstMoment, math.add(this.eps, newWeightedInfNorm)));
 
         activationArrayMap.set(node.output, keep(variable));
         node.data = variable;

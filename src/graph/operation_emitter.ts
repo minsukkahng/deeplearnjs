@@ -16,16 +16,16 @@
  */
 
 // tslint:disable-next-line:max-line-length
-import {AddNode, ArgMaxEqualsNode, ArgMaxNode, Concat3DNode, Convolution2DNode, DivideNode, ExpNode, EluNode, FusedLinearCombinationNode, LogNode, MatMulNode, MaxPoolNode, MeanSquaredCostNode, MultiplyNode, Node, ReduceSumNode, ReLUNode, LeakyReLUNode, ReshapeNode, SigmoidNode, SoftmaxCrossEntropyCostNode, SoftmaxNode, SquareNode, SubtractNode, TanHNode} from './graph';
+import {AddNode, ArgMaxEqualsNode, ArgMaxNode, Concat1DNode, Concat2DNode, Concat3DNode, Concat4DNode, Convolution2DNode, DivideNode, ExpNode, EluNode, FusedLinearCombinationNode, LogNode, MatMulNode, MaxPoolNode, MeanSquaredCostNode, MultiplyNode, Node, ReduceSumNode, ReLUNode, PReLUNode, LeakyReLUNode, ReshapeNode, SigmoidNode, SoftmaxCrossEntropyCostNode, SoftmaxNode, SquareNode, SubtractNode, TanHNode} from './graph';
 import * as graph_util from './graph_util';
 import {Add} from './ops/add';
 import {ArgMax} from './ops/argmax';
 import {ArgMaxEquals} from './ops/argmaxequals';
-import {Concat3D} from './ops/concat3d';
+import {Concat1D, Concat2D, Concat3D, Concat4D} from './ops/concat';
 import {Convolution2D} from './ops/convolution';
 import {Divide} from './ops/divide';
 // tslint:disable-next-line:max-line-length
-import {ReLU, Sigmoid, Square, TanH, LeakyReLU, Elu} from './ops/element_wise_activation';
+import {ReLU, Sigmoid, Square, TanH, LeakyReLU, PReLU, Elu} from './ops/element_wise_activation';
 import {MeanSquaredCost} from './ops/element_wise_cost';
 import {Exp} from './ops/exp';
 import {LinearCombination} from './ops/linear_combination';
@@ -72,6 +72,9 @@ function emitOpFromNode(node: Node): Operation[] {
   } else if (node instanceof LeakyReLUNode) {
     return [new LeakyReLU(node.inputs[LeakyReLUNode.X], 
       node.output, node.alpha)];
+  } else if (node instanceof PReLUNode) {
+    return [new PReLU(node.inputs[PReLUNode.X], node.inputs[PReLUNode.ALPHA],
+      node.output)];
   } else if (node instanceof EluNode) {
     return [new Elu(node.inputs[EluNode.X], node.output)];
   } else if (node instanceof TanHNode) {
@@ -100,9 +103,21 @@ function emitOpFromNode(node: Node): Operation[] {
         node.inputs[FusedLinearCombinationNode.T2],
         node.inputs[FusedLinearCombinationNode.C1],
         node.inputs[FusedLinearCombinationNode.C2], node.output)];
+  } else if (node instanceof Concat1DNode) {
+    return [new Concat1D(
+        node.inputs[Concat1DNode.X1], node.inputs[Concat1DNode.X2],
+        node.output)];
+  } else if (node instanceof Concat2DNode) {
+    return [new Concat2D(
+        node.inputs[Concat2DNode.X1], node.inputs[Concat2DNode.X2], node.axis,
+        node.output)];
   } else if (node instanceof Concat3DNode) {
     return [new Concat3D(
         node.inputs[Concat3DNode.X1], node.inputs[Concat3DNode.X2], node.axis,
+        node.output)];
+  } else if (node instanceof Concat4DNode) {
+    return [new Concat4D(
+        node.inputs[Concat4DNode.X1], node.inputs[Concat4DNode.X2], node.axis,
         node.output)];
   } else if (node instanceof SquareNode) {
     return [new Square(node.inputs[SquareNode.X], node.output)];

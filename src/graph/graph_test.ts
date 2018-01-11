@@ -15,9 +15,10 @@
  * =============================================================================
  */
 
-import {ConstantNode, Graph, Node, Tensor, VariableNode} from './graph';
 import * as conv_util from '../math/conv_util';
 import {NDArray} from '../math/ndarray';
+
+import {ConstantNode, Graph, Node, Tensor, VariableNode} from './graph';
 import {FeedDictionary} from './session';
 import * as session_util from './session_util';
 
@@ -124,35 +125,35 @@ describe('Constant', () => {
   it('from a single value', () => {
     const c = g.constant(3);
     expect(c.shape).toEqual([]);
-    const values = (c.node as ConstantNode).data.getValues();
+    const values = (c.node as ConstantNode).data.dataSync();
     expect(values).toEqual(new Float32Array([3]));
   });
 
   it('from 1d array', () => {
     const c = g.constant([1, 2, 3]);
     expect(c.shape).toEqual([3]);
-    const values = (c.node as ConstantNode).data.getValues();
+    const values = (c.node as ConstantNode).data.dataSync();
     expect(values).toEqual(new Float32Array([1, 2, 3]));
   });
 
   it('from 2d array', () => {
     const c = g.constant([[1, 2, 3], [4, 5, 6]]);
     expect(c.shape).toEqual([2, 3]);
-    const values = (c.node as ConstantNode).data.getValues();
+    const values = (c.node as ConstantNode).data.dataSync();
     expect(values).toEqual(new Float32Array([1, 2, 3, 4, 5, 6]));
   });
 
   it('from 3d array', () => {
     const c = g.constant([[[1], [2], [3]], [[4], [5], [6]]]);
     expect(c.shape).toEqual([2, 3, 1]);
-    const values = (c.node as ConstantNode).data.getValues();
+    const values = (c.node as ConstantNode).data.dataSync();
     expect(values).toEqual(new Float32Array([1, 2, 3, 4, 5, 6]));
   });
 
   it('from 4d array', () => {
     const c = g.constant([[[[1]], [[2]], [[3]]], [[[4]], [[5]], [[6]]]]);
     expect(c.shape).toEqual([2, 3, 1, 1]);
-    const values = (c.node as ConstantNode).data.getValues();
+    const values = (c.node as ConstantNode).data.dataSync();
     expect(values).toEqual(new Float32Array([1, 2, 3, 4, 5, 6]));
   });
 });
@@ -238,8 +239,7 @@ describe('Add validation', () => {
   });
 
   it('Non-matching broadcast throws', () => {
-    expect(() => g.add(new Tensor([5, 3]), new Tensor([5])))
-        .toThrowError();
+    expect(() => g.add(new Tensor([5, 3]), new Tensor([5]))).toThrowError();
   });
 });
 
@@ -312,6 +312,67 @@ describe('Reduce sum validation', () => {
   });
 });
 
+describe('Concat1d validation', () => {
+  let g: Graph;
+
+  beforeEach(() => {
+    g = new Graph();
+  });
+
+  it('Non 1-rank tensor x1 throws', () => {
+    expect(() => g.concat1d(new Tensor([5, 4]), new Tensor([1])))
+        .toThrowError();
+  });
+
+  it('Non 1-rank tensor x2 throws', () => {
+    expect(() => g.concat1d(new Tensor([5]), new Tensor([1, 2])).shape)
+        .toThrowError();
+  });
+
+  it('Axis=0 shapes the same does not throw', () => {
+    expect(g.concat1d(new Tensor([5]), new Tensor([1])).shape)
+        .toEqual([6]);
+  });
+});
+
+describe('Concat2d validation', () => {
+  let g: Graph;
+
+  beforeEach(() => {
+    g = new Graph();
+  });
+
+  it('Non 2-rank tensor x1 throws', () => {
+    expect(() => g.concat2d(new Tensor([5]), new Tensor([1, 2]), 0))
+        .toThrowError();
+  });
+
+  it('Non 2-rank tensor x2 throws', () => {
+    expect(() => g.concat2d(new Tensor([5, 4]), new Tensor([1]), 0))
+        .toThrowError();
+  });
+
+  it('Axis=0 different shapes throw', () => {
+    expect(() => g.concat2d(new Tensor([2, 3]), new Tensor([4, 4]), 0))
+        .toThrowError();
+  });
+
+  it('Axis=0 shapes the same doe not throw', () => {
+    expect(g.concat2d(new Tensor([2, 3]), new Tensor([4, 3]), 0).shape)
+        .toEqual([6, 3]);
+  });
+
+  it('Axis=1 different shapes throw', () => {
+    expect(() => g.concat2d(new Tensor([2, 3]), new Tensor([4, 4]), 1))
+        .toThrowError();
+  });
+
+  it('Axis=1 shapes the same doe not throw', () => {
+    expect(g.concat2d(new Tensor([2, 4]), new Tensor([2, 3]), 1).shape)
+        .toEqual([2, 7]);
+  });
+});
+
 describe('Concat3d validation', () => {
   let g: Graph;
 
@@ -357,6 +418,64 @@ describe('Concat3d validation', () => {
   it('Axis=2 shapes the same does not throw', () => {
     expect(g.concat3d(new Tensor([5, 4, 3]), new Tensor([5, 4, 1]), 2).shape)
         .toEqual([5, 4, 4]);
+  });
+});
+
+describe('Concat4d validation', () => {
+  let g: Graph;
+
+  beforeEach(() => {
+    g = new Graph();
+  });
+
+  it('Non 4-rank tensor x1 throws', () => {
+    expect(() => g.concat4d(new Tensor([5, 4]), new Tensor([1, 2, 3, 4]), 0))
+        .toThrowError();
+  });
+
+  it('Non 4-rank tensor x2 throws', () => {
+    expect(() => g.concat4d(new Tensor([5, 4, 1]), new Tensor([1, 2, 3, 4]), 0))
+        .toThrowError();
+  });
+
+  it('Axis=0 different shapes throws', () => {
+    expect(() => g.concat4d(new Tensor([5, 4, 1, 1]),
+      new Tensor([1, 2, 1, 1]), 0)).toThrowError();
+  });
+
+  it('Axis=1 different shapes throws', () => {
+    expect(() => g.concat4d(new Tensor([5, 4, 1, 1]),
+      new Tensor([1, 2, 1, 1]), 1)).toThrowError();
+  });
+
+  it('Axis=2 different shapes throws', () => {
+    expect(() => g.concat4d(new Tensor([5, 4, 1, 1]),
+      new Tensor([1, 2, 1, 1]), 2)).toThrowError();
+  });
+
+  it('Axis=3 different shapes throws', () => {
+    expect(() => g.concat4d(new Tensor([5, 4, 1, 1]),
+      new Tensor([1, 2, 1, 1]), 3)).toThrowError();
+  });
+
+  it('Axis=0 shapes the same does not throw', () => {
+    expect(g.concat4d(new Tensor([5, 4, 3, 1]),
+      new Tensor([1, 4, 3, 1]), 0).shape).toEqual([6, 4, 3, 1]);
+  });
+
+  it('Axis=1 shapes the same does not throw', () => {
+    expect(g.concat4d(new Tensor([5, 3, 3, 1]),
+      new Tensor([5, 4, 3, 1]), 1).shape).toEqual([5, 7, 3, 1]);
+  });
+
+  it('Axis=2 shapes the same does not throw', () => {
+    expect(g.concat4d(new Tensor([5, 4, 3, 1]),
+      new Tensor([5, 4, 1, 1]), 2).shape).toEqual([5, 4, 4, 1]);
+  });
+
+  it('Axis=3 shapes the same does not throw', () => {
+    expect(g.concat4d(new Tensor([5, 4, 3, 1]), 
+      new Tensor([5, 4, 3, 2]), 3).shape).toEqual([5, 4, 3, 3]);
   });
 });
 
@@ -515,6 +634,25 @@ describe('leakyRelu validation', () => {
 
   it('Does not throw', () => {
     expect(g.leakyRelu(new Tensor([5, 4]), 0.2).shape).toEqual([5, 4]);
+  });
+});
+
+describe('pRelu validation', () => {
+  let g: Graph;
+
+  beforeEach(() => {
+    g = new Graph();
+  });
+
+  it('Different shapes throws', () => {
+    expect(() => g.prelu(new Tensor([5, 4]), new Tensor([1, 2, 3])))
+        .toThrowError();
+  });
+
+  it('Same size does not throw', () => {
+    expect(g.prelu(new Tensor([5, 4]), new Tensor([5, 4])).shape).toEqual([
+      5, 4
+    ]);
   });
 });
 

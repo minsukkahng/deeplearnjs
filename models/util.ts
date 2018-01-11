@@ -15,26 +15,20 @@
  * =============================================================================
  */
 
-import * as broadcast_util from '../../broadcast_util';
-import {GPGPUProgram} from './gpgpu_math';
-
-export class AddScaledMatProgram implements GPGPUProgram {
-  variableNames = ['A', 'B', 'c1', 'c2'];
-  outputShape: number[];
-  userCode: string;
-  supportsBroadcasting = true;
-
-  constructor(aShape: number[], bShape: number[]) {
-    this.outputShape =
-        broadcast_util.assertAndGetBroadcastShape(aShape, bShape);
-    this.userCode = `
-      void main() {
-        float a = getAAtOutCoords();
-        float b = getBAtOutCoords();
-        float c1 = getC1();
-        float c2 = getC2();
-        setOutput(dot(vec2(c1, c2), vec2(a, b)));
-      }
-    `;
+export function topK(values: Float32Array, k: number):
+    {values: Float32Array, indices: Int32Array} {
+  const valuesAndIndices: Array<{value: number, index: number}> = [];
+  for (let i = 0; i < values.length; i++) {
+    valuesAndIndices.push({value: values[i], index: i});
   }
+  valuesAndIndices.sort((a, b) => {
+    return b.value - a.value;
+  });
+  const topkValues = new Float32Array(k);
+  const topkIndices = new Int32Array(k);
+  for (let i = 0; i < k; i++) {
+    topkValues[i] = valuesAndIndices[i].value;
+    topkIndices[i] = valuesAndIndices[i].index;
+  }
+  return {values: topkValues, indices: topkIndices};
 }

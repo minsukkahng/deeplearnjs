@@ -15,7 +15,7 @@
  * =============================================================================
  */
 // tslint:disable-next-line:max-line-length
-import {Array1D, Array3D, Array4D, CheckpointLoader, Model, NDArray, NDArrayMathGPU, Scalar} from 'deeplearn';
+import {Array1D, Array3D, Array4D, CheckpointLoader, ENV, Model, NDArray, NDArrayMath, Scalar} from 'deeplearn';
 
 const GOOGLE_CLOUD_STORAGE_DIR =
     'https://storage.googleapis.com/learnjs-data/checkpoint_zoo/transformnet/';
@@ -24,11 +24,13 @@ export class TransformNet implements Model {
   private variables: {[varName: string]: NDArray};
   private variableDictionary:
       {[styleName: string]: {[varName: string]: NDArray}};
-  private timesScalar: NDArray;
-  private plusScalar: NDArray;
+  private timesScalar: Scalar;
+  private plusScalar: Scalar;
   private epsilonScalar: NDArray;
+  private math: NDArrayMath;
 
-  constructor(private math: NDArrayMathGPU, private style: string) {
+  constructor(private style: string) {
+    this.math = ENV.math;
     this.variableDictionary = {};
     this.timesScalar = Scalar.new(150);
     this.plusScalar = Scalar.new(255. / 2);
@@ -129,13 +131,13 @@ export class TransformNet implements Model {
   private instanceNorm(input: Array3D, varId: number): Array3D {
     const [height, width, inDepth]: [number, number, number] = input.shape;
     const moments = this.math.moments(input, [0, 1]);
-    const mu = moments.mean as Array3D;
+    const mu = moments.mean;
     const sigmaSq = moments.variance as Array3D;
     const shift = this.variables[this.varName(varId)] as Array1D;
     const scale = this.variables[this.varName(varId + 1)] as Array1D;
     const epsilon = this.epsilonScalar;
     const normalized = this.math.divide(
-        this.math.sub(input, mu),
+        this.math.sub(input.asType('float32'), mu),
         this.math.sqrt(this.math.add(sigmaSq, epsilon)));
     const shifted = this.math.add(this.math.multiply(scale, normalized), shift);
     return shifted.as3D(height, width, inDepth);

@@ -699,8 +699,8 @@ class GANLab extends GANLabPolymer {
         const eResult = this.session.evalAll(
           [this.predictionTensor1, this.predictionTensor2],
           [
-            { tensor: this.inputTensor, data: this.trueSampleProvider },
-            { tensor: this.noiseTensor, data: this.noiseProvider }
+            { tensor: this.inputTensor, data: this.trueSampleProviderFixed },
+            { tensor: this.noiseTensor, data: this.noiseProviderFixed }
           ]);
         const eResultData1: Float32Array =
           await eResult[0].data() as Float32Array;

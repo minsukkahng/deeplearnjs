@@ -306,6 +306,7 @@ class GANLab extends GANLabPolymer {
         this.math, this.noiseSize, NUM_SAMPLES_VISUALIZED, BATCH_SIZE);
     noiseProviderBuilder.generateAtlas();
     this.noiseProvider = noiseProviderBuilder.getInputProvider();
+    this.noiseProviderFixed = noiseProviderBuilder.getInputProvider(true);
 
     const drawingPositions = this.drawing.drawingPositions;
     const trueSampleProviderBuilder =
@@ -314,6 +315,8 @@ class GANLab extends GANLabPolymer {
         drawingPositions, this.sampleFromTrueDistribution, BATCH_SIZE);
     trueSampleProviderBuilder.generateAtlas();
     this.trueSampleProvider = trueSampleProviderBuilder.getInputProvider();
+    this.trueSampleProviderFixed =
+      trueSampleProviderBuilder.getInputProvider(true);
 
     if (this.noiseSize <= 2) {
       const uniformNoiseProviderBuilder =
@@ -557,7 +560,7 @@ class GANLab extends GANLabPolymer {
         const gData: Array<[number, number]> = [];
         const gResult = this.session.eval(
           this.generatedTensor,
-          [{ tensor: this.noiseTensor, data: this.noiseProvider }]);
+          [{ tensor: this.noiseTensor, data: this.noiseProviderFixed }]);
         const gResultData = await gResult.data();
         for (let j = 0; j < gResultData.length / 2; ++j) {
           gData.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
@@ -696,8 +699,8 @@ class GANLab extends GANLabPolymer {
         const eResult = this.session.evalAll(
           [this.predictionTensor1, this.predictionTensor2],
           [
-            { tensor: this.inputTensor, data: this.trueSampleProvider },
-            { tensor: this.noiseTensor, data: this.noiseProvider }
+            { tensor: this.inputTensor, data: this.trueSampleProviderFixed },
+            { tensor: this.noiseTensor, data: this.noiseProviderFixed }
           ]);
         const eResultData1: Float32Array =
           await eResult[0].data() as Float32Array;

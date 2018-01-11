@@ -691,6 +691,27 @@ class GANLab extends GANLabPolymer {
               .attr('cy', (d: number[]) => (1.0 - d[1]) * this.plotSizePx);
           }
         }
+
+        // Obtain simple evaluation scores.
+        const eResult = this.session.evalAll(
+          [this.predictionTensor1, this.predictionTensor2],
+          [
+            { tensor: this.inputTensor, data: this.trueSampleProvider },
+            { tensor: this.noiseTensor, data: this.noiseProvider }
+          ]);
+        const eResultData1: Float32Array =
+          await eResult[0].data() as Float32Array;
+        const eResultData2: Float32Array =
+          await eResult[1].data() as Float32Array;
+        const acc1 = eResultData1.filter((v: number) => v >= 0.499).length /
+          eResultData1.length;
+        const acc2 = eResultData2.filter((v: number) => v <= 0.501).length /
+          eResultData2.length;
+        const acc3 = eResultData2.filter((v: number) => v >= 0.499).length /
+          eResultData2.length;
+
+        console.log([acc1.toFixed(3), acc2.toFixed(3),
+        ((acc1 + acc2) * 0.5).toFixed(3), acc3.toFixed(3)]);
       }
     });
 

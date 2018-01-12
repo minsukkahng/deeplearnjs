@@ -182,6 +182,11 @@ class GANLab extends GANLabPolymer {
         // tslint:disable-next-line:no-any
         container.style.visibility =
           (event.target as any).active ? 'visible' : 'hidden';
+        const containerRight =
+          this.querySelector('#vis-discriminator-output-right') as SVGGElement;
+        // tslint:disable-next-line:no-any
+        containerRight.style.visibility =
+          (event.target as any).active ? 'visible' : 'hidden';
       });
     this.querySelector('#enable-manifold')!.addEventListener(
       'change', (event: Event) => {
@@ -240,12 +245,13 @@ class GANLab extends GANLabPolymer {
       document.getElementById('iteration-count') as HTMLElement;
 
     // Visualization.
-    this.plotSizePx = 500;
+    this.plotSizePx = 400;
 
     this.visTrueSamples = d3.select('#vis-true-samples');
     this.visTrueSamplesContour = d3.select('#vis-true-samples-contour');
     this.visGeneratedSamples = d3.select('#vis-generated-samples');
     this.visDiscriminator = d3.select('#vis-discriminator-output');
+    this.visDiscriminatorRight = d3.select('#vis-discriminator-output-right');
     this.visManifold = d3.select('#vis-manifold');
 
     this.colorScale = scaleLinear<string>().domain([0.0, 0.5, 1.0]).range([
@@ -285,6 +291,10 @@ class GANLab extends GANLabPolymer {
       .exit()
       .remove();
     this.visDiscriminator.selectAll('.uniform-dot').data([]).exit().remove();
+    this.visDiscriminatorRight.selectAll('.uniform-dot')
+      .data([])
+      .exit()
+      .remove();
     this.visManifold.selectAll('.uniform-generated-dot')
       .data([])
       .exit()
@@ -534,27 +544,33 @@ class GANLab extends GANLabPolymer {
 
         const gridDots =
           this.visDiscriminator.selectAll('.uniform-dot').data(dData);
+        const gridDotsRight =
+          this.visDiscriminatorRight.selectAll('.uniform-dot').data(dData);
         if (this.iterationCount === 1) {
-          gridDots.enter()
-            .append('rect')
-            .attr('class', 'uniform-dot gan-lab')
-            .attr('width', this.plotSizePx / NUM_GRID_CELLS)
-            .attr('height', this.plotSizePx / NUM_GRID_CELLS)
-            .attr(
-            'x',
-            (d: number, i: number) =>
-              (i % NUM_GRID_CELLS) * (this.plotSizePx / NUM_GRID_CELLS))
-            .attr(
-            'y',
-            (d: number, i: number) => this.plotSizePx -
-              (Math.floor(i / NUM_GRID_CELLS) + 1) *
-              (this.plotSizePx / NUM_GRID_CELLS))
-            .style('fill', (d: number) => this.colorScale(d))
-            .append('title')
-            .text((d: number) => Number(d).toFixed(3));
+          [gridDots, gridDotsRight].forEach((dots) => {
+            dots.enter()
+              .append('rect')
+              .attr('class', 'uniform-dot gan-lab')
+              .attr('width', this.plotSizePx / NUM_GRID_CELLS)
+              .attr('height', this.plotSizePx / NUM_GRID_CELLS)
+              .attr(
+              'x',
+              (d: number, i: number) =>
+                (i % NUM_GRID_CELLS) * (this.plotSizePx / NUM_GRID_CELLS))
+              .attr(
+              'y',
+              (d: number, i: number) => this.plotSizePx -
+                (Math.floor(i / NUM_GRID_CELLS) + 1) *
+                (this.plotSizePx / NUM_GRID_CELLS))
+              .style('fill', (d: number) => this.colorScale(d))
+              .append('title')
+              .text((d: number) => Number(d).toFixed(3));
+          });
         }
-        gridDots.style('fill', (d: number) => this.colorScale(d));
-        gridDots.select('title').text((d: number) => Number(d).toFixed(3));
+        [gridDots, gridDotsRight].forEach((dots) => {
+          dots.style('fill', (d: number) => this.colorScale(d));
+          dots.select('title').text((d: number) => Number(d).toFixed(3));
+        });
 
         // Visualize generated samples.
         const gData: Array<[number, number]> = [];

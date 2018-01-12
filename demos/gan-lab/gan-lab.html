@@ -265,7 +265,7 @@
         <div class="separator">Visualization:</div>
 
         <div id="t-samples-toggle" class="two-way-toggle config-item">
-          <paper-toggle-button id="show-t-samples">True Samples</paper-toggle-button>
+          <paper-toggle-button id="show-t-samples" checked>True Samples</paper-toggle-button>
         </div>
 
         <div id="t-contour-toggle" class="two-way-toggle config-item">
@@ -273,7 +273,7 @@
         </div>
 
         <div id="g-samples-toggle" class="two-way-toggle config-item">
-          <paper-toggle-button id="show-g-samples">Generated Samples</paper-toggle-button>
+          <paper-toggle-button id="show-g-samples" checked>Generated Samples</paper-toggle-button>
         </div>
 
         <div id="manifold-toggle" class="two-way-toggle config-item">
@@ -288,20 +288,29 @@
       <div id="drawing-disable-background"></div>
 
       <div id="visualization-container" class="ink-panel">
-        <svg id="vis-svg" width="520" height="630">
-          <g id="vis-area" transform="translate(10,10)">
+        <svg id="vis-svg" width="870" height="530">
+          <g id="vis-area-left" transform="translate(10,10)">
             <g id="vis-discriminator-output" class="vis-panel">
-              <rect class="plot-bg" width="500" height="500" x="0" y="0"></rect>
+              <rect class="plot-bg" width="400" height="400" x="0" y="0"></rect>
             </g>
             <g id="vis-samples" class="vis-panel">
+              <g id="vis-true-samples"></g>
+              <g id="vis-generated-samples"></g>
+              <rect class="plot-border" width="400" height="400" x="0" y="0"></rect>
+            </g>
+          </g>
+          <g id="vis-area-right" transform="translate(460,10)">
+            <g id="vis-discriminator-output-right" class="vis-panel">
+              <rect class="plot-bg" width="400" height="400" x="0" y="0"></rect>
+            </g>
+            <g id="vis-samples-right" class="vis-panel">
               <g id="vis-true-samples-contour" class="contour"></g>
-              <g id="vis-true-samples" style="visibility: hidden;"></g>
-              <g id="vis-generated-samples" style="visibility: hidden;"></g>
-              <rect class="plot-border" width="500" height="500" x="0" y="0"></rect>
+              <g id="vis-generated-samples"></g>
+              <rect class="plot-border" width="400" height="400" x="0" y="0"></rect>
             </g>
             <g id="vis-manifold"></g>
           </g>
-          <g id="vis-descriptions" transform="translate(10,520)">
+          <g id="vis-descriptions" transform="translate(10,420)">
             <circle class="true-dot" r="2" transform="translate(5,5)"></circle>
             <text transform="translate(15,9)">Samples from true distribution</text>
             <circle class="generated-dot" r="2" transform="translate(5,25)"></circle>
@@ -319,7 +328,7 @@
         </svg>
 
         <div id="drawing-container">
-          <canvas id="input-drawing-canvas" width="500" height="500"></canvas>
+          <canvas id="input-drawing-canvas" width="400" height="400"></canvas>
           <div id="drawing-instruction">Draw a distribution above, then click the apply button.</div>
           <button id="finish-drawing" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">Apply</button>
         </div>

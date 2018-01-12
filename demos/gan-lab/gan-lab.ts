@@ -7,8 +7,8 @@ import { line } from 'd3-shape';
 
 import { PolymerElement, PolymerHTMLElement } from '../polymer-spec';
 import {
-  Array1D, CostReduction, Graph, InputProvider, NDArray, NDArrayMath,
-  NDArrayMathGPU, Scalar, Session, SGDOptimizer, Tensor
+  Array1D, CostReduction, ENV, Graph, InputProvider, NDArray, NDArrayMath,
+  Scalar, Session, SGDOptimizer, Tensor
 } from 'deeplearn';
 import { TypedArray } from '../../src/util';
 
@@ -37,7 +37,6 @@ const GANLabPolymer: new () => PolymerHTMLElement = PolymerElement({
 
 class GANLab extends GANLabPolymer {
   private math: NDArrayMath;
-  private mathGPU: NDArrayMathGPU;
 
   private graph: Graph;
   private session: Session;
@@ -270,8 +269,7 @@ class GANLab extends GANLabPolymer {
       'click', () => this.onClickFinishDrawingButton());
 
     // Math.
-    this.mathGPU = new NDArrayMathGPU();
-    this.math = this.mathGPU;
+    this.math = ENV.math;
 
     this.createExperiment();
   }

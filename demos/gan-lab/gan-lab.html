@@ -159,6 +159,10 @@
       stroke: rgba(160, 160, 160, 0.25);
     }
 
+    .gradient-generated {
+      fill: none;
+    }
+
     .contour {
       fill: none;
       opacity: 0.5;
@@ -306,6 +310,13 @@
             <g id="vis-samples-right" class="vis-panel">
               <g id="vis-true-samples-contour" class="contour"></g>
               <g id="vis-generated-samples"></g>
+              <defs>
+                <linearGradient id="arrow-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:rgba(235, 0, 145, 0.8);" />
+                  <stop offset="100%" style="stop-color:rgba(231, 85, 178, 0.2);" />
+                </linearGradient>
+              </defs>
+              <g id="vis-gradients-for-generated"></g>
               <rect class="plot-border" width="400" height="400" x="0" y="0"></rect>
             </g>
             <g id="vis-manifold"></g>

@@ -528,6 +528,40 @@ class GANLab extends GANLabPolymer {
         this.gCostChartData.push({ x: this.iterationCount, y: gCostVal });
         this.costChart.update();
 
+        // Visualize gradients for generator
+        const gradData: Array<[number, number, number, number]> = [];
+        const gActivation = await this.session.activationArrayMap.get(
+          this.generatedTensor).data();
+        const gGradient = await this.session.gradientArrayMap.get(
+          this.generatedTensor).data();
+        for (let i = 0; i < gActivation.length / 2; ++i) {
+          gradData.push([
+            gActivation[i * 2], gActivation[i * 2 + 1],
+            gGradient[i * 2], gGradient[i * 2 + 1]
+          ]);
+        }
+        const gradDots = d3.select('#vis-gradients-for-generated')
+          .selectAll('.gradient-generated').data(gradData);
+        const arrowSize = 5.0;
+        if (this.iterationCount === 1) {
+          gradDots.enter()
+            .append('line')
+            .attr('class', 'gradient-generated gan-lab')
+            .attr('x1', (d: number[]) => d[0] * this.plotSizePx)
+            .attr('y1', (d: number[]) => (1.0 - d[1]) * this.plotSizePx)
+            .attr('x2', (d: number[]) =>
+              (d[0] - d[2] * arrowSize) * this.plotSizePx)
+            .attr('y2', (d: number[]) =>
+              (1.0 - (d[1] - d[3] * arrowSize)) * this.plotSizePx)
+            .style('stroke', 'url(#arrow-gradient)');
+        }
+        gradDots.attr('x1', (d: number[]) => d[0] * this.plotSizePx)
+          .attr('y1', (d: number[]) => (1.0 - d[1]) * this.plotSizePx)
+          .attr('x2', (d: number[]) =>
+            (d[0] - d[2] * arrowSize) * this.plotSizePx)
+          .attr('y2', (d: number[]) =>
+            (1.0 - (d[1] - d[3] * arrowSize)) * this.plotSizePx);
+
         // Visualize discriminator's output.
         const dData = [];
         for (let i = 0; i < NUM_GRID_CELLS * NUM_GRID_CELLS / BATCH_SIZE; ++i) {

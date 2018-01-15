@@ -160,7 +160,7 @@ class GANLab extends GANLabPolymer {
         this.createExperiment();
       });
 
-    this.shapeNames = ['Line', 'Two Gaussian Hills', 'Drawing'];
+    this.shapeNames = ['Line', 'Two Gaussian Hills', 'Five Dots', 'Drawing'];
     this.selectedShapeName = 'Two Gaussian Hills';
     this.querySelector('#shape-dropdown')!.addEventListener(
       // tslint:disable-next-line:no-any event has no type
@@ -252,6 +252,7 @@ class GANLab extends GANLabPolymer {
     this.visDiscriminator = d3.select('#vis-discriminator-output');
     this.visDiscriminatorRight = d3.select('#vis-discriminator-output-right');
     this.visManifold = d3.select('#vis-manifold');
+    this.visGradientsForGenerated = d3.select('#vis-gradients-for-generated');
 
     this.colorScale = scaleLinear<string>().domain([0.0, 0.5, 1.0]).range([
       '#af8dc3', '#f5f5f5', '#7fbf7b'
@@ -299,6 +300,10 @@ class GANLab extends GANLabPolymer {
       .remove();
     this.visManifold.selectAll('.manifold-cells').data([]).exit().remove();
     this.visManifold.selectAll('.grids').data([]).exit().remove();
+    this.visGradientsForGenerated.selectAll('.gradient-generated')
+      .data([])
+      .exit()
+      .remove();
 
     // Create a new graph.
     this.buildNetwork();
@@ -381,6 +386,35 @@ class GANLab extends GANLabPolymer {
             0.7 + 0.05 * gan_lab_input_providers.randNormal(),
             0.4 + 0.2 * gan_lab_input_providers.randNormal()
           ];
+      }
+      case 'Five Dots': {
+        const stdev = 0.03;
+        if (rand < 0.2) {
+          return [
+            0.35 + stdev * gan_lab_input_providers.randNormal(),
+            0.75 + stdev * gan_lab_input_providers.randNormal()
+          ];
+        } else if (rand < 0.4) {
+          return [
+            0.7 + stdev * gan_lab_input_providers.randNormal(),
+            0.7 + stdev * gan_lab_input_providers.randNormal()
+          ];
+        } else if (rand < 0.6) {
+          return [
+            0.8 + stdev * gan_lab_input_providers.randNormal(),
+            0.35 + stdev * gan_lab_input_providers.randNormal()
+          ];
+        } else if (rand < 0.8) {
+          return [
+            0.5 + stdev * gan_lab_input_providers.randNormal(),
+            0.2 + stdev * gan_lab_input_providers.randNormal()
+          ];
+        } else {
+          return [
+            0.25 + stdev * gan_lab_input_providers.randNormal(),
+            0.4 + stdev * gan_lab_input_providers.randNormal()
+          ];
+        }
       }
       default: {
         throw new Error('Invalid true distribution');
@@ -540,7 +574,7 @@ class GANLab extends GANLabPolymer {
             gGradient[i * 2], gGradient[i * 2 + 1]
           ]);
         }
-        const gradDots = d3.select('#vis-gradients-for-generated')
+        const gradDots = this.visGradientsForGenerated
           .selectAll('.gradient-generated').data(gradData);
         const arrowSize = 5.0;
         if (this.iterationCount === 1) {
@@ -614,13 +648,13 @@ class GANLab extends GANLabPolymer {
           gData.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
         }
 
-        const score1 = this.evaluator.testGeneratedOnTrue(gData);
         this.evaluator.updateGridsForGenerated(gData);
-        const score2 = this.evaluator.testTrueOnGenerated();
-        const score3 = this.evaluator.getScore();
-        this.evalChartData1.push({ x: this.iterationCount, y: score1 });
-        this.evalChartData2.push({ x: this.iterationCount, y: score2 });
-        this.evalChartData3.push({ x: this.iterationCount, y: score3 });
+        this.updateChartData(this.evalChartData, this.iterationCount, [
+          this.evaluator.testGeneratedOnTrue(gData),
+          this.evaluator.testTrueOnGenerated(),
+          this.evaluator.getKLDivergenceScore(),
+          this.evaluator.getJSDivergenceScore()
+        ]);
         this.evalChart.update();
 
         const gDots =
@@ -751,18 +785,29 @@ class GANLab extends GANLabPolymer {
             { tensor: this.noiseTensor, data: this.noiseProviderFixed }
           ]);
         const eResultData1: Float32Array =
-          await eResult[0].data() as Float32Array;
+          eResult[0].getValues() as Float32Array;
         const eResultData2: Float32Array =
-          await eResult[1].data() as Float32Array;
+          eResult[1].getValues() as Float32Array;
         const acc1 = eResultData1.filter((v: number) => v >= 0.499).length /
           eResultData1.length;
         const acc2 = eResultData2.filter((v: number) => v <= 0.501).length /
           eResultData2.length;
         const acc3 = eResultData2.filter((v: number) => v >= 0.499).length /
           eResultData2.length;
+        const acc11 = eResultData1.map((v: number) =>
+          1.0 - Math.min(1.0, v)).reduce(
+          (a, b) => a + b, 0) / eResultData1.length;
+        const acc12 = eResultData2.map((v: number) =>
+          Math.min(1.0, v)).reduce(
+          (a, b) => a + b, 0) / eResultData1.length;
+        const acc13 = eResultData2.map((v: number) =>
+          1.0 - Math.min(1.0, v)).reduce(
+          (a, b) => a + b, 0) / eResultData1.length;
 
         console.log([acc1.toFixed(3), acc2.toFixed(3),
-        ((acc1 + acc2) * 0.5).toFixed(3), acc3.toFixed(3)]);
+        ((acc1 + acc2) * 0.5).toFixed(3), acc3.toFixed(3),
+        acc11.toFixed(3), acc12.toFixed(3),
+        ((acc11 + acc12) * 0.5).toFixed(3), acc13.toFixed(3)]);
       }
     });
 
@@ -920,15 +965,21 @@ class GANLab extends GANLabPolymer {
       document.getElementById('eval-chart-container') as HTMLElement;
     evalChartContainer.style.visibility = 'hidden';
 
-    this.evalChartData1 = [];
-    this.evalChartData2 = [];
-    this.evalChartData3 = [];
+    this.evalChartData = new Array<ChartData>(4);
+    for (let i = 0; i < this.evalChartData.length; ++i) {
+      this.evalChartData[i] = [];
+    }
     if (this.evalChart != null) {
       this.evalChart.destroy();
     }
     this.evalChart = this.createEvalChart(
-      'eval-chart', 'Cost',
-      this.evalChartData1, this.evalChartData2, this.evalChartData3, 0);
+      'eval-chart', 'Cost', this.evalChartData, 0, 1);
+  }
+
+  private updateChartData(data: ChartData[][], xVal: number, yList: number[]) {
+    for (let i = 0; i < yList.length; ++i) {
+      data[i].push({ x: xVal, y: yList[i] });
+    }
   }
 
   private createChart(
@@ -980,7 +1031,7 @@ class GANLab extends GANLabPolymer {
 
   private createEvalChart(
     canvasId: string, label: string,
-    data1: ChartData[], data2: ChartData[], data3: ChartData[],
+    chartData: ChartData[][],
     min?: number, max?: number): Chart {
     const context = (document.getElementById(canvasId) as HTMLCanvasElement)
       .getContext('2d') as CanvasRenderingContext2D;
@@ -989,7 +1040,7 @@ class GANLab extends GANLabPolymer {
       data: {
         datasets: [
           {
-            data: data1,
+            data: chartData[0],
             fill: false,
             label: 'True Likelihood for G Samples',
             pointRadius: 0,
@@ -999,7 +1050,7 @@ class GANLab extends GANLabPolymer {
             pointHitRadius: 8
           },
           {
-            data: data2,
+            data: chartData[1],
             fill: false,
             label: 'G Likelihood for True Samples',
             pointRadius: 0,
@@ -1009,7 +1060,17 @@ class GANLab extends GANLabPolymer {
             pointHitRadius: 8
           },
           {
-            data: data3,
+            data: chartData[2],
+            fill: false,
+            label: 'KL Divergence (grid)',
+            pointRadius: 0,
+            borderColor: 'rgba(120, 220, 64, 0.5)',
+            borderWidth: 2,
+            lineTension: 0,
+            pointHitRadius: 8
+          },
+          {
+            data: chartData[3],
             fill: false,
             label: 'JS Divergence (grid)',
             pointRadius: 0,

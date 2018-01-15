@@ -1,19 +1,10 @@
-export abstract class GANLabEvaluator {
-  constructor() { }
-
-  abstract getScore(): number;
-}
-
-export class GANLabEvaluatorGridDensities extends
-  GANLabEvaluator {
+export class GANLabEvaluatorGridDensities {
 
   private gridTrueSampleCount: number[];
   private gridTrueDensities: number[];
   private gridGeneratedDensities: number[];
 
   constructor(private numGrid: number) {
-    super();
-
     this.gridTrueSampleCount = new Array(numGrid * numGrid).fill(0);
     this.gridTrueDensities = new Array(numGrid * numGrid).fill(0.0);
     this.gridGeneratedDensities = new Array(numGrid * numGrid);
@@ -61,16 +52,28 @@ export class GANLabEvaluatorGridDensities extends
     return score;
   }
 
-  getScore(): number {
+  getKLDivergenceScore(): number {
+    let score = 0.0;
+    for (let j = 0; j < this.gridTrueDensities.length; ++j) {
+      score += (this.gridTrueDensities[j] + 0.0001) * Math.log2(
+        (this.gridTrueDensities[j] + 0.0001) /
+        (this.gridGeneratedDensities[j] + 0.0001));
+    }
+    return score;
+  }
+
+  getJSDivergenceScore(): number {
     let leftJS = 0.0;
     let rightJS = 0.0;
     for (let j = 0; j < this.gridTrueDensities.length; ++j) {
-      leftJS += this.gridTrueDensities[j] * Math.log(
+      const averageDensity = 0.5 *
+        (this.gridTrueDensities[j] + this.gridGeneratedDensities[j]);
+      leftJS += (this.gridTrueDensities[j] + 0.0001) * Math.log2(
         (this.gridTrueDensities[j] + 0.0001) /
-        (this.gridGeneratedDensities[j] + 0.0001));
-      rightJS += this.gridGeneratedDensities[j] * Math.log(
+        (averageDensity + 0.0001));
+      rightJS += (this.gridGeneratedDensities[j] + 0.0001) * Math.log2(
         (this.gridGeneratedDensities[j] + 0.0001) /
-        (this.gridTrueDensities[j] + 0.0001));
+        (averageDensity + 0.0001));
     }
     return 0.5 * (leftJS + rightJS);
   }

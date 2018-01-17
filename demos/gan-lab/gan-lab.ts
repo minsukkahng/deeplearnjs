@@ -86,52 +86,93 @@ class GANLab extends GANLabPolymer {
       this.createExperiment();
     });
 
-    const gLayersSlider =
-      this.querySelector('#g-layers-slider') as HTMLInputElement;
     const numGeneratorLayersElement =
-      this.querySelector('#num-g-layers') as HTMLElement;
-    this.numGeneratorLayers = +gLayersSlider.value;
-    gLayersSlider.addEventListener('value-change', (event) => {
-      this.numGeneratorLayers = +gLayersSlider.value;
-      numGeneratorLayersElement.innerText = this.numGeneratorLayers.toString();
-      this.createExperiment();
-    });
+      document.getElementById('num-g-layers') as HTMLElement;
+    this.numGeneratorLayers = +numGeneratorLayersElement.innerText;
+    document.getElementById('g-layers-add-button')!.addEventListener(
+      'click', () => {
+        if (this.numGeneratorLayers < 5) {
+          this.numGeneratorLayers += 1;
+          numGeneratorLayersElement.innerText =
+            this.numGeneratorLayers.toString();
+          this.createExperiment();
+        }
+      });
+    document.getElementById('g-layers-remove-button')!.addEventListener(
+      'click', () => {
+        if (this.numGeneratorLayers > 0) {
+          this.numGeneratorLayers -= 1;
+          numGeneratorLayersElement.innerText =
+            this.numGeneratorLayers.toString();
+          this.createExperiment();
+        }
+      });
 
-    const dLayersSlider =
-      this.querySelector('#d-layers-slider') as HTMLInputElement;
     const numDiscriminatorLayersElement =
-      this.querySelector('#num-d-layers') as HTMLElement;
-    this.numDiscriminatorLayers = +dLayersSlider.value;
-    dLayersSlider.addEventListener('value-change', (event) => {
-      this.numDiscriminatorLayers = +dLayersSlider.value;
-      numDiscriminatorLayersElement.innerText =
-        this.numDiscriminatorLayers.toString();
-      this.createExperiment();
-    });
+      document.getElementById('num-d-layers') as HTMLElement;
+    this.numDiscriminatorLayers = +numDiscriminatorLayersElement.innerText;
+    document.getElementById('d-layers-add-button')!.addEventListener(
+      'click', () => {
+        if (this.numDiscriminatorLayers < 5) {
+          this.numDiscriminatorLayers += 1;
+          numDiscriminatorLayersElement.innerText =
+            this.numDiscriminatorLayers.toString();
+          this.createExperiment();
+        }
+      });
+    document.getElementById('d-layers-remove-button')!.addEventListener(
+      'click', () => {
+        if (this.numDiscriminatorLayers > 0) {
+          this.numDiscriminatorLayers -= 1;
+          numDiscriminatorLayersElement.innerText =
+            this.numDiscriminatorLayers.toString();
+          this.createExperiment();
+        }
+      });
 
-    const gNeuronsSlider =
-      this.querySelector('#g-neurons-slider') as HTMLInputElement;
     const numGeneratorNeuronsElement =
-      this.querySelector('#num-g-neurons') as HTMLElement;
-    this.numGeneratorNeurons = +gNeuronsSlider.value;
-    gNeuronsSlider.addEventListener('value-change', (event) => {
-      this.numGeneratorNeurons = +gNeuronsSlider.value;
-      numGeneratorNeuronsElement.innerText =
-        this.numGeneratorNeurons.toString();
-      this.createExperiment();
-    });
+      document.getElementById('num-g-neurons') as HTMLElement;
+    this.numGeneratorNeurons = +numGeneratorNeuronsElement.innerText;
+    document.getElementById('g-neurons-add-button').addEventListener(
+      'click', () => {
+        if (this.numGeneratorNeurons < 16) {
+          this.numGeneratorNeurons += 1;
+          numGeneratorNeuronsElement.innerText =
+            this.numGeneratorNeurons.toString();
+          this.createExperiment();
+        }
+      });
+    document.getElementById('g-neurons-remove-button').addEventListener(
+      'click', () => {
+        if (this.numGeneratorNeurons > 0) {
+          this.numGeneratorNeurons -= 1;
+          numGeneratorNeuronsElement.innerText =
+            this.numGeneratorNeurons.toString();
+          this.createExperiment();
+        }
+      });
 
-    const dNeuronsSlider =
-      this.querySelector('#d-neurons-slider') as HTMLInputElement;
     const numDiscriminatorNeuronsElement =
-      this.querySelector('#num-d-neurons') as HTMLElement;
-    this.numDiscriminatorNeurons = +dNeuronsSlider.value;
-    dNeuronsSlider.addEventListener('value-change', (event) => {
-      this.numDiscriminatorNeurons = +dNeuronsSlider.value;
-      numDiscriminatorNeuronsElement.innerText =
-        this.numDiscriminatorNeurons.toString();
-      this.createExperiment();
-    });
+      document.getElementById('num-d-neurons') as HTMLElement;
+    this.numDiscriminatorNeurons = +numDiscriminatorNeuronsElement.innerText;
+    document.getElementById('d-neurons-add-button').addEventListener(
+      'click', () => {
+        if (this.numDiscriminatorNeurons < 16) {
+          this.numDiscriminatorNeurons += 1;
+          numDiscriminatorNeuronsElement.innerText =
+            this.numDiscriminatorNeurons.toString();
+          this.createExperiment();
+        }
+      });
+    document.getElementById('d-neurons-remove-button').addEventListener(
+      'click', () => {
+        if (this.numDiscriminatorNeurons > 0) {
+          this.numDiscriminatorNeurons -= 1;
+          numDiscriminatorNeuronsElement.innerText =
+            this.numDiscriminatorNeurons.toString();
+          this.createExperiment();
+        }
+      });
 
     const kDStepsSlider =
       this.querySelector('#k-d-steps-slider') as HTMLInputElement;

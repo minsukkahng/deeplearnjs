@@ -80,21 +80,35 @@
     .model-component-options {
       height: 90px;
       position: absolute;
-      width: 110px;
+      width: 140px;
     }
 
     .config-item {
       margin: 0;
     }
 
-    paper-slider {
-      width: 80px;
-    }
-
     .config-item label {
       color: #737373;
       margin: 0;
-      font-size: 10px;
+      font-size: 11px;
+    }
+
+    #model-visualization-container .mdl-button--icon {
+      min-width: 16px;
+      width: 16px;
+    }
+
+    #model-visualization-container .material-icons {
+      font-size: 16px;
+    }
+
+    #model-visualization-container .paper-input-container input.paper-input,
+    #model-visualization-container paper-item {
+      font-size: 12px;
+    }
+
+    paper-slider {
+      width: 80px;
     }
 
     .panel-title {
@@ -246,14 +260,28 @@
           </div>
 
           <div id="component-options-discriminator" class="model-component-options"
-            style="top: 170px; left: 105px">
+            style="top: 200px; left: 75px">
             <div class="config-item">
-              <label># Hidden Layers: <span id="num-d-layers">1</span></label>
-              <paper-slider pin min="0" max="3" value="1" id="d-layers-slider"></paper-slider>
+              <button class="mdl-button mdl-js-button mdl-button--icon"
+                id="d-layers-add-button" title="Add a layer">
+                <i class="material-icons">add</i>
+              </button>
+              <button class="mdl-button mdl-js-button mdl-button--icon"
+                id="d-layers-remove-button" title="Remove a layer">
+                <i class="material-icons">remove</i>
+              </button>
+              <label><span id="num-d-layers">1</span> hidden layer(s)</label>
             </div>
             <div class="config-item">
-              <label># Neurons in Layer: <span id="num-d-neurons">8</span></label>
-              <paper-slider pin min="1" max="32" value="8" id="d-neurons-slider"></paper-slider>
+              <button class="mdl-button mdl-js-button mdl-button--icon"
+                id="d-neurons-add-button" title="Add a neuron for each layer">
+                <i class="material-icons">add</i>
+              </button>
+              <button class="mdl-button mdl-js-button mdl-button--icon"
+                id="d-neurons-remove-button" title="Remove a neuron for each layer">
+                <i class="material-icons">remove</i>
+              </button>
+              <label><span id="num-d-neurons">8</span> neuron(s)</label>
             </div>
           </div>
 
@@ -322,14 +350,28 @@
           </div>
 
           <div id="component-options-generator" class="model-component-options"
-            style="top: 470px; left: 180px">
+            style="top: 500px; left: 150px">
             <div class="config-item">
-              <label># Hidden Layers: <span id="num-g-layers">1</span></label>
-              <paper-slider pin min="0" max="3" value="1" id="g-layers-slider"></paper-slider>
+              <button class="mdl-button mdl-js-button mdl-button--icon"
+                id="g-layers-add-button" title="Add a layer">
+                <i class="material-icons">add</i>
+              </button>
+              <button class="mdl-button mdl-js-button mdl-button--icon"
+                id="g-layers-remove-button" title="Remove a layer">
+                <i class="material-icons">remove</i>
+              </button>
+              <label><span id="num-g-layers">1</span> hidden layer(s)</label>
             </div>
             <div class="config-item">
-              <label># Neurons in Layer: <span id="num-g-neurons">8</span></label>
-              <paper-slider pin min="1" max="32" value="8" id="g-neurons-slider"></paper-slider>
+              <button class="mdl-button mdl-js-button mdl-button--icon"
+                id="g-neurons-add-button" title="Add a neuron for each layer">
+                <i class="material-icons">add</i>
+              </button>
+              <button class="mdl-button mdl-js-button mdl-button--icon"
+                id="g-neurons-remove-button" title="Remove a neuron for each layer">
+                <i class="material-icons">remove</i>
+              </button>
+              <label><span id="num-g-neurons">8</span> neuron(s)</label>
             </div>
           </div>
 

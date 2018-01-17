@@ -46,6 +46,11 @@ export class GANLabNoiseProviderBuilder extends
       }
     };
   }
+
+  getNoiseSample(): Float32Array {
+    return this.math.slice2D(this.atlas,
+      [0, 0], [this.batchSize, this.noiseSize]).dataSync() as Float32Array;
+  }
 }
 
 export class GANLabTrueSampleProviderBuilder extends

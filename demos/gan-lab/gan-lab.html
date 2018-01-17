@@ -30,12 +30,17 @@
       padding: 20px;
     }
 
-    #model-menu {
-      width: 185px;
-    }
-
     #training-menu {
       width: 165px;
+    }
+
+    #model-visualization-container {
+      background: #fafafa;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-width: 0 1px 0 0;
+      flex-grow: 2;
+      padding: 20px;
+      position: relative;
     }
 
     #visualization-container {
@@ -49,16 +54,50 @@
       width: 240px;
     }
 
+    #model-vis-div {
+      height: 800px;
+      width: 500px;
+    }
+
+    .model-component {
+      height: 90px;
+      position: absolute;
+      text-align: center;
+      width: 80px;
+    }
+
+    .model-component svg {
+      border: 1px solid #ddd;
+      height: 80px;
+      width: 80px;
+    }
+
+    .model-component .component-label {
+      font-size: 12px;
+      line-height: 16px;
+    }
+
+    .model-component-options {
+      height: 90px;
+      position: absolute;
+      width: 110px;
+    }
+
     .config-item {
-      margin-bottom: 20px;
+      margin: 0;
+    }
+
+    paper-slider {
+      width: 80px;
     }
 
     .config-item label {
       color: #737373;
-      font-size: 12px;
+      margin: 0;
+      font-size: 10px;
     }
 
-    .separator {
+    .panel-title {
       color: #999;
       font-size: 12px;
       margin-top: 10px;
@@ -91,14 +130,8 @@
     }
 
     .two-way-toggle {
-      display: flex;
-      flex-direction: row;
       font-size: 12px;
-    }
-
-    .two-way-toggle span {
-      padding-top: 3px;
-      padding-right: 7px;
+      position: absolute;
     }
 
     #iteration {
@@ -147,7 +180,7 @@
       fill: rgba(0, 136, 55, 0.75);
     }
 
-    .generated-dot {
+    .generated-dot, .noise-dot {
       fill: rgba(123, 50, 148, 0.75);
     }
 
@@ -173,70 +206,149 @@
   </style>
   <template>
     <div id="gan-lab-container">
-      <div id="model-menu" class="ink-panel side-panel">
-        <div class="config-item">
-          <paper-dropdown-menu no-animations label="True Distribution">
-            <paper-listbox attr-for-selected="value" id="shape-dropdown" class="dropdown-content" selected="{{selectedShapeName}}">
-              <template is="dom-repeat" items="[[shapeNames]]">
-                <paper-item value="[[item]]" label="[[item]]">
-                  [[item]]
-                </paper-item>
-              </template>
-            </paper-listbox>
-          </paper-dropdown-menu>
-        </div>
+      <div id="model-visualization-container" class="ink-panel">
+        <div id="model-vis-div">
+          <div class="panel-title">model</div>
 
-        <div class="separator">Hyperparameters:</div>
+          <div id="component-prediction" class="model-component"
+            style="top: 20px; left: 215px">
+            <svg id="component-svg-prediction"></svg>
+            <div class="component-label">prediction</div>
+          </div>
 
-        <div class="config-item">
-          <paper-dropdown-menu no-animations label="Learning Rate">
-            <paper-listbox attr-for-selected="value" id="learning-rate-dropdown" class="dropdown-content" selected="{{learningRate}}">
-              <template is="dom-repeat" items="[[learningRateOptions]]">
-                <paper-item value="[[item]]" label="[[item]]">
-                  [[item]]
-                </paper-item>
-              </template>
-            </paper-listbox>
-          </paper-dropdown-menu>
-        </div>
+          <div id="component-d-loss" class="model-component"
+            style="top: 20px; left: 380px">
+            <div id="d-loss-value" class="component-value">-</div>
+            <div class="component-label">D loss</div>
+            <div class="config-item">
+              <label># Updates per Iter: <span id="k-d-steps">2</span></label>
+              <paper-slider pin min="0" max="10" value="2" id="k-d-steps-slider"></paper-slider>
+            </div>
+          </div>
 
-        <div class="config-item">
-          <label># Discriminator Updates per Iter: <span id="k-d-steps">2</span></label>
-          <paper-slider pin min="0" max="10" value="2" id="k-d-steps-slider"></paper-slider>
-        </div>
+          <div id="component-g-loss" class="model-component"
+            style="top: 20px; left: 490px">
+            <div id="g-loss-value" class="component-value">-</div>
+            <div class="component-label">G loss</div>
+            <div class="config-item">
+              <label># Updates per Iter: <span id="k-g-steps">1</span></label>
+              <paper-slider pin min="0" max="10" value="1" id="k-g-steps-slider"></paper-slider>
+            </div>
+          </div>
 
-        <div class="config-item">
-          <label># Generator Updates per Iter: <span id="k-g-steps">1</span></label>
-          <paper-slider pin min="0" max="10" value="1" id="k-g-steps-slider"></paper-slider>
-        </div>
+          <div id="component-discriminator" class="model-component"
+            style="top: 170px; left: 215px">
+            <div id="overlap-toggle" class="two-way-toggle">
+              <paper-toggle-button id="overlap-plots" checked></paper-toggle-button>
+            </div>
+            <svg id="component-svg-discriminator-output"></svg>
+            <div class="component-label">discriminator</div>
+          </div>
 
-        <div class="separator">Generator:</div>
+          <div id="component-options-discriminator" class="model-component-options"
+            style="top: 170px; left: 105px">
+            <div class="config-item">
+              <label># Hidden Layers: <span id="num-d-layers">1</span></label>
+              <paper-slider pin min="0" max="3" value="1" id="d-layers-slider"></paper-slider>
+            </div>
+            <div class="config-item">
+              <label># Neurons in Layer: <span id="num-d-neurons">8</span></label>
+              <paper-slider pin min="1" max="32" value="8" id="d-neurons-slider"></paper-slider>
+            </div>
+          </div>
 
-        <div class="config-item">
-          <label>Noise Dimension: <span id="noise-size">2</span></label>
-          <paper-slider pin min="1" max="4" value="2" id="noise-slider"></paper-slider>
-        </div>
+          <div id="component-discriminator-gradients" class="model-component"
+            style="top: 170px; left: 345px">
+            <svg id="component-svg-discriminator-gradients"></svg>
+            <div class="component-label">gradients</div>
+            <div class="config-item">
+              <paper-dropdown-menu no-animations label="Learning Rate">
+                <paper-listbox attr-for-selected="value" id="learning-rate-dropdown" class="dropdown-content" selected="{{learningRate}}">
+                  <template is="dom-repeat" items="[[learningRateOptions]]">
+                    <paper-item value="[[item]]" label="[[item]]">
+                      [[item]]
+                    </paper-item>
+                  </template>
+                </paper-listbox>
+              </paper-dropdown-menu>
+            </div>
+          </div>
 
-        <div class="config-item">
-          <label># Hidden Layers: <span id="num-g-layers">1</span></label>
-          <paper-slider pin min="0" max="3" value="1" id="g-layers-slider"></paper-slider>
-        </div>
+          <div id="component-true-distribution" class="model-component"
+            style="top: 320px; left: 10px">
+            <div id="t-contour-toggle" class="two-way-toggle">
+              <paper-toggle-button id="show-t-contour" checked></paper-toggle-button>
+            </div>
+            <svg id="component-svg-true-distribution"></svg>
+            <div class="component-label">true distribution</div>
+            <div>
+              <paper-dropdown-menu no-animations>
+                <paper-listbox attr-for-selected="value" id="shape-dropdown" class="dropdown-content" selected="{{selectedShapeName}}">
+                  <template is="dom-repeat" items="[[shapeNames]]">
+                    <paper-item value="[[item]]" label="[[item]]">
+                      [[item]]
+                    </paper-item>
+                  </template>
+                </paper-listbox>
+              </paper-dropdown-menu>
+            </div>
+          </div>
 
-        <div class="config-item">
-          <label># Neurons in Hidden Layer: <span id="num-g-neurons">8</span></label>
-          <paper-slider pin min="1" max="32" value="8" id="g-neurons-slider"></paper-slider>
-        </div>
+          <div id="component-real-samples" class="model-component"
+            style="top: 320px; left: 150px">
+            <div id="t-samples-toggle" class="two-way-toggle">
+              <paper-toggle-button id="show-t-samples" checked></paper-toggle-button>
+            </div>
+            <svg id="component-svg-real-samples"></svg>
+            <div class="component-label">real samples</div>
+          </div>
 
-        <div class="separator">Discriminator:</div>
+          <div id="component-generated-samples" class="model-component"
+            style="top: 320px; left: 290px">
+            <div id="g-samples-toggle" class="two-way-toggle">
+              <paper-toggle-button id="show-g-samples" checked></paper-toggle-button>
+            </div>
+            <svg id="component-svg-generated-samples"></svg>
+            <div class="component-label">generated samples</div>
+          </div>
 
-        <div class="config-item">
-          <label># Hidden Layers: <span id="num-d-layers">1</span></label>
-          <paper-slider pin min="0" max="3" value="1" id="d-layers-slider"></paper-slider>
-        </div>
+          <div id="component-generator" class="model-component"
+            style="top: 470px; left: 290px">
+            <div id="manifold-toggle" class="two-way-toggle">
+              <paper-toggle-button id="enable-manifold" checked></paper-toggle-button>
+            </div>
+            <svg id="component-svg-generator-manifold"></svg>
+            <div class="component-label">generator</div>
+          </div>
 
-        <div class="config-item">
-          <label># Neurons in Hidden Layer: <span id="num-d-neurons">8</span></label>
-          <paper-slider pin min="1" max="32" value="8" id="d-neurons-slider"></paper-slider>
+          <div id="component-options-generator" class="model-component-options"
+            style="top: 470px; left: 180px">
+            <div class="config-item">
+              <label># Hidden Layers: <span id="num-g-layers">1</span></label>
+              <paper-slider pin min="0" max="3" value="1" id="g-layers-slider"></paper-slider>
+            </div>
+            <div class="config-item">
+              <label># Neurons in Layer: <span id="num-g-neurons">8</span></label>
+              <paper-slider pin min="1" max="32" value="8" id="g-neurons-slider"></paper-slider>
+            </div>
+          </div>
+
+          <div id="component-generator-gradients" class="model-component"
+            style="top: 470px; left: 430px">
+            <svg id="component-svg-generator-gradients"></svg>
+            <div class="component-label">gradients</div>
+          </div>
+
+          <div id="component-noise" class="model-component"
+            style="top: 620px; left: 290px">
+            <svg id="component-svg-noise"></svg>
+            <div class="component-label">noise</div>
+            <div class="config-item">
+              <label>Dimension: <span id="noise-size">2</span></label>
+              <paper-slider pin min="1" max="4" value="2" id="noise-slider"></paper-slider>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -265,50 +377,19 @@
         <div id="iteration" class="config-item">
           Epoch: <span id="iteration-count">0</span>
         </div>
-
-        <div class="separator">Visualization:</div>
-
-        <div id="t-samples-toggle" class="two-way-toggle config-item">
-          <paper-toggle-button id="show-t-samples" checked>True Samples</paper-toggle-button>
-        </div>
-
-        <div id="t-contour-toggle" class="two-way-toggle config-item">
-          <paper-toggle-button id="show-t-contour" checked>True Contour</paper-toggle-button>
-        </div>
-
-        <div id="g-samples-toggle" class="two-way-toggle config-item">
-          <paper-toggle-button id="show-g-samples" checked>Generated Samples</paper-toggle-button>
-        </div>
-
-        <div id="manifold-toggle" class="two-way-toggle config-item">
-          <paper-toggle-button id="enable-manifold" checked>Generator's Manifold</paper-toggle-button>
-        </div>
-
-        <div id="overlap-toggle" class="two-way-toggle config-item">
-          <paper-toggle-button id="overlap-plots" checked>Discriminator's Output</paper-toggle-button>
-        </div>
       </div>
 
       <div id="drawing-disable-background"></div>
 
       <div id="visualization-container" class="ink-panel">
-        <svg id="vis-svg" width="870" height="530">
-          <g id="vis-area-left" transform="translate(10,10)">
+        <svg id="vis-svg" width="420" height="530">
+          <g id="vis-area" transform="translate(10,10)">
             <g id="vis-discriminator-output" class="vis-panel">
               <rect class="plot-bg" width="400" height="400" x="0" y="0"></rect>
             </g>
             <g id="vis-samples" class="vis-panel">
-              <g id="vis-true-samples"></g>
-              <g id="vis-generated-samples"></g>
-              <rect class="plot-border" width="400" height="400" x="0" y="0"></rect>
-            </g>
-          </g>
-          <g id="vis-area-right" transform="translate(460,10)">
-            <g id="vis-discriminator-output-right" class="vis-panel">
-              <rect class="plot-bg" width="400" height="400" x="0" y="0"></rect>
-            </g>
-            <g id="vis-samples-right" class="vis-panel">
               <g id="vis-true-samples-contour" class="contour"></g>
+              <g id="vis-true-samples"></g>
               <g id="vis-generated-samples"></g>
               <defs>
                 <linearGradient id="arrow-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -317,9 +398,9 @@
                 </linearGradient>
               </defs>
               <g id="vis-gradients-for-generated"></g>
+              <g id="vis-manifold"></g>
               <rect class="plot-border" width="400" height="400" x="0" y="0"></rect>
             </g>
-            <g id="vis-manifold"></g>
           </g>
           <g id="vis-descriptions" transform="translate(10,420)">
             <circle class="true-dot" r="2" transform="translate(5,5)"></circle>

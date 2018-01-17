@@ -21,8 +21,8 @@ const ATLAS_SIZE = 12000;
 const NUM_GRID_CELLS = 30;
 const NUM_MANIFOLD_CELLS = 20;
 const GENERATED_SAMPLES_VISUALIZATION_INTERVAL = 10;
-const NUM_SAMPLES_VISUALIZED = 300;
-const NUM_TRUE_SAMPLES_VISUALIZED = 1200;
+const NUM_SAMPLES_VISUALIZED = 600;
+const NUM_TRUE_SAMPLES_VISUALIZED = 600;
 
 // tslint:disable-next-line:variable-name
 const GANLabPolymer: new () => PolymerHTMLElement = PolymerElement({
@@ -180,11 +180,6 @@ class GANLab extends GANLabPolymer {
           this.querySelector('#vis-discriminator-output') as SVGGElement;
         // tslint:disable-next-line:no-any
         container.style.visibility =
-          (event.target as any).active ? 'visible' : 'hidden';
-        const containerRight =
-          this.querySelector('#vis-discriminator-output-right') as SVGGElement;
-        // tslint:disable-next-line:no-any
-        containerRight.style.visibility =
           (event.target as any).active ? 'visible' : 'hidden';
       });
     this.querySelector('#enable-manifold')!.addEventListener(
@@ -349,6 +344,9 @@ class GANLab extends GANLabPolymer {
     // Visualize true samples.
     this.visualizeTrueDistribution(trueSampleProviderBuilder.getInputAtlas());
 
+    // Visualize noise samples.
+    this.visualizeNoiseDistribution(noiseProviderBuilder.getNoiseSample());
+
     // Initialize evaluator.
     this.evaluator =
       new gan_lab_evaluators.GANLabEvaluatorGridDensities(NUM_GRID_CELLS);
@@ -438,25 +436,69 @@ class GANLab extends GANLabPolymer {
       .size([this.plotSizePx, this.plotSizePx])
       .bandwidth(15)
       .thresholds(5);
-    this.visTrueSamplesContour
-      .selectAll('path')
-      .data(contour(trueDistribution))
-      .enter()
-      .append('path')
-      .attr('fill', (d: any) => color(d.value))
-      .attr('data-value', (d: any) => d.value)
-      .attr('d', geoPath());
+    const contourSmall = contourDensity()
+      .x((d: number[]) => d[0] * 80)
+      .y((d: number[]) => (1.0 - d[1]) * 80)
+      .size([80, 80])
+      .bandwidth(15);
 
-    this.visTrueSamples.selectAll('.true-dot')
-      .data(trueDistribution)
-      .enter()
-      .append('circle')
-      .attr('class', 'true-dot gan-lab')
-      .attr('r', 2)
-      .attr('cx', (d: number[]) => d[0] * this.plotSizePx)
-      .attr('cy', (d: number[]) => (1.0 - d[1]) * this.plotSizePx)
-      .append('title')
-      .text((d: number[]) => `${d[0].toFixed(2)}, ${d[1].toFixed(2)}`);
+    const trueContourList = [
+      this.visTrueSamplesContour
+        .selectAll('path')
+        .data(contour(trueDistribution)),
+      d3.select('#component-svg-true-distribution')
+        .selectAll('path')
+        .data(contourSmall(trueDistribution))
+    ];
+    trueContourList.forEach((contours) => {
+      contours.enter()
+        .append('path')
+        .attr('fill', (d: any) => color(d.value))
+        .attr('data-value', (d: any) => d.value)
+        .attr('d', geoPath());
+    });
+
+    const trueDotsList = [
+      this.visTrueSamples.selectAll('.true-dot').data(trueDistribution),
+      d3.select('#component-svg-real-samples')
+        .selectAll('.true-dot').data(trueDistribution),
+      d3.select('#component-svg-prediction')
+        .selectAll('.true-dot').data(trueDistribution)
+    ];
+    trueDotsList.forEach((dots, k) => {
+      const plotSizePx = k === 0 ? this.plotSizePx : 80;
+      const radius = k === 0 ? 2 : 1;
+      dots.enter()
+        .append('circle')
+        .attr('class', 'true-dot gan-lab')
+        .attr('r', radius)
+        .attr('cx', (d: number[]) => d[0] * plotSizePx)
+        .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx)
+        .append('title')
+        .text((d: number[]) => `${d[0].toFixed(2)}, ${d[1].toFixed(2)}`);
+    });
+  }
+
+  private visualizeNoiseDistribution(inputList: Float32Array) {
+    const noiseSamples: number[][] = [];
+    for (let i = 0; i < inputList.length / this.noiseSize; ++i) {
+      const values = [];
+      for (let j = 0; j < this.noiseSize; ++j) {
+        values.push(inputList[i * this.noiseSize + j]);
+      }
+      noiseSamples.push(values);
+    }
+
+    if (this.noiseSize === 2) {
+      d3.select('#component-svg-noise')
+        .selectAll('.noise-dot').data(noiseSamples)
+        .enter()
+        .append('circle')
+        .attr('class', 'noise-dot gan-lab')
+        .attr('r', 2)
+        .attr('cx', (d: number[]) => d[0] * 80)
+        .attr('cy', (d: number[]) => (1.0 - d[1]) * 80);
+    }
   }
 
   private onClickFinishDrawingButton() {
@@ -529,6 +571,10 @@ class GANLab extends GANLabPolymer {
           1, this.dOptimizer, CostReduction.MEAN);
         if (j + 1 === this.kDSteps) {
           dCostVal = dCost.get();
+
+          document.getElementById('d-loss-value')!.innerText =
+            dCostVal.toFixed(3);
+
         }
       }
 
@@ -540,6 +586,9 @@ class GANLab extends GANLabPolymer {
           1, this.gOptimizer, CostReduction.MEAN);
         if (j + 1 === this.kGSteps) {
           gCostVal = gCost.get();
+
+          document.getElementById('g-loss-value')!.innerText =
+            gCostVal.toFixed(3);
         }
       }
 
@@ -574,27 +623,39 @@ class GANLab extends GANLabPolymer {
             gGradient[i * 2], gGradient[i * 2 + 1]
           ]);
         }
-        const gradDots = this.visGradientsForGenerated
-          .selectAll('.gradient-generated').data(gradData);
-        const arrowSize = 5.0;
+
+        const gradDotsList = [
+          this.visGradientsForGenerated
+            .selectAll('.gradient-generated').data(gradData),
+          d3.select('#component-svg-generator-gradients')
+            .selectAll('.gradient-generated').data(gradData)
+        ];
         if (this.iterationCount === 1) {
-          gradDots.enter()
-            .append('line')
-            .attr('class', 'gradient-generated gan-lab')
-            .attr('x1', (d: number[]) => d[0] * this.plotSizePx)
-            .attr('y1', (d: number[]) => (1.0 - d[1]) * this.plotSizePx)
-            .attr('x2', (d: number[]) =>
-              (d[0] - d[2] * arrowSize) * this.plotSizePx)
-            .attr('y2', (d: number[]) =>
-              (1.0 - (d[1] - d[3] * arrowSize)) * this.plotSizePx)
-            .style('stroke', 'url(#arrow-gradient)');
+          gradDotsList.forEach((dots, k) => {
+            const plotSizePx = k === 0 ? this.plotSizePx : 80;
+            const arrowSize = k === 0 ? 5.0 : 1.0;
+            dots.enter()
+              .append('line')
+              .attr('class', 'gradient-generated gan-lab')
+              .attr('x1', (d: number[]) => d[0] * plotSizePx)
+              .attr('y1', (d: number[]) => (1.0 - d[1]) * plotSizePx)
+              .attr('x2', (d: number[]) =>
+                (d[0] - d[2] * arrowSize) * plotSizePx)
+              .attr('y2', (d: number[]) =>
+                (1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx)
+              .style('stroke', 'url(#arrow-gradient)');
+          });
         }
-        gradDots.attr('x1', (d: number[]) => d[0] * this.plotSizePx)
-          .attr('y1', (d: number[]) => (1.0 - d[1]) * this.plotSizePx)
-          .attr('x2', (d: number[]) =>
-            (d[0] - d[2] * arrowSize) * this.plotSizePx)
-          .attr('y2', (d: number[]) =>
-            (1.0 - (d[1] - d[3] * arrowSize)) * this.plotSizePx);
+        gradDotsList.forEach((dots, k) => {
+          const plotSizePx = k === 0 ? this.plotSizePx : 80;
+          const arrowSize = k === 0 ? 5.0 : 1.0;
+          dots.attr('x1', (d: number[]) => d[0] * plotSizePx)
+            .attr('y1', (d: number[]) => (1.0 - d[1]) * plotSizePx)
+            .attr('x2', (d: number[]) =>
+              (d[0] - d[2] * arrowSize) * plotSizePx)
+            .attr('y2', (d: number[]) =>
+              (1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx);
+        });
 
         // Visualize discriminator's output.
         const dData = [];
@@ -608,32 +669,36 @@ class GANLab extends GANLabPolymer {
           }
         }
 
-        const gridDots =
-          this.visDiscriminator.selectAll('.uniform-dot').data(dData);
-        const gridDotsRight =
-          this.visDiscriminatorRight.selectAll('.uniform-dot').data(dData);
+        const gridDotsList = [
+          this.visDiscriminator.selectAll('.uniform-dot').data(dData),
+          d3.select('#component-svg-discriminator-output')
+            .selectAll('.uniform-dot').data(dData),
+          d3.select('#component-svg-prediction')
+            .selectAll('.uniform-dot').data(dData)
+        ];
         if (this.iterationCount === 1) {
-          [gridDots, gridDotsRight].forEach((dots) => {
+          gridDotsList.forEach((dots, k) => {
+            const plotSizePx = k === 0 ? this.plotSizePx : 80;
             dots.enter()
               .append('rect')
               .attr('class', 'uniform-dot gan-lab')
-              .attr('width', this.plotSizePx / NUM_GRID_CELLS)
-              .attr('height', this.plotSizePx / NUM_GRID_CELLS)
+              .attr('width', plotSizePx / NUM_GRID_CELLS)
+              .attr('height', plotSizePx / NUM_GRID_CELLS)
               .attr(
               'x',
               (d: number, i: number) =>
-                (i % NUM_GRID_CELLS) * (this.plotSizePx / NUM_GRID_CELLS))
+                (i % NUM_GRID_CELLS) * (plotSizePx / NUM_GRID_CELLS))
               .attr(
               'y',
-              (d: number, i: number) => this.plotSizePx -
+              (d: number, i: number) => plotSizePx -
                 (Math.floor(i / NUM_GRID_CELLS) + 1) *
-                (this.plotSizePx / NUM_GRID_CELLS))
+                (plotSizePx / NUM_GRID_CELLS))
               .style('fill', (d: number) => this.colorScale(d))
               .append('title')
               .text((d: number) => Number(d).toFixed(3));
           });
         }
-        [gridDots, gridDotsRight].forEach((dots) => {
+        gridDotsList.forEach((dots) => {
           dots.style('fill', (d: number) => this.colorScale(d));
           dots.select('title').text((d: number) => Number(d).toFixed(3));
         });
@@ -657,18 +722,30 @@ class GANLab extends GANLabPolymer {
         ]);
         this.evalChart.update();
 
-        const gDots =
-          this.visGeneratedSamples.selectAll('.generated-dot').data(gData);
+        const gDotsList = [
+          this.visGeneratedSamples.selectAll('.generated-dot').data(gData),
+          d3.select('#component-svg-generated-samples')
+            .selectAll('.generated-dot').data(gData),
+          d3.select('#component-svg-prediction')
+            .selectAll('.generated-dot').data(gData),
+        ];
         if (this.iterationCount === 1) {
-          gDots.enter()
-            .append('circle')
-            .attr('class', 'generated-dot gan-lab')
-            .attr('r', 2)
-            .attr('cx', (d: number[]) => d[0] * this.plotSizePx)
-            .attr('cy', (d: number[]) => (1.0 - d[1]) * this.plotSizePx);
+          gDotsList.forEach((dots, k) => {
+            const plotSizePx = k === 0 ? this.plotSizePx : 80;
+            const radius = k === 0 ? 2 : 1;
+            dots.enter()
+              .append('circle')
+              .attr('class', 'generated-dot gan-lab')
+              .attr('r', radius)
+              .attr('cx', (d: number[]) => d[0] * plotSizePx)
+              .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx);
+          });
         }
-        gDots.attr('cx', (d: number[]) => d[0] * this.plotSizePx)
-          .attr('cy', (d: number[]) => (1.0 - d[1]) * this.plotSizePx);
+        gDotsList.forEach((dots, k) => {
+          const plotSizePx = k === 0 ? this.plotSizePx : 80;
+          dots.attr('cx', (d: number[]) => d[0] * plotSizePx)
+            .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx);
+        });
 
         // Visualize manifold for 1-D or 2-D noise.
         interface ManifoldCell {
@@ -732,35 +809,41 @@ class GANLab extends GANLabPolymer {
             });
           }
 
-          const manifoldCell =
-            line()
-              .x((d: number[]) => d[0] * this.plotSizePx)
-              .y((d: number[]) => (1.0 - d[1]) * this.plotSizePx);
+          const gManifoldList = [
+            this.visManifold.selectAll('.grids').data(gridData),
+            d3.select('#component-svg-generator-manifold')
+              .selectAll('.grids').data(gridData)
+          ];
+          gManifoldList.forEach((grids, k) => {
+            const plotSizePx = k === 0 ? this.plotSizePx : 80;
+            const manifoldCell =
+              line()
+                .x((d: number[]) => d[0] * plotSizePx)
+                .y((d: number[]) => (1.0 - d[1]) * plotSizePx);
 
-          const grids = this.visManifold.selectAll('.grids').data(gridData);
-
-          if (this.iterationCount === 1) {
-            grids.enter()
-              .append('g')
-              .attr('class', 'grids gan-lab')
-              .append('path')
-              .attr('class', 'manifold-cell gan-lab');
-          }
-          grids.select('.manifold-cell')
-            .attr('d', (d: ManifoldCell) => manifoldCell(
-              d.points.map(point => {
-                const p: [number, number] = [point[0], point[1]];
-                return p;
+            if (this.iterationCount === 1) {
+              grids.enter()
+                .append('g')
+                .attr('class', 'grids gan-lab')
+                .append('path')
+                .attr('class', 'manifold-cell gan-lab');
+            }
+            grids.select('.manifold-cell')
+              .attr('d', (d: ManifoldCell) => manifoldCell(
+                d.points.map(point => {
+                  const p: [number, number] = [point[0], point[1]];
+                  return p;
+                })
+              ))
+              .style('fill', () => {
+                return this.noiseSize === 2 ? '#7b3294' : 'none';
               })
-            ))
-            .style('fill', () => {
-              return this.noiseSize === 2 ? '#7b3294' : 'none';
-            })
-            .style('fill-opacity', (d: ManifoldCell) => {
-              return this.noiseSize === 2 ? Math.max(
-                0.9 - d.area! * 0.4 * Math.pow(NUM_MANIFOLD_CELLS, 2), 0.1) :
-                'none';
-            });
+              .style('fill-opacity', (d: ManifoldCell) => {
+                return this.noiseSize === 2 ? Math.max(
+                  0.9 - d.area! * 0.4 * Math.pow(NUM_MANIFOLD_CELLS, 2), 0.1) :
+                  'none';
+              });
+          });
 
           if (this.noiseSize === 1) {
             const manifoldDots =

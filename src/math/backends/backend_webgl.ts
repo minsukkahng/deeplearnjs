@@ -49,14 +49,17 @@ import {MaxPool2DBackpropProgram} from './webgl/max_pool_backprop_gpu';
 import {MatMulProgram} from './webgl/mulmat_gpu';
 import {MultinomialProgram} from './webgl/multinomial_gpu';
 import {OneHotProgram} from './webgl/onehot_gpu';
+import {Pad1DProgram, Pad2DProgram} from './webgl/pad_gpu';
 import {Pool2DProgram} from './webgl/pool_gpu';
 import {ReduceProgram} from './webgl/reduce_gpu';
 import {ResizeBilinear3DProgram} from './webgl/resize_bilinear_gpu';
+import {ReverseProgram} from './webgl/reverse_gpu';
 import {SliceProgram} from './webgl/slice_gpu';
 import {TextureData, TextureType} from './webgl/tex_util';
 import {TextureManager} from './webgl/texture_manager';
 import {TileProgram} from './webgl/tile_gpu';
 import {TransposeProgram} from './webgl/transpose_gpu';
+import {GatherProgram} from './webgl/gather_gpu';
 import * as unary_op from './webgl/unaryop_gpu';
 import {UnaryOpProgram} from './webgl/unaryop_gpu';
 import * as webgl_util from './webgl/webgl_util';
@@ -274,6 +277,11 @@ export class MathBackendWebGL implements MathBackend {
     return this.compileAndRun(program, [x], null, customSetup);
   }
 
+  reverse4D(x: Array4D, axis: number[]): Array4D {
+    const program = new ReverseProgram(x.shape, axis);
+    return this.compileAndRun(program, [x]);
+  }
+
   private copy2D(
       source: Array2D, sourceBeginRowCol: [number, number],
       sourceSizeRowCol: [number, number], dest: Array2D,
@@ -411,9 +419,28 @@ export class MathBackendWebGL implements MathBackend {
     return this.compileAndRun(program, [x]);
   }
 
+  pad1D(x: Array1D, paddings: [number, number], constantValue: number):
+      Array1D {
+    const program = new Pad1DProgram(x.shape, paddings, constantValue);
+    return this.compileAndRun(program, [x]);
+  }
+
+  pad2D(
+      x: Array2D, paddings: [[number, number], [number, number]],
+      constantValue: number): Array2D {
+    const program = new Pad2DProgram(x.shape, paddings, constantValue);
+    return this.compileAndRun(program, [x]);
+  }
+
   transpose<D extends DataType, T extends NDArray<D>>(x: T, perm: number[]): T {
     const program = new TransposeProgram(x.shape, perm);
     return this.compileAndRun(program, [x]);
+  }
+
+  gather<D extends DataType, T extends NDArray<D>>(
+      x: T, indices: Array1D<'int32'>, axis: number): T {
+    const program = new GatherProgram(x.shape, indices.size, axis);
+    return this.compileAndRun(program, [x, indices]);
   }
 
   private reduce<D extends DataType>(
@@ -499,6 +526,39 @@ export class MathBackendWebGL implements MathBackend {
   notEqual(a: NDArray, b: NDArray): NDArray<'bool'> {
     const program =
         new BinaryOpProgram(binaryop_gpu.NOT_EQUAL, a.shape, b.shape);
+    const output = this.makeOutputArray(program.outputShape, 'bool');
+    return this.compileAndRun(program, [a, b], output);
+  }
+
+  less(a: NDArray, b: NDArray): NDArray<'bool'> {
+    const program = new BinaryOpProgram(binaryop_gpu.LESS, a.shape, b.shape);
+    const output = this.makeOutputArray(program.outputShape, 'bool');
+    return this.compileAndRun(program, [a, b], output);
+  }
+
+  lessEqual(a: NDArray, b: NDArray): NDArray<'bool'> {
+    const program =
+        new BinaryOpProgram(binaryop_gpu.LESS_EQUAL, a.shape, b.shape);
+    const output = this.makeOutputArray(program.outputShape, 'bool');
+    return this.compileAndRun(program, [a, b], output);
+  }
+
+  greater(a: NDArray, b: NDArray): NDArray<'bool'> {
+    const program = new BinaryOpProgram(binaryop_gpu.GREATER, a.shape, b.shape);
+    const output = this.makeOutputArray(program.outputShape, 'bool');
+    return this.compileAndRun(program, [a, b], output);
+  }
+
+  greaterEqual(a: NDArray, b: NDArray): NDArray<'bool'> {
+    const program =
+        new BinaryOpProgram(binaryop_gpu.GREATER_EQUAL, a.shape, b.shape);
+    const output = this.makeOutputArray(program.outputShape, 'bool');
+    return this.compileAndRun(program, [a, b], output);
+  }
+
+  logicalOr(a: NDArray, b: NDArray): NDArray<'bool'> {
+    const program =
+        new BinaryOpProgram(binaryop_gpu.LOGICAL_OR, a.shape, b.shape);
     const output = this.makeOutputArray(program.outputShape, 'bool');
     return this.compileAndRun(program, [a, b], output);
   }

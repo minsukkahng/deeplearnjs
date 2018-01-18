@@ -226,13 +226,14 @@
 
           <div id="component-prediction" class="model-component"
             style="top: 20px; left: 215px">
-            <svg id="component-svg-prediction"></svg>
+            <svg id="svg-prediction"></svg>
             <div class="component-label">prediction</div>
           </div>
 
           <div id="component-d-loss" class="model-component"
             style="top: 20px; left: 380px">
             <div id="d-loss-value" class="component-value">-</div>
+            <div class="component-value">(<span id="d-loss-value-simple"></span>)</div>
             <div class="component-label">D loss</div>
             <div class="config-item">
               <label># Updates per Iter: <span id="k-d-steps">2</span></label>
@@ -243,6 +244,7 @@
           <div id="component-g-loss" class="model-component"
             style="top: 20px; left: 490px">
             <div id="g-loss-value" class="component-value">-</div>
+            <div class="component-value">(<span id="g-loss-value-simple"></span>)</div>
             <div class="component-label">G loss</div>
             <div class="config-item">
               <label># Updates per Iter: <span id="k-g-steps">1</span></label>
@@ -255,7 +257,7 @@
             <div id="overlap-toggle" class="two-way-toggle">
               <paper-toggle-button id="overlap-plots" checked></paper-toggle-button>
             </div>
-            <svg id="component-svg-discriminator-output"></svg>
+            <svg id="svg-discriminator-output"></svg>
             <div class="component-label">discriminator</div>
           </div>
 
@@ -287,7 +289,7 @@
 
           <div id="component-discriminator-gradients" class="model-component"
             style="top: 170px; left: 345px">
-            <svg id="component-svg-discriminator-gradients"></svg>
+            <svg id="svg-discriminator-gradients"></svg>
             <div class="component-label">gradients</div>
             <div class="config-item">
               <paper-dropdown-menu no-animations label="Learning Rate">
@@ -307,7 +309,7 @@
             <div id="t-contour-toggle" class="two-way-toggle">
               <paper-toggle-button id="show-t-contour" checked></paper-toggle-button>
             </div>
-            <svg id="component-svg-true-distribution"></svg>
+            <svg id="svg-true-distribution"></svg>
             <div class="component-label">true distribution</div>
             <div>
               <paper-dropdown-menu no-animations>
@@ -327,7 +329,7 @@
             <div id="t-samples-toggle" class="two-way-toggle">
               <paper-toggle-button id="show-t-samples" checked></paper-toggle-button>
             </div>
-            <svg id="component-svg-real-samples"></svg>
+            <svg id="svg-real-samples"></svg>
             <div class="component-label">real samples</div>
           </div>
 
@@ -336,7 +338,7 @@
             <div id="g-samples-toggle" class="two-way-toggle">
               <paper-toggle-button id="show-g-samples" checked></paper-toggle-button>
             </div>
-            <svg id="component-svg-generated-samples"></svg>
+            <svg id="svg-generated-samples"></svg>
             <div class="component-label">generated samples</div>
           </div>
 
@@ -345,7 +347,7 @@
             <div id="manifold-toggle" class="two-way-toggle">
               <paper-toggle-button id="enable-manifold" checked></paper-toggle-button>
             </div>
-            <svg id="component-svg-generator-manifold"></svg>
+            <svg id="svg-generator-manifold"></svg>
             <div class="component-label">generator</div>
           </div>
 
@@ -377,13 +379,13 @@
 
           <div id="component-generator-gradients" class="model-component"
             style="top: 470px; left: 430px">
-            <svg id="component-svg-generator-gradients"></svg>
+            <svg id="svg-generator-gradients"></svg>
             <div class="component-label">gradients</div>
           </div>
 
           <div id="component-noise" class="model-component"
             style="top: 620px; left: 290px">
-            <svg id="component-svg-noise"></svg>
+            <svg id="svg-noise"></svg>
             <div class="component-label">noise</div>
             <div class="config-item">
               <label>Dimension: <span id="noise-size">2</span></label>
@@ -439,7 +441,7 @@
                   <stop offset="100%" style="stop-color:rgba(231, 85, 178, 0.2);" />
                 </linearGradient>
               </defs>
-              <g id="vis-gradients-for-generated"></g>
+              <g id="vis-generator-gradients"></g>
               <g id="vis-manifold"></g>
               <rect class="plot-border" width="400" height="400" x="0" y="0"></rect>
             </g>
@@ -469,12 +471,10 @@
       </div>
 
       <div id="right-menu" class="ink-panel side-panel">
-        <div class="separator">Charts:</div>
+        <div class="panel-title">Charts</div>
 
         <div id="chart-container">
           <canvas id="cost-chart" width="240" height="200"></canvas>
-        </div>
-        <div id="eval-chart-container">
           <canvas id="eval-chart" width="240" height="200"></canvas>
         </div>
       </div>

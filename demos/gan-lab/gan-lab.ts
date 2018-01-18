@@ -281,14 +281,7 @@ class GANLab extends GANLabPolymer {
 
     // Visualization.
     this.plotSizePx = 400;
-
-    this.visTrueSamples = d3.select('#vis-true-samples');
-    this.visTrueSamplesContour = d3.select('#vis-true-samples-contour');
-    this.visGeneratedSamples = d3.select('#vis-generated-samples');
-    this.visDiscriminator = d3.select('#vis-discriminator-output');
-    this.visDiscriminatorRight = d3.select('#vis-discriminator-output-right');
-    this.visManifold = d3.select('#vis-manifold');
-    this.visGradientsForGenerated = d3.select('#vis-gradients-for-generated');
+    this.smallPlotSizePx = 80;
 
     this.colorScale = scaleLinear<string>().domain([0.0, 0.5, 1.0]).range([
       '#af8dc3', '#f5f5f5', '#7fbf7b'
@@ -319,27 +312,31 @@ class GANLab extends GANLabPolymer {
 
     this.recreateCharts();
 
-    this.visTrueSamples.selectAll('.true-dot').data([]).exit().remove();
-    this.visTrueSamplesContour.selectAll('path').data([]).exit().remove();
-    this.visGeneratedSamples.selectAll('.generated-dot')
-      .data([])
-      .exit()
-      .remove();
-    this.visDiscriminator.selectAll('.uniform-dot').data([]).exit().remove();
-    this.visDiscriminatorRight.selectAll('.uniform-dot')
-      .data([])
-      .exit()
-      .remove();
-    this.visManifold.selectAll('.uniform-generated-dot')
-      .data([])
-      .exit()
-      .remove();
-    this.visManifold.selectAll('.manifold-cells').data([]).exit().remove();
-    this.visManifold.selectAll('.grids').data([]).exit().remove();
-    this.visGradientsForGenerated.selectAll('.gradient-generated')
-      .data([])
-      .exit()
-      .remove();
+    const dataElements = [
+      d3.select('#vis-true-samples').selectAll('.true-dot'),
+      d3.select('#svg-real-samples').selectAll('.true-dot'),
+      d3.select('#svg-prediction').selectAll('.true-dot'),
+      d3.select('#vis-true-samples-contour').selectAll('path'),
+      d3.select('#svg-true-distribution').selectAll('path'),
+      d3.select('#svg-noise').selectAll('.noise-dot'),
+      d3.select('#vis-generated-samples').selectAll('.generated-dot'),
+      d3.select('#svg-generated-samples').selectAll('.generated-dot'),
+      d3.select('#svg-prediction').selectAll('.generated-dot'),
+      d3.select('#vis-discriminator-output').selectAll('.uniform-dot'),
+      d3.select('#svg-discriminator-output').selectAll('.uniform-dot'),
+      d3.select('#svg-prediction').selectAll('.uniform-dot'),
+      d3.select('#vis-manifold').selectAll('.uniform-generated-dot'),
+      d3.select('#vis-manifold').selectAll('.manifold-cells'),
+      d3.select('#vis-manifold').selectAll('.grids'),
+      d3.select('#svg-generator-manifold').selectAll('.uniform-generated-dot'),
+      d3.select('#svg-generator-manifold').selectAll('.manifold-cells'),
+      d3.select('#svg-generator-manifold').selectAll('.grids'),
+      d3.select('#vis-generator-gradients').selectAll('.gradient-generated'),
+      d3.select('#svg-generator-gradients').selectAll('.gradient-generated')
+    ];
+    dataElements.forEach((element) => {
+      element.data([]).exit().remove();
+    });
 
     // Create a new graph.
     this.buildNetwork();
@@ -478,16 +475,16 @@ class GANLab extends GANLabPolymer {
       .bandwidth(15)
       .thresholds(5);
     const contourSmall = contourDensity()
-      .x((d: number[]) => d[0] * 80)
-      .y((d: number[]) => (1.0 - d[1]) * 80)
-      .size([80, 80])
+      .x((d: number[]) => d[0] * this.smallPlotSizePx)
+      .y((d: number[]) => (1.0 - d[1]) * this.smallPlotSizePx)
+      .size([this.smallPlotSizePx, this.smallPlotSizePx])
       .bandwidth(15);
 
     const trueContourList = [
-      this.visTrueSamplesContour
+      d3.select('#vis-true-samples-contour')
         .selectAll('path')
         .data(contour(trueDistribution)),
-      d3.select('#component-svg-true-distribution')
+      d3.select('#svg-true-distribution')
         .selectAll('path')
         .data(contourSmall(trueDistribution))
     ];
@@ -500,14 +497,15 @@ class GANLab extends GANLabPolymer {
     });
 
     const trueDotsList = [
-      this.visTrueSamples.selectAll('.true-dot').data(trueDistribution),
-      d3.select('#component-svg-real-samples')
+      d3.select('#vis-true-samples')
         .selectAll('.true-dot').data(trueDistribution),
-      d3.select('#component-svg-prediction')
+      d3.select('#svg-real-samples')
+        .selectAll('.true-dot').data(trueDistribution),
+      d3.select('#svg-prediction')
         .selectAll('.true-dot').data(trueDistribution)
     ];
     trueDotsList.forEach((dots, k) => {
-      const plotSizePx = k === 0 ? this.plotSizePx : 80;
+      const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
       const radius = k === 0 ? 2 : 1;
       dots.enter()
         .append('circle')
@@ -530,15 +528,24 @@ class GANLab extends GANLabPolymer {
       noiseSamples.push(values);
     }
 
-    if (this.noiseSize === 2) {
-      d3.select('#component-svg-noise')
+    if (this.noiseSize === 1) {
+      d3.select('#svg-noise')
         .selectAll('.noise-dot').data(noiseSamples)
         .enter()
         .append('circle')
         .attr('class', 'noise-dot gan-lab')
-        .attr('r', 2)
-        .attr('cx', (d: number[]) => d[0] * 80)
-        .attr('cy', (d: number[]) => (1.0 - d[1]) * 80);
+        .attr('r', 1)
+        .attr('cx', (d: number[]) => d[0] * this.smallPlotSizePx)
+        .attr('cy', this.smallPlotSizePx / 2);
+    } else if (this.noiseSize === 2) {
+      d3.select('#svg-noise')
+        .selectAll('.noise-dot').data(noiseSamples)
+        .enter()
+        .append('circle')
+        .attr('class', 'noise-dot gan-lab')
+        .attr('r', 1)
+        .attr('cx', (d: number[]) => d[0] * this.smallPlotSizePx)
+        .attr('cy', (d: number[]) => (1.0 - d[1]) * this.smallPlotSizePx);
     }
   }
 
@@ -643,13 +650,10 @@ class GANLab extends GANLabPolymer {
           const chartContainer =
             document.getElementById('chart-container') as HTMLElement;
           chartContainer.style.visibility = 'visible';
-          const evalChartContainer =
-            document.getElementById('eval-chart-container') as HTMLElement;
-          evalChartContainer.style.visibility = 'visible';
         }
 
-        this.dCostChartData.push({ x: this.iterationCount, y: dCostVal });
-        this.gCostChartData.push({ x: this.iterationCount, y: gCostVal });
+        this.updateChartData(
+          this.costChartData, this.iterationCount, [dCostVal, gCostVal]);
         this.costChart.update();
 
         // Visualize gradients for generator
@@ -666,14 +670,14 @@ class GANLab extends GANLabPolymer {
         }
 
         const gradDotsList = [
-          this.visGradientsForGenerated
+          d3.select('#vis-generator-gradients')
             .selectAll('.gradient-generated').data(gradData),
-          d3.select('#component-svg-generator-gradients')
+          d3.select('#svg-generator-gradients')
             .selectAll('.gradient-generated').data(gradData)
         ];
         if (this.iterationCount === 1) {
           gradDotsList.forEach((dots, k) => {
-            const plotSizePx = k === 0 ? this.plotSizePx : 80;
+            const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
             const arrowSize = k === 0 ? 5.0 : 1.0;
             dots.enter()
               .append('line')
@@ -688,7 +692,7 @@ class GANLab extends GANLabPolymer {
           });
         }
         gradDotsList.forEach((dots, k) => {
-          const plotSizePx = k === 0 ? this.plotSizePx : 80;
+          const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
           const arrowSize = k === 0 ? 5.0 : 1.0;
           dots.attr('x1', (d: number[]) => d[0] * plotSizePx)
             .attr('y1', (d: number[]) => (1.0 - d[1]) * plotSizePx)
@@ -711,15 +715,16 @@ class GANLab extends GANLabPolymer {
         }
 
         const gridDotsList = [
-          this.visDiscriminator.selectAll('.uniform-dot').data(dData),
-          d3.select('#component-svg-discriminator-output')
+          d3.select('#vis-discriminator-output')
             .selectAll('.uniform-dot').data(dData),
-          d3.select('#component-svg-prediction')
+          d3.select('#svg-discriminator-output')
+            .selectAll('.uniform-dot').data(dData),
+          d3.select('#svg-prediction')
             .selectAll('.uniform-dot').data(dData)
         ];
         if (this.iterationCount === 1) {
           gridDotsList.forEach((dots, k) => {
-            const plotSizePx = k === 0 ? this.plotSizePx : 80;
+            const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
             dots.enter()
               .append('rect')
               .attr('class', 'uniform-dot gan-lab')
@@ -756,23 +761,22 @@ class GANLab extends GANLabPolymer {
 
         this.evaluator.updateGridsForGenerated(gData);
         this.updateChartData(this.evalChartData, this.iterationCount, [
-          this.evaluator.testGeneratedOnTrue(gData),
-          this.evaluator.testTrueOnGenerated(),
           this.evaluator.getKLDivergenceScore(),
           this.evaluator.getJSDivergenceScore()
         ]);
         this.evalChart.update();
 
         const gDotsList = [
-          this.visGeneratedSamples.selectAll('.generated-dot').data(gData),
-          d3.select('#component-svg-generated-samples')
+          d3.select('#vis-generated-samples')
             .selectAll('.generated-dot').data(gData),
-          d3.select('#component-svg-prediction')
+          d3.select('#svg-generated-samples')
+            .selectAll('.generated-dot').data(gData),
+          d3.select('#svg-prediction')
             .selectAll('.generated-dot').data(gData),
         ];
         if (this.iterationCount === 1) {
           gDotsList.forEach((dots, k) => {
-            const plotSizePx = k === 0 ? this.plotSizePx : 80;
+            const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
             const radius = k === 0 ? 2 : 1;
             dots.enter()
               .append('circle')
@@ -783,7 +787,7 @@ class GANLab extends GANLabPolymer {
           });
         }
         gDotsList.forEach((dots, k) => {
-          const plotSizePx = k === 0 ? this.plotSizePx : 80;
+          const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
           dots.attr('cx', (d: number[]) => d[0] * plotSizePx)
             .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx);
         });
@@ -851,12 +855,12 @@ class GANLab extends GANLabPolymer {
           }
 
           const gManifoldList = [
-            this.visManifold.selectAll('.grids').data(gridData),
-            d3.select('#component-svg-generator-manifold')
+            d3.select('#vis-manifold').selectAll('.grids').data(gridData),
+            d3.select('#svg-generator-manifold')
               .selectAll('.grids').data(gridData)
           ];
           gManifoldList.forEach((grids, k) => {
-            const plotSizePx = k === 0 ? this.plotSizePx : 80;
+            const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
             const manifoldCell =
               line()
                 .x((d: number[]) => d[0] * plotSizePx)
@@ -888,7 +892,7 @@ class GANLab extends GANLabPolymer {
 
           if (this.noiseSize === 1) {
             const manifoldDots =
-              this.visManifold.selectAll('.uniform-generated-dot')
+              d3.select('#vis-manifold').selectAll('.uniform-generated-dot')
                 .data(manifoldData);
             if (this.iterationCount === 1) {
               manifoldDots.enter()
@@ -896,42 +900,35 @@ class GANLab extends GANLabPolymer {
                 .attr('class', 'uniform-generated-dot gan-lab')
                 .attr('r', 1);
             }
-            manifoldDots.attr('cx', (d: number[]) => d[0] * this.plotSizePx)
-              .attr('cy', (d: number[]) => (1.0 - d[1]) * this.plotSizePx);
+            manifoldDots.attr('cx', (d: TypedArray) => d[0] * this.plotSizePx)
+              .attr('cy', (d: TypedArray) => (1.0 - d[1]) * this.plotSizePx);
           }
         }
 
         // Obtain simple evaluation scores.
-        const eResult = this.session.evalAll(
+        const simpleEvalResult = this.session.evalAll(
           [this.predictionTensor1, this.predictionTensor2],
           [
             { tensor: this.inputTensor, data: this.trueSampleProviderFixed },
             { tensor: this.noiseTensor, data: this.noiseProviderFixed }
           ]);
-        const eResultData1: Float32Array =
-          eResult[0].getValues() as Float32Array;
-        const eResultData2: Float32Array =
-          eResult[1].getValues() as Float32Array;
-        const acc1 = eResultData1.filter((v: number) => v >= 0.499).length /
-          eResultData1.length;
-        const acc2 = eResultData2.filter((v: number) => v <= 0.501).length /
-          eResultData2.length;
-        const acc3 = eResultData2.filter((v: number) => v >= 0.499).length /
-          eResultData2.length;
-        const acc11 = eResultData1.map((v: number) =>
+        const simpleReal: Float32Array =
+          simpleEvalResult[0].getValues() as Float32Array;
+        const simpleFake: Float32Array =
+          simpleEvalResult[1].getValues() as Float32Array;
+        const simpleLossDReal = simpleReal.map((v: number) =>
           1.0 - Math.min(1.0, v)).reduce(
-          (a, b) => a + b, 0) / eResultData1.length;
-        const acc12 = eResultData2.map((v: number) =>
+          (a, b) => a + b, 0) / simpleReal.length;
+        const simpleLossDFake = simpleFake.map((v: number) =>
           Math.min(1.0, v)).reduce(
-          (a, b) => a + b, 0) / eResultData1.length;
-        const acc13 = eResultData2.map((v: number) =>
+          (a, b) => a + b, 0) / simpleFake.length;
+        const simpleLossG = simpleFake.map((v: number) =>
           1.0 - Math.min(1.0, v)).reduce(
-          (a, b) => a + b, 0) / eResultData1.length;
-
-        console.log([acc1.toFixed(3), acc2.toFixed(3),
-        ((acc1 + acc2) * 0.5).toFixed(3), acc3.toFixed(3),
-        acc11.toFixed(3), acc12.toFixed(3),
-        ((acc11 + acc12) * 0.5).toFixed(3), acc13.toFixed(3)]);
+          (a, b) => a + b, 0) / simpleReal.length;
+        document.getElementById('d-loss-value-simple')!.innerText =
+          ((simpleLossDReal + simpleLossDFake) * 0.5).toFixed(3);
+        document.getElementById('g-loss-value-simple')!.innerText =
+          simpleLossG.toFixed(3);
       }
     });
 
@@ -1073,31 +1070,35 @@ class GANLab extends GANLabPolymer {
   }
 
   private recreateCharts() {
-    const chartContainer =
-      document.getElementById('chart-container') as HTMLElement;
-    chartContainer.style.visibility = 'hidden';
+    document.getElementById('chart-container').style.visibility = 'hidden';
 
-    this.dCostChartData = [];
-    this.gCostChartData = [];
+    this.costChartData = new Array<ChartData>(2);
+    for (let i = 0; i < this.costChartData.length; ++i) {
+      this.costChartData[i] = [];
+    }
     if (this.costChart != null) {
       this.costChart.destroy();
     }
+    const costChartSpecification = [
+      { label: 'Discriminator\'s Loss', color: 'rgba(5, 117, 176, 0.5)' },
+      { label: 'Generator\'s Loss', color: 'rgba(123, 50, 148, 0.5)' }
+    ];
     this.costChart = this.createChart(
-      'cost-chart', 'Cost', this.dCostChartData, this.gCostChartData, 0, 2);
+      'cost-chart', this.costChartData, costChartSpecification, 0, 2);
 
-    const evalChartContainer =
-      document.getElementById('eval-chart-container') as HTMLElement;
-    evalChartContainer.style.visibility = 'hidden';
-
-    this.evalChartData = new Array<ChartData>(4);
+    this.evalChartData = new Array<ChartData>(2);
     for (let i = 0; i < this.evalChartData.length; ++i) {
       this.evalChartData[i] = [];
     }
     if (this.evalChart != null) {
       this.evalChart.destroy();
     }
-    this.evalChart = this.createEvalChart(
-      'eval-chart', 'Cost', this.evalChartData, 0, 1);
+    const evalChartSpecification = [
+      { label: 'KL Divergence (grid)', color: 'rgba(120, 220, 64, 0.5)' },
+      { label: 'JS Divergence (grid)', color: 'rgba(220, 120, 64, 0.5)' }
+    ];
+    this.evalChart = this.createChart(
+      'eval-chart', this.evalChartData, evalChartSpecification, 0, 1.5);
   }
 
   private updateChartData(data: ChartData[][], xVal: number, yList: number[]) {
@@ -1107,115 +1108,33 @@ class GANLab extends GANLabPolymer {
   }
 
   private createChart(
-    canvasId: string, label: string, data1: ChartData[], data2: ChartData[],
+    canvasId: string, chartData: ChartData[][],
+    specification: Array<{ label: string, color: string }>,
     min?: number, max?: number): Chart {
     const context = (document.getElementById(canvasId) as HTMLCanvasElement)
       .getContext('2d') as CanvasRenderingContext2D;
-    return new Chart(context, {
-      type: 'line',
-      data: {
-        datasets: [
-          {
-            data: data1,
-            fill: false,
-            label: 'Discriminator\'s Loss',
-            pointRadius: 0,
-            borderColor: 'rgba(5, 117, 176, 0.5)',
-            borderWidth: 1,
-            lineTension: 0,
-            pointHitRadius: 8
-          },
-          {
-            data: data2,
-            fill: false,
-            label: 'Generator\'s Loss',
-            pointRadius: 0,
-            borderColor: 'rgba(123, 50, 148, 0.5)',
-            borderWidth: 1,
-            lineTension: 0,
-            pointHitRadius: 8
-          }
-        ]
-      },
-      options: {
-        animation: { duration: 0 },
-        responsive: false,
-        scales: {
-          xAxes: [{ type: 'linear', position: 'bottom' }],
-          yAxes: [{
-            ticks: {
-              max,
-              min,
-            }
-          }]
-        }
-      }
+    const chartDatasets = specification.map((chartSpec, i) => {
+      return {
+        data: chartData[i],
+        fill: false,
+        label: chartSpec.label,
+        pointRadius: 0,
+        borderColor: chartSpec.color,
+        borderWidth: 1,
+        lineTension: 0,
+        pointHitRadius: 8
+      };
     });
-  }
 
-  private createEvalChart(
-    canvasId: string, label: string,
-    chartData: ChartData[][],
-    min?: number, max?: number): Chart {
-    const context = (document.getElementById(canvasId) as HTMLCanvasElement)
-      .getContext('2d') as CanvasRenderingContext2D;
     return new Chart(context, {
       type: 'line',
-      data: {
-        datasets: [
-          {
-            data: chartData[0],
-            fill: false,
-            label: 'True Likelihood for G Samples',
-            pointRadius: 0,
-            borderColor: 'rgba(5, 117, 176, 0.5)',
-            borderWidth: 1,
-            lineTension: 0,
-            pointHitRadius: 8
-          },
-          {
-            data: chartData[1],
-            fill: false,
-            label: 'G Likelihood for True Samples',
-            pointRadius: 0,
-            borderColor: 'rgba(123, 50, 148, 0.5)',
-            borderWidth: 1,
-            lineTension: 0,
-            pointHitRadius: 8
-          },
-          {
-            data: chartData[2],
-            fill: false,
-            label: 'KL Divergence (grid)',
-            pointRadius: 0,
-            borderColor: 'rgba(120, 220, 64, 0.5)',
-            borderWidth: 2,
-            lineTension: 0,
-            pointHitRadius: 8
-          },
-          {
-            data: chartData[3],
-            fill: false,
-            label: 'JS Divergence (grid)',
-            pointRadius: 0,
-            borderColor: 'rgba(220, 120, 64, 0.5)',
-            borderWidth: 2,
-            lineTension: 0,
-            pointHitRadius: 8
-          }
-        ]
-      },
+      data: { datasets: chartDatasets },
       options: {
         animation: { duration: 0 },
         responsive: false,
         scales: {
           xAxes: [{ type: 'linear', position: 'bottom' }],
-          yAxes: [{
-            ticks: {
-              max,
-              min,
-            }
-          }]
+          yAxes: [{ ticks: { max, min } }]
         }
       }
     });

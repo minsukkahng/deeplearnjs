@@ -25,16 +25,6 @@ export class GANLabEvaluatorGridDensities {
     }
   }
 
-  testGeneratedOnTrue(generatedSamples: Array<[number, number]>): number {
-    let score = 0.0;
-    const numGeneratedSamples = generatedSamples.length;
-    for (let i = 0; i < numGeneratedSamples; ++i) {
-      score += this.gridTrueDensities[this.mapPointToGridIndex(
-        generatedSamples[i])];
-    }
-    return score;
-  }
-
   updateGridsForGenerated(generatedSamples: Array<[number, number]>) {
     const numGeneratedSamples = generatedSamples.length;
     this.gridGeneratedDensities.fill(0.0);
@@ -42,14 +32,6 @@ export class GANLabEvaluatorGridDensities {
       this.gridGeneratedDensities[this.mapPointToGridIndex(
         generatedSamples[i])] += 1.0 / numGeneratedSamples;
     }
-  }
-
-  testTrueOnGenerated(): number {
-    let score = 0.0;
-    for (let j = 0; j < this.gridTrueSampleCount.length; ++j) {
-      score += this.gridTrueSampleCount[j] * this.gridGeneratedDensities[j];
-    }
-    return score;
   }
 
   getKLDivergenceScore(): number {

@@ -149,7 +149,7 @@ export class GANLabUniformNoiseProviderBuilder extends
             0
           ];
           return provider.math.slice2D(provider.atlas, begin,
-            [provider.batchSize, 2]);
+            [provider.batchSize, provider.noiseSize]);
         });
       },
       disposeCopy(math: NDArrayMath, copy: NDArray) {

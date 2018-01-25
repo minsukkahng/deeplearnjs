@@ -77,14 +77,25 @@ class GANLab extends GANLabPolymer {
 
   ready() {
     // HTML elements.
-    const noiseSlider = this.querySelector('#noise-slider') as HTMLInputElement;
-    const noiseSizeElement = this.querySelector('#noise-size') as HTMLElement;
-    this.noiseSize = +noiseSlider.value;
-    noiseSlider.addEventListener('value-change', (event) => {
-      this.noiseSize = +noiseSlider.value;
-      noiseSizeElement.innerText = this.noiseSize.toString();
-      this.createExperiment();
-    });
+    const noiseSizeElement =
+      document.getElementById('noise-size') as HTMLElement;
+    this.noiseSize = +noiseSizeElement.innerText;
+    document.getElementById('noise-size-add-button')!.addEventListener(
+      'click', () => {
+        if (this.noiseSize < 5) {
+          this.noiseSize += 1;
+          noiseSizeElement.innerText = this.noiseSize.toString();
+          this.createExperiment();
+        }
+      });
+    document.getElementById('noise-size-remove-button')!.addEventListener(
+      'click', () => {
+        if (this.noiseSize > 1) {
+          this.noiseSize -= 1;
+          noiseSizeElement.innerText = this.noiseSize.toString();
+          this.createExperiment();
+        }
+      });
 
     const numGeneratorLayersElement =
       document.getElementById('num-g-layers') as HTMLElement;
@@ -174,23 +185,41 @@ class GANLab extends GANLabPolymer {
         }
       });
 
-    const kDStepsSlider =
-      this.querySelector('#k-d-steps-slider') as HTMLInputElement;
-    const kDStepsElement = this.querySelector('#k-d-steps') as HTMLElement;
-    this.kDSteps = +kDStepsSlider.value;
-    kDStepsSlider.addEventListener('value-change', (event) => {
-      kDStepsElement.innerText = kDStepsSlider.value;
-      this.kDSteps = +kDStepsSlider.value;
-    });
+    const numKDStepsElement =
+      document.getElementById('k-d-steps') as HTMLElement;
+    this.kDSteps = +numKDStepsElement.innerText;
+    document.getElementById('k-d-steps-add-button')!.addEventListener(
+      'click', () => {
+        if (this.kDSteps < 10) {
+          this.kDSteps += 1;
+          numKDStepsElement.innerText = this.kDSteps.toString();
+        }
+      });
+    document.getElementById('k-d-steps-remove-button')!.addEventListener(
+      'click', () => {
+        if (this.kDSteps > 0) {
+          this.kDSteps -= 1;
+          numKDStepsElement.innerText = this.kDSteps.toString();
+        }
+      });
 
-    const kGStepsSlider =
-      this.querySelector('#k-g-steps-slider') as HTMLInputElement;
-    const kGStepsElement = this.querySelector('#k-g-steps') as HTMLElement;
-    this.kGSteps = +kGStepsSlider.value;
-    kGStepsSlider.addEventListener('value-change', (event) => {
-      kGStepsElement.innerText = kGStepsSlider.value;
-      this.kGSteps = +kGStepsSlider.value;
-    });
+    const numKGStepsElement =
+      document.getElementById('k-g-steps') as HTMLElement;
+    this.kGSteps = +numKGStepsElement.innerText;
+    document.getElementById('k-g-steps-add-button')!.addEventListener(
+      'click', () => {
+        if (this.kGSteps < 10) {
+          this.kGSteps += 1;
+          numKGStepsElement.innerText = this.kGSteps.toString();
+        }
+      });
+    document.getElementById('k-g-steps-remove-button')!.addEventListener(
+      'click', () => {
+        if (this.kGSteps > 0) {
+          this.kGSteps -= 1;
+          numKGStepsElement.innerText = this.kGSteps.toString();
+        }
+      });
 
     this.learningRateOptions = [0.001, 0.01, 0.05, 0.1, 0.5];
     this.learningRate = 0.1;
@@ -215,6 +244,7 @@ class GANLab extends GANLabPolymer {
         }
       });
 
+    // Checkbox toggles.
     this.querySelector('#overlap-plots')!.addEventListener(
       'change', (event: Event) => {
         const container =
@@ -254,7 +284,16 @@ class GANLab extends GANLabPolymer {
         container.style.visibility =
           (event.target as any).active ? 'visible' : 'hidden';
       });
+    this.querySelector('#show-g-gradients')!.addEventListener(
+      'change', (event: Event) => {
+        const container =
+          this.querySelector('#vis-generator-gradients') as SVGGElement;
+        // tslint:disable-next-line:no-any
+        container.style.visibility =
+          (event.target as any).active ? 'visible' : 'hidden';
+      });
 
+    // Timeline controls.
     const playButton =
       document.getElementById('play-pause-button') as HTMLInputElement;
     playButton.addEventListener(
@@ -478,7 +517,8 @@ class GANLab extends GANLabPolymer {
       .x((d: number[]) => d[0] * this.smallPlotSizePx)
       .y((d: number[]) => (1.0 - d[1]) * this.smallPlotSizePx)
       .size([this.smallPlotSizePx, this.smallPlotSizePx])
-      .bandwidth(15);
+      .bandwidth(0.5)
+      .thresholds(5);
 
     const trueContourList = [
       d3.select('#vis-true-samples-contour')
@@ -537,7 +577,7 @@ class GANLab extends GANLabPolymer {
         .attr('r', 1)
         .attr('cx', (d: number[]) => d[0] * this.smallPlotSizePx)
         .attr('cy', this.smallPlotSizePx / 2);
-    } else if (this.noiseSize === 2) {
+    } else if (this.noiseSize >= 2) {
       d3.select('#svg-noise')
         .selectAll('.noise-dot').data(noiseSamples)
         .enter()

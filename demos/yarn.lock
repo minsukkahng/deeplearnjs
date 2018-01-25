@@ -102,6 +102,10 @@
   version "2.0.0"
   resolved "https://codeload.github.com/PolymerElements/paper-button/tar.gz/804937a43980511e232c44a134ed4fb8d71917ef"
 
+"@bower_components/paper-checkbox@PolymerElements/paper-checkbox#1.*.*":
+  version "0.0.0"
+  resolved "https://codeload.github.com/PolymerElements/paper-checkbox/tar.gz/597add130503e789ca9e831280d084c1ad64d8a0"
+
 "@bower_components/paper-dialog-behavior@PolymerElements/paper-dialog-behavior#^1.0.0":
   version "0.0.0"
   resolved "https://codeload.github.com/PolymerElements/paper-dialog-behavior/tar.gz/89f4269be54796eafbf49996a9bb1d76e39b38b7"
@@ -2436,12 +2440,6 @@ d3-contour@~1.1.2:
 d3-format@1, d3-format@~1.2.1:
   version "1.2.2"
   resolved "https://registry.yarnpkg.com/d3-format/-/d3-format-1.2.2.tgz#1a39c479c8a57fe5051b2e67a3bee27061a74e7a"
-
-d3-geo@~1.9.1:
-  version "1.9.1"
-  resolved "https://registry.yarnpkg.com/d3-geo/-/d3-geo-1.9.1.tgz#157e3b0f917379d0f73bebfff3be537f49fa7356"
-  dependencies:
-    d3-array "1"
 
 d3-geo@~1.9.1:
   version "1.9.1"

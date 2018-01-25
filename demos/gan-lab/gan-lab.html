@@ -1,6 +1,5 @@
 <link rel="import" href="../node_modules/@bower_components/polymer/polymer.html">
-<link rel="import" href="../node_modules/@bower_components/paper-toggle-button/paper-toggle-button.html">
-<link rel="import" href="../node_modules/@bower_components/paper-slider/paper-slider.html">
+<link rel="import" href="../node_modules/@bower_components/paper-checkbox/paper-checkbox.html">
 <link rel="import" href="../node_modules/@bower_components/paper-dropdown-menu/paper-dropdown-menu.html">
 <link rel="import" href="../node_modules/@bower_components/paper-listbox/paper-listbox.html">
 <link rel="import" href="../node_modules/@bower_components/paper-item/paper-item.html">
@@ -13,7 +12,6 @@
 <dom-module id="gan-lab">
   <style>
     #gan-lab-container {
-      display: flex;
       width: 100%;
     }
 
@@ -30,15 +28,21 @@
       padding: 20px;
     }
 
+    #main-panel {
+      background: #fafafa;
+      display: flex;
+    }
+
     #training-menu {
       width: 165px;
     }
 
     #model-visualization-container {
-      background: #fafafa;
       border: 1px solid rgba(0, 0, 0, 0.1);
       border-width: 0 1px 0 0;
       flex-grow: 2;
+      min-height: 800px;
+      min-width: 550px;
       padding: 20px;
       position: relative;
     }
@@ -54,9 +58,25 @@
       width: 240px;
     }
 
+    #model-vis-svg,
     #model-vis-div {
       height: 800px;
-      width: 500px;
+      position: absolute;
+      width: 600px;
+    }
+
+    #model-vis-svg path {
+      fill: none;
+      stroke: rgb(156, 156, 156);
+      stroke-width: 2;
+    }
+
+    .model-component-group {
+      background-color: #444;
+      height: 110px;
+      color: #fff;
+      position: absolute;
+      width: 230px;
     }
 
     .model-component {
@@ -67,13 +87,15 @@
     }
 
     .model-component svg {
+      background-color: #fff;
       border: 1px solid #ddd;
       height: 80px;
       width: 80px;
     }
 
     .model-component .component-label {
-      font-size: 12px;
+      font-size: 14px;
+      font-weight: bold;
       line-height: 16px;
     }
 
@@ -84,16 +106,23 @@
     }
 
     .config-item {
+      line-height: 14px;
       margin: 0;
     }
 
     .config-item label {
-      color: #737373;
-      margin: 0;
+      color: rgb(82, 82, 82);
       font-size: 11px;
+      margin: 0;
+    }
+
+    .model-component-group .config-item label {
+      color: rgb(238, 238, 238);
     }
 
     #model-visualization-container .mdl-button--icon {
+      height: 16px;
+      min-height: 16px;
       min-width: 16px;
       width: 16px;
     }
@@ -107,22 +136,23 @@
       font-size: 12px;
     }
 
-    paper-slider {
-      width: 80px;
-    }
-
     .panel-title {
       color: #999;
       font-size: 12px;
-      margin-top: 10px;
       text-transform: uppercase;
+    }
+
+    #control-panel {
+      border-bottom: 2px solid #ccc;
+      height: 70px;
+      padding: 7px 30px;
+      width: 100%;
     }
 
     .timeline-controls {
       align-items: center;
-      display: flex;
-      margin-bottom: 10px;
-      width: 140px;
+      display: inline-flex;
+      width: 200px;
     }
 
     #play-pause-button .material-icons {
@@ -143,14 +173,20 @@
       display: inherit;
     }
 
-    .two-way-toggle {
-      font-size: 12px;
+    .checkbox-toggle {
+      left: 63px;
       position: absolute;
+    }
+
+    paper-checkbox {
+      --paper-checkbox-checked-color: var(--paper-grey-400);
+      --paper-checkbox-unchecked-color: var(--paper-grey-500);
     }
 
     #iteration {
       color: #737373;
-      margin-top: 15px;
+      display: inline-flex;
+      margin: 25px 0 0 20px;
     }
 
     #iteration-count {
@@ -220,183 +256,7 @@
   </style>
   <template>
     <div id="gan-lab-container">
-      <div id="model-visualization-container" class="ink-panel">
-        <div id="model-vis-div">
-          <div class="panel-title">model</div>
-
-          <div id="component-prediction" class="model-component"
-            style="top: 20px; left: 215px">
-            <svg id="svg-prediction"></svg>
-            <div class="component-label">prediction</div>
-          </div>
-
-          <div id="component-d-loss" class="model-component"
-            style="top: 20px; left: 380px">
-            <div id="d-loss-value" class="component-value">-</div>
-            <div class="component-value">(<span id="d-loss-value-simple"></span>)</div>
-            <div class="component-label">D loss</div>
-            <div class="config-item">
-              <label># Updates per Iter: <span id="k-d-steps">2</span></label>
-              <paper-slider pin min="0" max="10" value="2" id="k-d-steps-slider"></paper-slider>
-            </div>
-          </div>
-
-          <div id="component-g-loss" class="model-component"
-            style="top: 20px; left: 490px">
-            <div id="g-loss-value" class="component-value">-</div>
-            <div class="component-value">(<span id="g-loss-value-simple"></span>)</div>
-            <div class="component-label">G loss</div>
-            <div class="config-item">
-              <label># Updates per Iter: <span id="k-g-steps">1</span></label>
-              <paper-slider pin min="0" max="10" value="1" id="k-g-steps-slider"></paper-slider>
-            </div>
-          </div>
-
-          <div id="component-discriminator" class="model-component"
-            style="top: 170px; left: 215px">
-            <div id="overlap-toggle" class="two-way-toggle">
-              <paper-toggle-button id="overlap-plots" checked></paper-toggle-button>
-            </div>
-            <svg id="svg-discriminator-output"></svg>
-            <div class="component-label">discriminator</div>
-          </div>
-
-          <div id="component-options-discriminator" class="model-component-options"
-            style="top: 200px; left: 75px">
-            <div class="config-item">
-              <button class="mdl-button mdl-js-button mdl-button--icon"
-                id="d-layers-add-button" title="Add a layer">
-                <i class="material-icons">add</i>
-              </button>
-              <button class="mdl-button mdl-js-button mdl-button--icon"
-                id="d-layers-remove-button" title="Remove a layer">
-                <i class="material-icons">remove</i>
-              </button>
-              <label><span id="num-d-layers">1</span> hidden layer(s)</label>
-            </div>
-            <div class="config-item">
-              <button class="mdl-button mdl-js-button mdl-button--icon"
-                id="d-neurons-add-button" title="Add a neuron for each layer">
-                <i class="material-icons">add</i>
-              </button>
-              <button class="mdl-button mdl-js-button mdl-button--icon"
-                id="d-neurons-remove-button" title="Remove a neuron for each layer">
-                <i class="material-icons">remove</i>
-              </button>
-              <label><span id="num-d-neurons">8</span> neuron(s)</label>
-            </div>
-          </div>
-
-          <div id="component-discriminator-gradients" class="model-component"
-            style="top: 170px; left: 345px">
-            <svg id="svg-discriminator-gradients"></svg>
-            <div class="component-label">gradients</div>
-            <div class="config-item">
-              <paper-dropdown-menu no-animations label="Learning Rate">
-                <paper-listbox attr-for-selected="value" id="learning-rate-dropdown" class="dropdown-content" selected="{{learningRate}}">
-                  <template is="dom-repeat" items="[[learningRateOptions]]">
-                    <paper-item value="[[item]]" label="[[item]]">
-                      [[item]]
-                    </paper-item>
-                  </template>
-                </paper-listbox>
-              </paper-dropdown-menu>
-            </div>
-          </div>
-
-          <div id="component-true-distribution" class="model-component"
-            style="top: 320px; left: 10px">
-            <div id="t-contour-toggle" class="two-way-toggle">
-              <paper-toggle-button id="show-t-contour" checked></paper-toggle-button>
-            </div>
-            <svg id="svg-true-distribution"></svg>
-            <div class="component-label">true distribution</div>
-            <div>
-              <paper-dropdown-menu no-animations>
-                <paper-listbox attr-for-selected="value" id="shape-dropdown" class="dropdown-content" selected="{{selectedShapeName}}">
-                  <template is="dom-repeat" items="[[shapeNames]]">
-                    <paper-item value="[[item]]" label="[[item]]">
-                      [[item]]
-                    </paper-item>
-                  </template>
-                </paper-listbox>
-              </paper-dropdown-menu>
-            </div>
-          </div>
-
-          <div id="component-real-samples" class="model-component"
-            style="top: 320px; left: 150px">
-            <div id="t-samples-toggle" class="two-way-toggle">
-              <paper-toggle-button id="show-t-samples" checked></paper-toggle-button>
-            </div>
-            <svg id="svg-real-samples"></svg>
-            <div class="component-label">real samples</div>
-          </div>
-
-          <div id="component-generated-samples" class="model-component"
-            style="top: 320px; left: 290px">
-            <div id="g-samples-toggle" class="two-way-toggle">
-              <paper-toggle-button id="show-g-samples" checked></paper-toggle-button>
-            </div>
-            <svg id="svg-generated-samples"></svg>
-            <div class="component-label">generated samples</div>
-          </div>
-
-          <div id="component-generator" class="model-component"
-            style="top: 470px; left: 290px">
-            <div id="manifold-toggle" class="two-way-toggle">
-              <paper-toggle-button id="enable-manifold" checked></paper-toggle-button>
-            </div>
-            <svg id="svg-generator-manifold"></svg>
-            <div class="component-label">generator</div>
-          </div>
-
-          <div id="component-options-generator" class="model-component-options"
-            style="top: 500px; left: 150px">
-            <div class="config-item">
-              <button class="mdl-button mdl-js-button mdl-button--icon"
-                id="g-layers-add-button" title="Add a layer">
-                <i class="material-icons">add</i>
-              </button>
-              <button class="mdl-button mdl-js-button mdl-button--icon"
-                id="g-layers-remove-button" title="Remove a layer">
-                <i class="material-icons">remove</i>
-              </button>
-              <label><span id="num-g-layers">1</span> hidden layer(s)</label>
-            </div>
-            <div class="config-item">
-              <button class="mdl-button mdl-js-button mdl-button--icon"
-                id="g-neurons-add-button" title="Add a neuron for each layer">
-                <i class="material-icons">add</i>
-              </button>
-              <button class="mdl-button mdl-js-button mdl-button--icon"
-                id="g-neurons-remove-button" title="Remove a neuron for each layer">
-                <i class="material-icons">remove</i>
-              </button>
-              <label><span id="num-g-neurons">8</span> neuron(s)</label>
-            </div>
-          </div>
-
-          <div id="component-generator-gradients" class="model-component"
-            style="top: 470px; left: 430px">
-            <svg id="svg-generator-gradients"></svg>
-            <div class="component-label">gradients</div>
-          </div>
-
-          <div id="component-noise" class="model-component"
-            style="top: 620px; left: 290px">
-            <svg id="svg-noise"></svg>
-            <div class="component-label">noise</div>
-            <div class="config-item">
-              <label>Dimension: <span id="noise-size">2</span></label>
-              <paper-slider pin min="1" max="4" value="2" id="noise-slider"></paper-slider>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      <div id="training-menu" class="ink-panel side-panel">
+      <div id="control-panel">
         <div class="timeline-controls">
           <button class="mdl-button mdl-js-button mdl-button--icon ui-resetButton" id="reset-button" title="Reset the network">
             <i class="material-icons">replay</i>
@@ -416,66 +276,307 @@
           </button>
         </div>
 
-        <div class="separator"></div>
-
-        <div id="iteration" class="config-item">
+        <div id="iteration">
           Epoch: <span id="iteration-count">0</span>
         </div>
       </div>
 
-      <div id="drawing-disable-background"></div>
-
-      <div id="visualization-container" class="ink-panel">
-        <svg id="vis-svg" width="420" height="530">
-          <g id="vis-area" transform="translate(10,10)">
-            <g id="vis-discriminator-output" class="vis-panel">
-              <rect class="plot-bg" width="400" height="400" x="0" y="0"></rect>
-            </g>
-            <g id="vis-samples" class="vis-panel">
-              <g id="vis-true-samples-contour" class="contour"></g>
-              <g id="vis-true-samples"></g>
-              <g id="vis-generated-samples"></g>
+      <div id="main-panel">
+        <div id="model-visualization-container" class="ink-panel">
+          <svg id="model-vis-svg">
+            <g id="lines">
               <defs>
-                <linearGradient id="arrow-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style="stop-color:rgba(235, 0, 145, 0.8);" />
-                  <stop offset="100%" style="stop-color:rgba(231, 85, 178, 0.2);" />
-                </linearGradient>
+                <marker id="arrow-head" orient="auto" markerWidth="4" markerHeight="4"
+                  refX="0.3" refY="2">
+                  <path d="M0,0 V4 L2,2 Z" />
+                </marker>
               </defs>
-              <g id="vis-generator-gradients"></g>
-              <g id="vis-manifold"></g>
-              <rect class="plot-border" width="400" height="400" x="0" y="0"></rect>
+
+              <path marker-end="url(#arrow-head)" d="M275,160 L275,130" />
+              <path marker-end="url(#arrow-head)" d="M210,315 L265,285" />
+              <path marker-end="url(#arrow-head)" d="M350,315 L295,285" />
+              <path marker-end="url(#arrow-head)" d="M110,360 L160,360" />
+              <path marker-end="url(#arrow-head)" d="M350,460 L350,440" />
+              <path marker-end="url(#arrow-head)" d="M350,615 L350,585" />
+
+              <path marker-end="url(#arrow-head)" d="M320,60 L390,60" />
+              <path marker-end="url(#arrow-head)" d="M440,110 L440,180" />
+              <path d="M570,110 L570,510" />
+              <path marker-end="url(#arrow-head)" d="M570,510 L550,510" />
+              <path marker-end="url(#arrow-head)" d="M370,210 L335,210" />
+              <path marker-end="url(#arrow-head)" d="M450,510 L410,510" />
             </g>
-          </g>
-          <g id="vis-descriptions" transform="translate(10,420)">
-            <circle class="true-dot" r="2" transform="translate(5,5)"></circle>
-            <text transform="translate(15,9)">Samples from true distribution</text>
-            <circle class="generated-dot" r="2" transform="translate(5,25)"></circle>
-            <text transform="translate(15,29)">Samples generated by the generator</text>
+          </svg>
 
-            <rect class="true-dot" width="10" height="10" transform="translate(1,50)"></rect>
-            <text transform="translate(16,59)">
-              Discriminator thinks samples in this region are from true distribution (real).
-            </text>
-            <rect class="generated-dot" width="10" height="10" transform="translate(1,70)"></rect>
-            <text transform="translate(16,79)">
-              Discriminator thinks samples in this region are from generators (fake).
-            </text>
-          </g>
-        </svg>
+          <div id="model-vis-div">
+            <div class="panel-title">Model</div>
 
-        <div id="drawing-container">
-          <canvas id="input-drawing-canvas" width="400" height="400"></canvas>
-          <div id="drawing-instruction">Draw a distribution above, then click the apply button.</div>
-          <button id="finish-drawing" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">Apply</button>
+            <div id="component-prediction" class="model-component"
+              style="top: 20px; left: 235px">
+              <svg id="svg-prediction"></svg>
+              <div class="component-label">prediction</div>
+            </div>
+
+            <div id="component-d-loss" class="model-component"
+              style="top: 20px; left: 400px; width: 110px">
+              <div class="component-label">D loss</div>
+              <div id="d-loss-value" class="component-value" title="log loss">-</div>
+              <div class="component-value">(<span
+                id="d-loss-value-simple" title="simple absolute loss"></span>)</div>
+              <div class="config-item">
+                <button class="mdl-button mdl-js-button mdl-button--icon"
+                  id="k-d-steps-add-button" title="Increase a step">
+                  <i class="material-icons">add</i>
+                </button>
+                <button class="mdl-button mdl-js-button mdl-button--icon"
+                  id="k-d-steps-remove-button" title="Decrease a step per iter">
+                  <i class="material-icons">remove</i>
+                </button>
+                <br />
+                <label><span id="k-d-steps">2</span> update(s) per epoch</label>
+              </div>
+            </div>
+
+            <div id="component-g-loss" class="model-component"
+              style="top: 20px; left: 515px; width: 110px">
+              <div class="component-label">G loss</div>
+              <div id="g-loss-value" class="component-value" title="log loss">-</div>
+              <div class="component-value">(<span
+                id="g-loss-value-simple" title="simple absolute loss"></span>)</div>
+              <div class="config-item">
+                <button class="mdl-button mdl-js-button mdl-button--icon"
+                  id="k-g-steps-add-button" title="Increase a step">
+                  <i class="material-icons">add</i>
+                </button>
+                <button class="mdl-button mdl-js-button mdl-button--icon"
+                  id="k-g-steps-remove-button" title="Decrease a step per iter">
+                  <i class="material-icons">remove</i>
+                </button>
+                <br />
+                <label><span id="k-g-steps">1</span> update(s) per epoch</label>
+              </div>
+            </div>
+
+            <div id="component-learning-rate" class="model-component"
+              style="top: 210px; left: 470px">
+              <div class="config-item" style="background-color: white;">
+                <paper-dropdown-menu no-animations label="Learning Rate">
+                  <paper-listbox attr-for-selected="value" id="learning-rate-dropdown" class="dropdown-content" selected="{{learningRate}}">
+                    <template is="dom-repeat" items="[[learningRateOptions]]">
+                      <paper-item value="[[item]]" label="[[item]]">
+                        [[item]]
+                      </paper-item>
+                    </template>
+                  </paper-listbox>
+                </paper-dropdown-menu>
+              </div>
+            </div>
+
+            <div id="group-discriminator" class="model-component-group"
+              style="top: 165px; left: 95px">
+              <div id="component-discriminator" class="model-component"
+                style="top: 5px; left: 140px">
+                <div id="overlap-toggle" class="checkbox-toggle">
+                  <paper-checkbox id="overlap-plots" checked></paper-checkbox>
+                </div>
+                <svg id="svg-discriminator-output"></svg>
+                <div class="component-label">discriminator</div>
+              </div>
+
+              <div id="component-options-discriminator" class="model-component-options"
+                style="top: 35px; left: 5px">
+                <div class="config-item">
+                  <button class="mdl-button mdl-js-button mdl-button--icon"
+                    id="d-layers-add-button" title="Add a layer">
+                    <i class="material-icons">add</i>
+                  </button>
+                  <button class="mdl-button mdl-js-button mdl-button--icon"
+                    id="d-layers-remove-button" title="Remove a layer">
+                    <i class="material-icons">remove</i>
+                  </button>
+                  <label><span id="num-d-layers">1</span> hidden layer(s)</label>
+                </div>
+                <div class="config-item">
+                  <button class="mdl-button mdl-js-button mdl-button--icon"
+                    id="d-neurons-add-button" title="Add a neuron for each layer">
+                    <i class="material-icons">add</i>
+                  </button>
+                  <button class="mdl-button mdl-js-button mdl-button--icon"
+                    id="d-neurons-remove-button" title="Remove a neuron for each layer">
+                    <i class="material-icons">remove</i>
+                  </button>
+                  <label><span id="num-d-neurons">8</span> neuron(s)</label>
+                </div>
+              </div>
+            </div>
+
+            <div id="component-discriminator-gradients" class="model-component"
+              style="top: 195px; left: 380px">
+              <div class="component-label">gradients for discriminator</div>
+            </div>
+
+            <div id="component-true-distribution" class="model-component"
+              style="top: 320px; left: 25px">
+              <div id="t-contour-toggle" class="checkbox-toggle">
+                <paper-checkbox class="tiny" id="show-t-contour" checked></paper-checkbox>
+              </div>
+              <svg id="svg-true-distribution"></svg>
+              <div class="component-label">true distribution</div>
+              <div>
+                <paper-dropdown-menu no-animations label="Choose one">
+                  <paper-listbox attr-for-selected="value" id="shape-dropdown" class="dropdown-content" selected="{{selectedShapeName}}">
+                    <template is="dom-repeat" items="[[shapeNames]]">
+                      <paper-item value="[[item]]" label="[[item]]">
+                        [[item]]
+                      </paper-item>
+                    </template>
+                  </paper-listbox>
+                </paper-dropdown-menu>
+              </div>
+            </div>
+
+            <div id="component-real-samples" class="model-component"
+              style="top: 320px; left: 170px">
+              <div id="t-samples-toggle" class="checkbox-toggle">
+                <paper-checkbox id="show-t-samples" checked></paper-checkbox>
+              </div>
+              <svg id="svg-real-samples"></svg>
+              <div class="component-label">real samples</div>
+            </div>
+
+            <div id="component-generated-samples" class="model-component"
+              style="top: 320px; left: 310px">
+              <div id="g-samples-toggle" class="checkbox-toggle">
+                <paper-checkbox id="show-g-samples" checked></paper-checkbox>
+              </div>
+              <svg id="svg-generated-samples"></svg>
+              <div class="component-label">generated samples</div>
+            </div>
+
+            <div id="group-generator" class="model-component-group"
+              style="top: 465px; left: 170px">
+              <div id="component-generator" class="model-component"
+                style="top: 5px; left: 140px">
+                <div id="manifold-toggle" class="checkbox-toggle">
+                  <paper-checkbox id="enable-manifold" checked></paper-checkbox>
+                </div>
+                <svg id="svg-generator-manifold"></svg>
+                <div class="component-label">generator</div>
+              </div>
+
+              <div id="component-options-generator" class="model-component-options"
+                style="top: 35px; left: 5px">
+                <div class="config-item">
+                  <button class="mdl-button mdl-js-button mdl-button--icon"
+                    id="g-layers-add-button" title="Add a layer">
+                    <i class="material-icons">add</i>
+                  </button>
+                  <button class="mdl-button mdl-js-button mdl-button--icon"
+                    id="g-layers-remove-button" title="Remove a layer">
+                    <i class="material-icons">remove</i>
+                  </button>
+                  <label><span id="num-g-layers">1</span> hidden layer(s)</label>
+                </div>
+                <div class="config-item">
+                  <button class="mdl-button mdl-js-button mdl-button--icon"
+                    id="g-neurons-add-button" title="Add a neuron for each layer">
+                    <i class="material-icons">add</i>
+                  </button>
+                  <button class="mdl-button mdl-js-button mdl-button--icon"
+                    id="g-neurons-remove-button" title="Remove a neuron for each layer">
+                    <i class="material-icons">remove</i>
+                  </button>
+                  <label><span id="num-g-neurons">8</span> neuron(s)</label>
+                </div>
+              </div>
+            </div>
+
+            <div id="component-generator-gradients" class="model-component"
+              style="top: 470px; left: 455px">
+              <div id="g-gradients-toggle" class="checkbox-toggle">
+                <paper-checkbox id="show-g-gradients" checked></paper-checkbox>
+              </div>
+              <svg id="svg-generator-gradients"></svg>
+              <div class="component-label">gradients for generator</div>
+            </div>
+
+            <div id="component-noise" class="model-component"
+              style="top: 620px; left: 310px">
+              <svg id="svg-noise"></svg>
+              <div class="component-label">noise</div>
+              <div class="config-item">
+                  <button class="mdl-button mdl-js-button mdl-button--icon"
+                  id="noise-size-add-button" title="Increase a dimension">
+                  <i class="material-icons">add</i>
+                </button>
+                <button class="mdl-button mdl-js-button mdl-button--icon"
+                  id="noise-size-remove-button" title="Decrease a dimension">
+                  <i class="material-icons">remove</i>
+                </button>
+                <br />
+                <label><span id="noise-size">2</span>-D vectors</label>
+              </div>
+            </div>
+
+          </div>
         </div>
-      </div>
 
-      <div id="right-menu" class="ink-panel side-panel">
-        <div class="panel-title">Charts</div>
+        <div id="drawing-disable-background"></div>
 
-        <div id="chart-container">
-          <canvas id="cost-chart" width="240" height="200"></canvas>
-          <canvas id="eval-chart" width="240" height="200"></canvas>
+        <div id="visualization-container" class="ink-panel">
+          <div class="panel-title">Visualization</div>
+
+          <svg id="vis-svg" width="420" height="530">
+            <g id="vis-area" transform="translate(10,10)">
+              <g id="vis-discriminator-output" class="vis-panel">
+                <rect class="plot-bg" width="400" height="400" x="0" y="0"></rect>
+              </g>
+              <g id="vis-samples" class="vis-panel">
+                <g id="vis-true-samples-contour" class="contour"></g>
+                <g id="vis-true-samples"></g>
+                <g id="vis-generated-samples"></g>
+                <defs>
+                  <linearGradient id="arrow-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:rgba(235, 0, 145, 0.8);" />
+                    <stop offset="100%" style="stop-color:rgba(231, 85, 178, 0.2);" />
+                  </linearGradient>
+                </defs>
+                <g id="vis-generator-gradients"></g>
+                <g id="vis-manifold"></g>
+                <rect class="plot-border" width="400" height="400" x="0" y="0"></rect>
+              </g>
+            </g>
+            <g id="vis-descriptions" transform="translate(10,420)">
+              <circle class="true-dot" r="2" transform="translate(5,5)"></circle>
+              <text transform="translate(15,9)">Samples from true distribution</text>
+              <circle class="generated-dot" r="2" transform="translate(5,25)"></circle>
+              <text transform="translate(15,29)">Samples generated by the generator</text>
+
+              <rect class="true-dot" width="10" height="10" transform="translate(1,50)"></rect>
+              <text transform="translate(16,59)">
+                Discriminator thinks samples in this region are from true distribution (real).
+              </text>
+              <rect class="generated-dot" width="10" height="10" transform="translate(1,70)"></rect>
+              <text transform="translate(16,79)">
+                Discriminator thinks samples in this region are from generators (fake).
+              </text>
+            </g>
+          </svg>
+
+          <div id="drawing-container">
+            <canvas id="input-drawing-canvas" width="400" height="400"></canvas>
+            <div id="drawing-instruction">Draw a distribution above, then click the apply button.</div>
+            <button id="finish-drawing" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">Apply</button>
+          </div>
+        </div>
+
+        <div id="right-menu" class="ink-panel side-panel">
+          <div class="panel-title">Charts</div>
+
+          <div id="chart-container">
+            <canvas id="cost-chart" width="240" height="200"></canvas>
+            <canvas id="eval-chart" width="240" height="200"></canvas>
+          </div>
         </div>
       </div>
     </div>

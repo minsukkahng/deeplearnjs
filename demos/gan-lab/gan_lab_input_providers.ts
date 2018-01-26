@@ -10,7 +10,7 @@ export abstract class GANLabInputProviderBuilder {
 
   protected abstract generateAtlas(): void;
 
-  abstract getInputProvider(): InputProvider;
+  abstract getInputProvider(fixStarting?: boolean): InputProvider;
 }
 
 export class GANLabNoiseProviderBuilder extends
@@ -27,7 +27,7 @@ export class GANLabNoiseProviderBuilder extends
       [this.numSamplesVisualized * this.batchSize, this.noiseSize], 0.0, 1.0);
   }
 
-  getInputProvider(): InputProvider {
+  getInputProvider(fixStarting?: boolean): InputProvider {
     const provider = this;
     return {
       getNextCopy(): NDArray {
@@ -35,7 +35,8 @@ export class GANLabNoiseProviderBuilder extends
         return provider.math.scope(() => {
           return provider.math.slice2D(
             provider.atlas,
-            [(provider.providerCounter * provider.batchSize) %
+            [fixStarting ? 0 :
+              (provider.providerCounter * provider.batchSize) %
               provider.numSamplesVisualized, 0],
             [provider.batchSize, provider.noiseSize]);
         });
@@ -44,6 +45,11 @@ export class GANLabNoiseProviderBuilder extends
         copy.dispose();
       }
     };
+  }
+
+  getNoiseSample(): Float32Array {
+    return this.math.slice2D(this.atlas,
+      [0, 0], [this.batchSize, this.noiseSize]).dataSync() as Float32Array;
   }
 }
 
@@ -71,7 +77,7 @@ export class GANLabTrueSampleProviderBuilder extends
     this.atlas = Array2D.new([this.atlasSize, 2], this.inputAtlasList);
   }
 
-  getInputProvider(): InputProvider {
+  getInputProvider(fixStarting?: boolean): InputProvider {
     const provider = this;
     return {
       getNextCopy(): NDArray {
@@ -79,7 +85,8 @@ export class GANLabTrueSampleProviderBuilder extends
         return provider.math.scope(() => {
           return provider.math.slice2D(
             provider.atlas,
-            [(provider.providerCounter * provider.batchSize) %
+            [fixStarting ? 0 :
+              (provider.providerCounter * provider.batchSize) %
               provider.atlasSize, 0],
             [provider.batchSize, 2]);
         });
@@ -118,11 +125,12 @@ export class GANLabUniformNoiseProviderBuilder extends
         }
       }
     }
-    while (inputAtlasList.length < this.batchSize * this.noiseSize) {
+    while (inputAtlasList.length % this.batchSize * this.noiseSize > 0) {
       inputAtlasList.push(0.5);
     }
     this.atlas = Array2D.new(
-      [this.batchSize, this.noiseSize], inputAtlasList);
+      [inputAtlasList.length / this.noiseSize, this.noiseSize],
+      inputAtlasList);
   }
 
   getInputProvider(): InputProvider {
@@ -130,8 +138,18 @@ export class GANLabUniformNoiseProviderBuilder extends
     return {
       getNextCopy(): NDArray {
         provider.providerCounter++;
+        if (provider.providerCounter * provider.batchSize >
+          Math.pow(provider.numManifoldCells + 1, provider.noiseSize)) {
+          provider.providerCounter = 0;
+        }
         return provider.math.scope(() => {
-          return provider.math.clone(provider.atlas);
+          const begin: [number, number] = [
+            (provider.providerCounter * provider.batchSize) %
+            Math.pow(provider.numManifoldCells + 1, provider.noiseSize),
+            0
+          ];
+          return provider.math.slice2D(provider.atlas, begin,
+            [provider.batchSize, provider.noiseSize]);
         });
       },
       disposeCopy(math: NDArrayMath, copy: NDArray) {

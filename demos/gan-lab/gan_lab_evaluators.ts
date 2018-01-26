@@ -36,10 +36,11 @@ export class GANLabEvaluatorGridDensities {
 
   getKLDivergenceScore(): number {
     let score = 0.0;
+    const smoothingEps = 0.0001;
     for (let j = 0; j < this.gridTrueDensities.length; ++j) {
-      score += (this.gridTrueDensities[j] + 0.0001) * Math.log2(
-        (this.gridTrueDensities[j] + 0.0001) /
-        (this.gridGeneratedDensities[j] + 0.0001));
+      score += (this.gridTrueDensities[j] + smoothingEps) * Math.log2(
+        (this.gridTrueDensities[j] + smoothingEps) /
+        (this.gridGeneratedDensities[j] + smoothingEps));
     }
     return score;
   }
@@ -47,15 +48,16 @@ export class GANLabEvaluatorGridDensities {
   getJSDivergenceScore(): number {
     let leftJS = 0.0;
     let rightJS = 0.0;
+    const smoothingEps = 0.0001;
     for (let j = 0; j < this.gridTrueDensities.length; ++j) {
       const averageDensity = 0.5 *
         (this.gridTrueDensities[j] + this.gridGeneratedDensities[j]);
-      leftJS += (this.gridTrueDensities[j] + 0.0001) * Math.log2(
-        (this.gridTrueDensities[j] + 0.0001) /
-        (averageDensity + 0.0001));
-      rightJS += (this.gridGeneratedDensities[j] + 0.0001) * Math.log2(
-        (this.gridGeneratedDensities[j] + 0.0001) /
-        (averageDensity + 0.0001));
+      leftJS += (this.gridTrueDensities[j] + smoothingEps) * Math.log2(
+        (this.gridTrueDensities[j] + smoothingEps) /
+        (averageDensity + smoothingEps));
+      rightJS += (this.gridGeneratedDensities[j] + smoothingEps) * Math.log2(
+        (this.gridGeneratedDensities[j] + smoothingEps) /
+        (averageDensity + smoothingEps));
     }
     return 0.5 * (leftJS + rightJS);
   }

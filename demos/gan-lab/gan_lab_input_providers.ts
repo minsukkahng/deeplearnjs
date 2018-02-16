@@ -17,14 +17,22 @@ export class GANLabNoiseProviderBuilder extends
   GANLabInputProviderBuilder {
 
   constructor(
-    private math: NDArrayMath, private noiseSize: number,
+    private math: NDArrayMath,
+    private noiseSize: number, private noiseType: string,
     private numSamplesVisualized: number, batchSize: number) {
     super(batchSize);
   }
 
   generateAtlas() {
-    this.atlas = Array2D.randUniform(
-      [this.numSamplesVisualized * this.batchSize, this.noiseSize], 0.0, 1.0);
+    if (this.noiseType === "Gaussian") {
+      this.atlas = Array2D.randTruncatedNormal(
+        [this.numSamplesVisualized * this.batchSize, this.noiseSize],
+        0.5, 0.25);
+    } else {
+      this.atlas = Array2D.randUniform(
+        [this.numSamplesVisualized * this.batchSize, this.noiseSize],
+        0.0, 1.0);
+    }
   }
 
   getInputProvider(fixStarting?: boolean): InputProvider {
@@ -125,7 +133,7 @@ export class GANLabUniformNoiseProviderBuilder extends
         }
       }
     }
-    while (inputAtlasList.length % this.batchSize * this.noiseSize > 0) {
+    while ((inputAtlasList.length / this.noiseSize) % this.batchSize > 0) {
       inputAtlasList.push(0.5);
     }
     this.atlas = Array2D.new(

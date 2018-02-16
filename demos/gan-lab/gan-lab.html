@@ -243,7 +243,8 @@
     }
 
     .gradient-generated {
-      fill: none;
+      fill: rgba(207, 28, 126, 0.8);
+      stroke-width: 0;
     }
 
     .contour {
@@ -253,9 +254,26 @@
       stroke-width: 0.5;
       stroke-linejoin: round;
     }
+
+    #tooltip {
+      background-color: rgba(48, 48, 48, 0.5);
+      color: white;
+      display: none;
+      font-size: 11px;
+      height: 80px;
+      position: absolute;
+      width: 200px;
+    }
+
+    #tooltip.shown {
+      display: block;
+      left: 700px;
+      top: 100px;
+    }
   </style>
   <template>
     <div id="gan-lab-container">
+      <div id="tooltip"></div>
       <div id="control-panel">
         <div class="timeline-controls">
           <button class="mdl-button mdl-js-button mdl-button--icon ui-resetButton" id="reset-button" title="Reset the network">
@@ -265,6 +283,9 @@
             <i class="material-icons">play_arrow</i>
             <i class="material-icons">pause</i>
           </button>
+          <div id="slow-toggle">
+            <paper-checkbox id="slow-step"></paper-checkbox>
+          </div>
           <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-button" title="Step">
             <i class="material-icons">skip_next</i>
           </button>
@@ -359,7 +380,16 @@
 
             <div id="component-learning-rate" class="model-component"
               style="top: 210px; left: 470px">
-              <div class="config-item" style="background-color: white;">
+              <div class="config-item">
+                <paper-dropdown-menu no-animations label="Optimizer">
+                  <paper-listbox attr-for-selected="value" id="optimizer-type-dropdown" class="dropdown-content" selected="{{optimizerType}}">
+                    <template is="dom-repeat" items="[[optimizerTypeOptions]]">
+                      <paper-item value="[[item]]" label="[[item]]">
+                        [[item]]
+                      </paper-item>
+                    </template>
+                  </paper-listbox>
+                </paper-dropdown-menu>
                 <paper-dropdown-menu no-animations label="Learning Rate">
                   <paper-listbox attr-for-selected="value" id="learning-rate-dropdown" class="dropdown-content" selected="{{learningRate}}">
                     <template is="dom-repeat" items="[[learningRateOptions]]">
@@ -441,7 +471,7 @@
                 <paper-checkbox id="show-t-samples" checked></paper-checkbox>
               </div>
               <svg id="svg-real-samples"></svg>
-              <div class="component-label">real samples</div>
+              <div class="component-label">true samples</div>
             </div>
 
             <div id="component-generated-samples" class="model-component"
@@ -515,6 +545,17 @@
                 </button>
                 <br />
                 <label><span id="noise-size">2</span>-D vectors</label>
+                <div>
+                  <paper-dropdown-menu no-animations>
+                    <paper-listbox attr-for-selected="value" id="noise-dropdown" class="dropdown-content" selected="{{selectedNoiseType}}">
+                      <template is="dom-repeat" items="[[noiseTypes]]">
+                        <paper-item value="[[item]]" label="[[item]]">
+                          [[item]]
+                        </paper-item>
+                      </template>
+                    </paper-listbox>
+                  </paper-dropdown-menu>
+                </div>
               </div>
             </div>
 
@@ -534,6 +575,7 @@
               <g id="vis-samples" class="vis-panel">
                 <g id="vis-true-samples-contour" class="contour"></g>
                 <g id="vis-true-samples"></g>
+                <g id="vis-generator-gradients"></g>
                 <g id="vis-generated-samples"></g>
                 <defs>
                   <linearGradient id="arrow-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -541,7 +583,6 @@
                     <stop offset="100%" style="stop-color:rgba(231, 85, 178, 0.2);" />
                   </linearGradient>
                 </defs>
-                <g id="vis-generator-gradients"></g>
                 <g id="vis-manifold"></g>
                 <rect class="plot-border" width="400" height="400" x="0" y="0"></rect>
               </g>

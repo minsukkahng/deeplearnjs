@@ -4,11 +4,12 @@ import { geoPath } from 'd3-geo';
 import { scaleLinear, scaleSequential } from 'd3-scale';
 import { interpolateYlGnBu } from 'd3-scale-chromatic';
 import { line } from 'd3-shape';
+import * as d3Transition from 'd3-transition';
 
 import { PolymerElement, PolymerHTMLElement } from '../polymer-spec';
 import {
-  Array1D, CostReduction, ENV, Graph, InputProvider, NDArray, NDArrayMath,
-  Scalar, Session, SGDOptimizer, Tensor
+  AdamOptimizer, Array1D, CostReduction, ENV, Graph, InputProvider, NDArray,
+  NDArrayMath, Optimizer, Scalar, Session, SGDOptimizer, Tensor
 } from 'deeplearn';
 import { TypedArray } from '../../src/util';
 
@@ -16,13 +17,14 @@ import * as gan_lab_input_providers from './gan_lab_input_providers';
 import * as gan_lab_drawing from './gan_lab_drawing';
 import * as gan_lab_evaluators from './gan_lab_evaluators';
 
-const BATCH_SIZE = 150;
+const BATCH_SIZE = 300;
 const ATLAS_SIZE = 12000;
 const NUM_GRID_CELLS = 30;
 const NUM_MANIFOLD_CELLS = 20;
 const GENERATED_SAMPLES_VISUALIZATION_INTERVAL = 10;
 const NUM_SAMPLES_VISUALIZED = 600;
 const NUM_TRUE_SAMPLES_VISUALIZED = 600;
+const SLOW_INTERVAL_MS = 500;
 
 // tslint:disable-next-line:variable-name
 const GANLabPolymer: new () => PolymerHTMLElement = PolymerElement({
@@ -30,8 +32,12 @@ const GANLabPolymer: new () => PolymerHTMLElement = PolymerElement({
   properties: {
     learningRate: Number,
     learningRateOptions: Array,
+    optimizerType: String,
+    optimizerTypeOptions: Array,
     selectedShapeName: String,
-    shapeNames: Array
+    shapeNames: Array,
+    selectedNoiseType: String,
+    noiseTypes: Array
   }
 });
 
@@ -42,8 +48,8 @@ class GANLab extends GANLabPolymer {
   private session: Session;
   private iterationCount: number;
 
-  private gOptimizer: SGDOptimizer;
-  private dOptimizer: SGDOptimizer;
+  private gOptimizer: Optimizer;
+  private dOptimizer: Optimizer;
   private predictionTensor1: Tensor;
   private predictionTensor2: Tensor;
   private gCostTensor: Tensor;
@@ -230,6 +236,15 @@ class GANLab extends GANLabPolymer {
         this.createExperiment();
       });
 
+    this.optimizerTypeOptions = ['SGD', 'Adam'];
+    this.optimizerType = 'SGD';
+    this.querySelector('#optimizer-type-dropdown')!.addEventListener(
+      // tslint:disable-next-line:no-any event has no type
+      'iron-activate', (event: any) => {
+        this.optimizerType = event.detail.selected;
+        this.createExperiment();
+      });
+
     this.shapeNames = ['Line', 'Two Gaussian Hills', 'Five Dots', 'Drawing'];
     this.selectedShapeName = 'Two Gaussian Hills';
     this.querySelector('#shape-dropdown')!.addEventListener(
@@ -242,6 +257,15 @@ class GANLab extends GANLabPolymer {
         } else {
           this.createExperiment();
         }
+      });
+
+    this.noiseTypes = ['Random', 'Gaussian'];
+    this.selectedNoiseType = 'Random';
+    this.querySelector('#noise-dropdown')!.addEventListener(
+      // tslint:disable-next-line:no-any event has no type
+      'iron-activate', (event: any) => {
+        this.selectedNoiseType = event.detail.selected;
+        this.createExperiment();
       });
 
     // Checkbox toggles.
@@ -314,6 +338,13 @@ class GANLab extends GANLabPolymer {
       document.getElementById('next-step-g-button') as HTMLInputElement;
     nextStepGButton.addEventListener(
       'click', () => this.onClickNextStepButton("G"));
+
+    this.slowMode = false;
+    this.querySelector('#slow-step')!.addEventListener(
+      'change', (event: Event) => {
+        // tslint:disable-next-line:no-any
+        this.slowMode = (event.target as any).active ? true : false;
+      });
 
     this.iterCountElement =
       document.getElementById('iteration-count') as HTMLElement;
@@ -388,7 +419,8 @@ class GANLab extends GANLabPolymer {
     // Input providers.
     const noiseProviderBuilder =
       new gan_lab_input_providers.GANLabNoiseProviderBuilder(
-        this.math, this.noiseSize, NUM_SAMPLES_VISUALIZED, BATCH_SIZE);
+        this.math, this.noiseSize, this.selectedNoiseType,
+        NUM_SAMPLES_VISUALIZED, BATCH_SIZE);
     noiseProviderBuilder.generateAtlas();
     this.noiseProvider = noiseProviderBuilder.getInputProvider();
     this.noiseProviderFixed = noiseProviderBuilder.getInputProvider(true);
@@ -659,10 +691,6 @@ class GANLab extends GANLabPolymer {
           1, this.dOptimizer, CostReduction.MEAN);
         if (j + 1 === this.kDSteps) {
           dCostVal = dCost.get();
-
-          document.getElementById('d-loss-value')!.innerText =
-            dCostVal.toFixed(3);
-
         }
       }
 
@@ -674,16 +702,34 @@ class GANLab extends GANLabPolymer {
           1, this.gOptimizer, CostReduction.MEAN);
         if (j + 1 === this.kGSteps) {
           gCostVal = gCost.get();
-
-          document.getElementById('g-loss-value')!.innerText =
-            gCostVal.toFixed(3);
         }
       }
 
       this.iterCountElement.innerText = this.iterationCount;
 
-      if (!keepIterating || this.iterationCount === 1 ||
+      if (!keepIterating || this.iterationCount === 1 || this.slowMode ||
         this.iterationCount % GENERATED_SAMPLES_VISUALIZATION_INTERVAL === 0) {
+
+        if (this.slowMode) {
+          document.getElementById('tooltip')!.classList.add('shown');
+          document.getElementById('tooltip')!.innerText = 'losses';
+          await this.sleep(SLOW_INTERVAL_MS);
+        }
+
+        // Update losses.
+        if (dCostVal) {
+          document.getElementById('d-loss-value')!.innerText =
+            dCostVal.toFixed(3);
+          document.getElementById('d-loss-value-simple')!.innerText =
+            (Math.pow(dCostVal, 2) * 0.5).toFixed(3);
+        }
+
+        if (gCostVal) {
+          document.getElementById('g-loss-value')!.innerText =
+            gCostVal.toFixed(3);
+          document.getElementById('g-loss-value-simple')!.innerText =
+            Math.pow(gCostVal, 2).toFixed(3);
+        }
 
         // Update charts.
         if (this.iterationCount === 1) {
@@ -695,6 +741,11 @@ class GANLab extends GANLabPolymer {
         this.updateChartData(
           this.costChartData, this.iterationCount, [dCostVal, gCostVal]);
         this.costChart.update();
+
+        if (this.slowMode) {
+          document.getElementById('tooltip')!.innerText = 'compute gradients';
+          await this.sleep(SLOW_INTERVAL_MS);
+        }
 
         // Visualize gradients for generator
         const gradData: Array<[number, number, number, number]> = [];
@@ -709,16 +760,25 @@ class GANLab extends GANLabPolymer {
           ]);
         }
 
+        // Todo: If not in step mode, need to update the positions of
+        // generated samples before showing gradients.
+
         const gradDotsList = [
           d3.select('#vis-generator-gradients')
             .selectAll('.gradient-generated').data(gradData),
           d3.select('#svg-generator-gradients')
             .selectAll('.gradient-generated').data(gradData)
         ];
+        const gradDotsElementList = [
+          '#vis-generator-gradients',
+          '#svg-generator-gradients'
+        ];
         if (this.iterationCount === 1) {
           gradDotsList.forEach((dots, k) => {
             const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
             const arrowSize = k === 0 ? 5.0 : 1.0;
+            const arrowWidth = k === 0 ? 0.002 : 0.0004;
+            /*
             dots.enter()
               .append('line')
               .attr('class', 'gradient-generated gan-lab')
@@ -728,19 +788,68 @@ class GANLab extends GANLabPolymer {
                 (d[0] - d[2] * arrowSize) * plotSizePx)
               .attr('y2', (d: number[]) =>
                 (1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx)
-              .style('stroke', 'url(#arrow-gradient)');
+              .style('stroke', 'url(#arrow-gradient)');*/
+            dots.enter()
+              .append('polygon')
+              .attr('class', 'gradient-generated gan-lab')
+              .attr('points', (d: number[]) => {
+                const gradSize = Math.sqrt(
+                  d[2] * d[2] + d[3] * d[3] + 0.00000001);
+                const xNorm = d[2] / gradSize;
+                const yNorm = d[3] / gradSize;
+                return `${d[0] * plotSizePx},
+                  ${(1.0 - d[1]) * plotSizePx}
+                  ${(d[0] - yNorm * (-1) * arrowWidth) * plotSizePx},
+                  ${(1.0 - (d[1] - xNorm * arrowWidth)) * plotSizePx}
+                  ${(d[0] - d[2] * arrowSize) * plotSizePx},
+                  ${(1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx}
+                  ${(d[0] - yNorm * arrowWidth) * plotSizePx},
+                  ${(1.0 - (d[1] - xNorm * (-1) * arrowWidth)) * plotSizePx}`;
+              });
           });
         }
+        /*const to = d3.select('#svg-generator-gradients').transition();
+        console.log(d3.select('#svg-generator-gradients'));
+        console.log(gradDotsList[0]);
+        to.select("div");*/
+
         gradDotsList.forEach((dots, k) => {
           const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
           const arrowSize = k === 0 ? 5.0 : 1.0;
-          dots.attr('x1', (d: number[]) => d[0] * plotSizePx)
-            .attr('y1', (d: number[]) => (1.0 - d[1]) * plotSizePx)
-            .attr('x2', (d: number[]) =>
-              (d[0] - d[2] * arrowSize) * plotSizePx)
-            .attr('y2', (d: number[]) =>
-              (1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx);
+          const arrowWidth = k === 0 ? 0.002 : 0.0004;
+          d3Transition.transition()//.duration(1000)
+            .select(gradDotsElementList[k])
+            .selectAll('.gradient-generated').selection().data(gradData)
+            .transition().duration(SLOW_INTERVAL_MS)
+            /*dots
+              .attr('x1', (d: number[]) => d[0] * plotSizePx)
+              .attr('y1', (d: number[]) => (1.0 - d[1]) * plotSizePx)
+              .attr('x2', (d: number[]) =>
+                (d[0] - d[2] * arrowSize) * plotSizePx)
+              .attr('y2', (d: number[]) =>
+                (1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx);*/
+            //dots
+            .attr('points', (d: number[]) => {
+              const gradSize = Math.sqrt(
+                d[2] * d[2] + d[3] * d[3] + 0.00000001);
+              const xNorm = d[2] / gradSize;
+              const yNorm = d[3] / gradSize;
+              return `${d[0] * plotSizePx},
+                ${(1.0 - d[1]) * plotSizePx}
+                ${(d[0] - yNorm * (-1) * arrowWidth) * plotSizePx},
+                ${(1.0 - (d[1] - xNorm * arrowWidth)) * plotSizePx}
+                ${(d[0] - d[2] * arrowSize) * plotSizePx},
+                ${(1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx}
+                ${(d[0] - yNorm * arrowWidth) * plotSizePx},
+                ${(1.0 - (d[1] - xNorm * (-1) * arrowWidth)) * plotSizePx}`;
+            });
         });
+
+        if (this.slowMode) {
+          document.getElementById('tooltip')!.style.left = '800px';
+          document.getElementById('tooltip')!.innerText = 'something';
+          await this.sleep(SLOW_INTERVAL_MS);
+        }
 
         // Visualize discriminator's output.
         const dData = [];
@@ -789,6 +898,11 @@ class GANLab extends GANLabPolymer {
           dots.select('title').text((d: number) => Number(d).toFixed(3));
         });
 
+        if (this.slowMode) {
+          document.getElementById('tooltip')!.innerText = 'another';
+          await this.sleep(SLOW_INTERVAL_MS);
+        }
+
         // Visualize generated samples.
         const gData: Array<[number, number]> = [];
         const gResult = this.session.eval(
@@ -814,6 +928,11 @@ class GANLab extends GANLabPolymer {
           d3.select('#svg-prediction')
             .selectAll('.generated-dot').data(gData),
         ];
+        const gDotsElementList = [
+          '#vis-generated-samples',
+          '#svg-generated-samples',
+          '#svg-prediction'
+        ];
         if (this.iterationCount === 1) {
           gDotsList.forEach((dots, k) => {
             const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
@@ -828,9 +947,19 @@ class GANLab extends GANLabPolymer {
         }
         gDotsList.forEach((dots, k) => {
           const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
-          dots.attr('cx', (d: number[]) => d[0] * plotSizePx)
+          d3Transition.transition()
+            .select(gDotsElementList[k])
+            .selectAll('.generated-dot')
+            .selection().data(gData)
+            .transition().duration(SLOW_INTERVAL_MS)
+            .attr('cx', (d: number[]) => d[0] * plotSizePx)
             .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx);
         });
+
+        if (this.slowMode) {
+          document.getElementById('tooltip')!.innerText = 'generated samples';
+          await this.sleep(SLOW_INTERVAL_MS);
+        }
 
         // Visualize manifold for 1-D or 2-D noise.
         interface ManifoldCell {
@@ -945,30 +1074,10 @@ class GANLab extends GANLabPolymer {
           }
         }
 
-        // Obtain simple evaluation scores.
-        const simpleEvalResult = this.session.evalAll(
-          [this.predictionTensor1, this.predictionTensor2],
-          [
-            { tensor: this.inputTensor, data: this.trueSampleProviderFixed },
-            { tensor: this.noiseTensor, data: this.noiseProviderFixed }
-          ]);
-        const simpleReal: Float32Array =
-          simpleEvalResult[0].getValues() as Float32Array;
-        const simpleFake: Float32Array =
-          simpleEvalResult[1].getValues() as Float32Array;
-        const simpleLossDReal = simpleReal.map((v: number) =>
-          1.0 - Math.min(1.0, v)).reduce(
-          (a, b) => a + b, 0) / simpleReal.length;
-        const simpleLossDFake = simpleFake.map((v: number) =>
-          Math.min(1.0, v)).reduce(
-          (a, b) => a + b, 0) / simpleFake.length;
-        const simpleLossG = simpleFake.map((v: number) =>
-          1.0 - Math.min(1.0, v)).reduce(
-          (a, b) => a + b, 0) / simpleReal.length;
-        document.getElementById('d-loss-value-simple')!.innerText =
-          ((simpleLossDReal + simpleLossDFake) * 0.5).toFixed(3);
-        document.getElementById('g-loss-value-simple')!.innerText =
-          simpleLossG.toFixed(3);
+        if (this.slowMode) {
+          document.getElementById('tooltip')!.classList.remove('shown');
+          await this.sleep(SLOW_INTERVAL_MS);
+        }
       }
     });
 
@@ -1084,7 +1193,8 @@ class GANLab extends GANLabPolymer {
     this.predictionTensor2 = network2;
 
     // Define losses.
-    const dRealCostTensor = g.log(this.predictionTensor1);
+    const dRealCostTensor = g.multiply(
+      g.constant(Scalar.new(0.9)), g.log(this.predictionTensor1));
     const dFakeCostTensor = g.log(
       g.subtract(g.constant(Scalar.new(1)), this.predictionTensor2));
     this.dCostTensor = g.multiply(
@@ -1105,8 +1215,17 @@ class GANLab extends GANLabPolymer {
       return v.name.slice(0, 3) === 'dfc';
     });
 
-    this.gOptimizer = new SGDOptimizer(this.learningRate, gNodes);
-    this.dOptimizer = new SGDOptimizer(this.learningRate, dNodes);
+    if (this.selectedOptimizerType === 'Adam') {
+      const beta1 = 0.9;
+      const beta2 = 0.999;
+      this.gOptimizer = new AdamOptimizer(
+        this.learningRate, beta1, beta2, gNodes);
+      this.dOptimizer = new AdamOptimizer(
+        this.learningRate, beta1, beta2, dNodes);
+    } else {
+      this.gOptimizer = new SGDOptimizer(this.learningRate, gNodes);
+      this.dOptimizer = new SGDOptimizer(this.learningRate, dNodes);
+    }
   }
 
   private recreateCharts() {
@@ -1178,6 +1297,10 @@ class GANLab extends GANLabPolymer {
         }
       }
     });
+  }
+
+  private sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 

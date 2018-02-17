@@ -12,147 +12,47 @@
 <dom-module id="gan-lab">
   <style>
     #gan-lab-container {
+      background-color: #fafafa;
+      font-family: Roboto, Arial;
       width: 100%;
     }
 
     .ink-panel {
       display: flex;
       flex-direction: column;
-      font-size: 14px;
-    }
-
-    .side-panel {
-      background: #fafafa;
-      border: 1px solid rgba(0, 0, 0, 0.1);
-      border-width: 0 1px 0 0;
-      padding: 20px;
+      font-size: 13px;
     }
 
     #main-panel {
-      background: #fafafa;
       display: flex;
     }
 
-    #training-menu {
-      width: 165px;
-    }
-
-    #model-visualization-container {
-      border: 1px solid rgba(0, 0, 0, 0.1);
-      border-width: 0 1px 0 0;
-      flex-grow: 2;
-      min-height: 800px;
-      min-width: 625px;
-      padding: 20px;
-      position: relative;
-    }
-
-    #visualization-container {
-      flex-grow: 2;
-      padding: 20px;
-      position: relative;
-    }
-
-    #right-menu {
-      border-width: 0 0 0 1px;
-      width: 240px;
-    }
-
-    #model-vis-svg,
-    #model-vis-div {
-      height: 800px;
-      position: absolute;
-      width: 600px;
-    }
-
-    #model-vis-svg path {
-      fill: none;
-      stroke: rgb(156, 156, 156);
-      stroke-width: 2;
-    }
-
-    .model-component-group {
-      background-color: #444;
-      height: 110px;
-      color: #fff;
-      position: absolute;
-      width: 230px;
-    }
-
-    .model-component {
-      height: 90px;
-      position: absolute;
-      text-align: center;
-      width: 80px;
-    }
-
-    .model-component svg {
-      background-color: #fff;
-      border: 1px solid #ddd;
-      height: 80px;
-      width: 80px;
-    }
-
-    .model-component .component-label {
-      font-size: 14px;
-      font-weight: bold;
-      line-height: 16px;
-    }
-
-    .model-component-options {
-      height: 90px;
-      position: absolute;
-      width: 140px;
-    }
-
-    .config-item {
-      line-height: 14px;
-      margin: 0;
-    }
-
-    .config-item label {
-      color: rgb(82, 82, 82);
-      font-size: 11px;
-      margin: 0;
-    }
-
-    .model-component-group .config-item label {
-      color: rgb(238, 238, 238);
-    }
-
-    #model-visualization-container .mdl-button--icon {
-      height: 16px;
-      min-height: 16px;
-      min-width: 16px;
-      width: 16px;
-    }
-
-    #model-visualization-container .material-icons {
-      font-size: 16px;
-    }
-
-    #model-visualization-container .paper-input-container input.paper-input,
-    #model-visualization-container paper-item {
-      font-size: 12px;
-    }
-
     .panel-title {
-      color: #999;
+      color: #777;
+      margin-bottom: 10px;
       font-size: 12px;
       text-transform: uppercase;
     }
 
-    #control-panel {
-      border-bottom: 2px solid #ccc;
+    #top-panel {
+      background-color: #eee;
+      border-bottom: 2px solid #ddd;
       height: 70px;
-      padding: 7px 30px;
-      width: 100%;
+    }
+
+    #page-title {
+      color: #444;
+      font-size: 24px;
+      padding: 15px 6px;
+    }
+
+    #control-panel {
+      text-align: right;
     }
 
     .timeline-controls {
       align-items: center;
       display: inline-flex;
-      width: 200px;
     }
 
     #play-pause-button .material-icons {
@@ -173,8 +73,104 @@
       display: inherit;
     }
 
+    #iteration {
+      color: #737373;
+      margin-top: 10px;
+    }
+
+    #iteration-count {
+      bottom: -5px;
+      font-size: 32px;
+      margin-left: 5px;
+      position: relative;
+    }
+
+    #charts-panel {
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-width: 0 0 0 1px;
+      padding: 25px;
+      width: 240px;
+    }
+
+    #model-visualization-container {
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-width: 0 1px 0 0;
+      flex-grow: 2;
+      min-height: 600px;
+      min-width: 785px;
+      padding: 25px;
+      position: relative;
+    }
+
+    #visualization-container {
+      flex-grow: 2;
+      padding: 25px;
+      position: relative;
+    }
+
+    #model-vis-svg,
+    #model-vis-div {
+      height: 600px;
+      position: absolute;
+      width: 770px;
+    }
+
+    #model-vis-svg path {
+      fill: none;
+      stroke: rgb(156, 156, 156);
+      stroke-width: 2;
+    }
+
+    .model-component-group {
+      background-color: #444;
+      height: 170px;
+      color: #fff;
+      position: absolute;
+      width: 155px;
+    }
+
+    .model-component {
+      position: absolute;
+      text-align: center;
+      width: 75px;
+    }
+
+    .model-component svg {
+      background-color: #fff;
+      border: 1px solid #ddd;
+      height: 75px;
+      width: 75px;
+    }
+
+    .model-component .component-label {
+      font-size: 14px;
+      font-weight: bold;
+      line-height: 16px;
+    }
+
+    .model-component-options {
+      height: 30px;
+      position: absolute;
+      width: 100px;
+    }
+
+    .config-item {
+      line-height: 14px;
+      margin: 0;
+    }
+
+    .config-item label {
+      color: rgb(82, 82, 82);
+      font-size: 11px;
+      margin: 0;
+    }
+
+    .model-component-group .config-item label {
+      color: rgb(238, 238, 238);
+    }
+
     .checkbox-toggle {
-      left: 63px;
+      left: 58px;
       position: absolute;
     }
 
@@ -183,15 +179,20 @@
       --paper-checkbox-unchecked-color: var(--paper-grey-500);
     }
 
-    #iteration {
-      color: #737373;
-      display: inline-flex;
-      margin: 25px 0 0 20px;
+    #model-visualization-container .mdl-button--icon {
+      height: 16px;
+      min-height: 16px;
+      min-width: 16px;
+      width: 16px;
     }
 
-    #iteration-count {
-      margin-left: 5px;
-      font-size: 32px;
+    #model-visualization-container .material-icons {
+      font-size: 16px;
+    }
+
+    #model-visualization-container .paper-input-container input.paper-input,
+    #model-visualization-container paper-item {
+      font-size: 12px;
     }
 
     #drawing-container {
@@ -274,31 +275,40 @@
   <template>
     <div id="gan-lab-container">
       <div id="tooltip"></div>
-      <div id="control-panel">
-        <div class="timeline-controls">
-          <button class="mdl-button mdl-js-button mdl-button--icon ui-resetButton" id="reset-button" title="Reset the network">
-            <i class="material-icons">replay</i>
-          </button>
-          <button class="mdl-button mdl-js-button mdl-button--fab mdl-button--colored ui-playButton" id="play-pause-button" title="Run/Pause">
-            <i class="material-icons">play_arrow</i>
-            <i class="material-icons">pause</i>
-          </button>
-          <div id="slow-toggle">
-            <paper-checkbox id="slow-step"></paper-checkbox>
-          </div>
-          <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-button" title="Step">
-            <i class="material-icons">skip_next</i>
-          </button>
-          <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-d-button" title="Step only discriminator">
-            <i>D</i>
-          </button>
-          <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-g-button" title="Step only generator">
-            <i>G</i>
-          </button>
-        </div>
 
-        <div id="iteration">
-          Epoch: <span id="iteration-count">0</span>
+      <div id="top-panel" class="mdl-grid">
+        <div id="page-title" class="mdl-cell mdl-cell--3-col"><strong>GAN</strong> Lab</div>
+        <div id="control-panel" class="mdl-cell mdl-cell--4-col">
+          <div class="timeline-controls">
+            <button class="mdl-button mdl-js-button mdl-button--icon ui-resetButton" id="reset-button" title="Reset the network">
+              <i class="material-icons">replay</i>
+            </button>
+            <button class="mdl-button mdl-js-button mdl-button--fab mdl-button--colored ui-playButton" id="play-pause-button" title="Run/Pause">
+              <i class="material-icons">play_arrow</i>
+              <i class="material-icons">pause</i>
+            </button>
+            <div id="slow-toggle">
+              <paper-checkbox id="slow-step"></paper-checkbox>
+            </div>
+            <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-button" title="Step">
+              <i class="material-icons">skip_next</i>
+            </button>
+            <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-d-button" title="Step only discriminator">
+              <i>D</i>
+            </button>
+            <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-g-button" title="Step only generator">
+              <i>G</i>
+            </button>
+            <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="edit-model-button" title="Edit model">
+              <i class="material-icons">mode_edit</i>
+            </button>
+          </div>
+        </div>
+        <div class="mdl-cell mdl-cell--5-col">
+          <div id="iteration">
+            Epoch:
+            <span id="iteration-count">0</span>
+          </div>
         </div>
       </div>
 
@@ -313,37 +323,46 @@
                 </marker>
               </defs>
 
-              <path marker-end="url(#arrow-head)" d="M275,160 L275,130" />
-              <path marker-end="url(#arrow-head)" d="M210,315 L265,285" />
-              <path marker-end="url(#arrow-head)" d="M350,315 L295,285" />
-              <path marker-end="url(#arrow-head)" d="M110,360 L160,360" />
-              <path marker-end="url(#arrow-head)" d="M350,460 L350,440" />
-              <path marker-end="url(#arrow-head)" d="M350,615 L350,585" />
+              <path marker-end="url(#arrow-head)" d="M105,285 L135,285" />
+              <path marker-end="url(#arrow-head)" d="M290,285 L320,285" />
+              <path marker-end="url(#arrow-head)" d="M400,195 L430,195" />
+              <path marker-end="url(#arrow-head)" d="M400,285 L430,285" />
+              <path marker-end="url(#arrow-head)" d="M585,195 L615,195" />
+              <path marker-end="url(#arrow-head)" d="M585,285 L615,285" />
 
-              <path marker-end="url(#arrow-head)" d="M320,60 L390,60" />
-              <path marker-end="url(#arrow-head)" d="M440,110 L440,180" />
-              <path d="M570,110 L570,510" />
-              <path marker-end="url(#arrow-head)" d="M570,510 L550,510" />
-              <path marker-end="url(#arrow-head)" d="M370,210 L335,210" />
-              <path marker-end="url(#arrow-head)" d="M450,510 L410,510" />
+              <path marker-end="url(#arrow-head)" d="M695,195 L725,235" />
+              <path marker-end="url(#arrow-head)" d="M695,285 L725,245" />
+              <path marker-end="url(#arrow-head)" d="M695,285 L725,325" />
+              <path d="M750,210 L750,50" />
+              <path d="M750,50 L490,50" />
+              <path marker-end="url(#arrow-head)" d="M490,50 L490,150" />
+              <path d="M750,350 L750,460" />
+              <path d="M750,460 L210,460" />
+              <path marker-end="url(#arrow-head)" d="M210,460 L210,330" />
             </g>
           </svg>
 
           <div id="model-vis-div">
             <div class="panel-title">Model</div>
 
-            <div id="component-prediction" class="model-component"
-              style="top: 20px; left: 235px">
-              <svg id="svg-prediction"></svg>
-              <div class="component-label">prediction</div>
-            </div>
-
             <div id="component-d-loss" class="model-component"
-              style="top: 20px; left: 400px; width: 110px">
+              style="top: 210px; left: 730px">
               <div class="component-label">D loss</div>
               <div id="d-loss-value" class="component-value" title="log loss">-</div>
               <div class="component-value">(<span
                 id="d-loss-value-simple" title="simple absolute loss"></span>)</div>
+            </div>
+
+            <div id="component-g-loss" class="model-component"
+              style="top: 295px; left: 730px">
+              <div class="component-label">G loss</div>
+              <div id="g-loss-value" class="component-value" title="log loss">-</div>
+              <div class="component-value">(<span
+                id="g-loss-value-simple" title="simple absolute loss"></span>)</div>
+            </div>
+
+            <div id="component-d-loop" class="model-component"
+              style="top: 33px; left: 620px; width: 150px">
               <div class="config-item">
                 <button class="mdl-button mdl-js-button mdl-button--icon"
                   id="k-d-steps-add-button" title="Increase a step">
@@ -353,17 +372,12 @@
                   id="k-d-steps-remove-button" title="Decrease a step per iter">
                   <i class="material-icons">remove</i>
                 </button>
-                <br />
                 <label><span id="k-d-steps">2</span> update(s) per epoch</label>
               </div>
             </div>
 
-            <div id="component-g-loss" class="model-component"
-              style="top: 20px; left: 515px; width: 110px">
-              <div class="component-label">G loss</div>
-              <div id="g-loss-value" class="component-value" title="log loss">-</div>
-              <div class="component-value">(<span
-                id="g-loss-value-simple" title="simple absolute loss"></span>)</div>
+            <div id="component-g-loop" class="model-component"
+              style="top: 462px; left: 620px; width: 150px">
               <div class="config-item">
                 <button class="mdl-button mdl-js-button mdl-button--icon"
                   id="k-g-steps-add-button" title="Increase a step">
@@ -373,16 +387,17 @@
                   id="k-g-steps-remove-button" title="Decrease a step per iter">
                   <i class="material-icons">remove</i>
                 </button>
-                <br />
                 <label><span id="k-g-steps">1</span> update(s) per epoch</label>
               </div>
             </div>
 
-            <div id="component-learning-rate" class="model-component"
-              style="top: 210px; left: 470px">
+            <div id="component-discriminator-learning" class="model-component"
+              style="top: 45px; left: 495px">
               <div class="config-item">
                 <paper-dropdown-menu no-animations label="Optimizer">
-                  <paper-listbox attr-for-selected="value" id="optimizer-type-dropdown" class="dropdown-content" selected="{{optimizerType}}">
+                  <paper-listbox attr-for-selected="value"
+                    id="d-optimizer-type-dropdown" class="dropdown-content"
+                    selected="{{dOptimizerType}}">
                     <template is="dom-repeat" items="[[optimizerTypeOptions]]">
                       <paper-item value="[[item]]" label="[[item]]">
                         [[item]]
@@ -391,7 +406,9 @@
                   </paper-listbox>
                 </paper-dropdown-menu>
                 <paper-dropdown-menu no-animations label="Learning Rate">
-                  <paper-listbox attr-for-selected="value" id="learning-rate-dropdown" class="dropdown-content" selected="{{learningRate}}">
+                  <paper-listbox attr-for-selected="value"
+                    id="d-learning-rate-dropdown" class="dropdown-content"
+                    selected="{{dLearningRate}}">
                     <template is="dom-repeat" items="[[learningRateOptions]]">
                       <paper-item value="[[item]]" label="[[item]]">
                         [[item]]
@@ -402,10 +419,50 @@
               </div>
             </div>
 
+            <div id="component-generator-learning" class="model-component"
+              style="top: 330px; left: 215px">
+              <div class="config-item">
+                <paper-dropdown-menu no-animations label="Optimizer">
+                  <paper-listbox attr-for-selected="value"
+                    id="g-optimizer-type-dropdown" class="dropdown-content"
+                    selected="{{gOptimizerType}}">
+                    <template is="dom-repeat" items="[[optimizerTypeOptions]]">
+                      <paper-item value="[[item]]" label="[[item]]">
+                        [[item]]
+                      </paper-item>
+                    </template>
+                  </paper-listbox>
+                </paper-dropdown-menu>
+                <paper-dropdown-menu no-animations label="Learning Rate">
+                  <paper-listbox attr-for-selected="value"
+                    id="g-learning-rate-dropdown" class="dropdown-content"
+                    selected="{{gLearningRate}}">
+                    <template is="dom-repeat" items="[[learningRateOptions]]">
+                      <paper-item value="[[item]]" label="[[item]]">
+                        [[item]]
+                      </paper-item>
+                    </template>
+                  </paper-listbox>
+                </paper-dropdown-menu>
+              </div>
+            </div>
+
+            <div id="component-true-prediction" class="model-component"
+              style="top: 155px; left: 620px">
+              <svg id="svg-true-prediction"></svg>
+              <div class="component-label">prediction</div>
+            </div>
+
+            <div id="component-generated-prediction" class="model-component"
+              style="top: 250px; left: 620px">
+              <svg id="svg-generated-prediction"></svg>
+              <div class="component-label">prediction</div>
+            </div>
+
             <div id="group-discriminator" class="model-component-group"
-              style="top: 165px; left: 95px">
+              style="top: 155px; left: 435px">
               <div id="component-discriminator" class="model-component"
-                style="top: 5px; left: 140px">
+                style="top: 62px; left: 2px">
                 <div id="overlap-toggle" class="checkbox-toggle">
                   <paper-checkbox id="overlap-plots" checked></paper-checkbox>
                 </div>
@@ -414,7 +471,7 @@
               </div>
 
               <div id="component-options-discriminator" class="model-component-options"
-                style="top: 35px; left: 5px">
+                style="top: 5px; left: 5px; width: 130px">
                 <div class="config-item">
                   <button class="mdl-button mdl-js-button mdl-button--icon"
                     id="d-layers-add-button" title="Add a layer">
@@ -441,19 +498,18 @@
             </div>
 
             <div id="component-discriminator-gradients" class="model-component"
-              style="top: 195px; left: 380px">
+              style="top: 5px; left: 500px">
               <div class="component-label">gradients for discriminator</div>
             </div>
 
             <div id="component-true-distribution" class="model-component"
-              style="top: 320px; left: 25px">
+              style="top: 60px; left: 325px">
               <div id="t-contour-toggle" class="checkbox-toggle">
                 <paper-checkbox class="tiny" id="show-t-contour" checked></paper-checkbox>
               </div>
-              <svg id="svg-true-distribution"></svg>
               <div class="component-label">true distribution</div>
               <div>
-                <paper-dropdown-menu no-animations label="Choose one">
+                <paper-dropdown-menu no-animations no-label-float>
                   <paper-listbox attr-for-selected="value" id="shape-dropdown" class="dropdown-content" selected="{{selectedShapeName}}">
                     <template is="dom-repeat" items="[[shapeNames]]">
                       <paper-item value="[[item]]" label="[[item]]">
@@ -466,7 +522,7 @@
             </div>
 
             <div id="component-real-samples" class="model-component"
-              style="top: 320px; left: 170px">
+              style="top: 155px; left: 325px">
               <div id="t-samples-toggle" class="checkbox-toggle">
                 <paper-checkbox id="show-t-samples" checked></paper-checkbox>
               </div>
@@ -475,7 +531,7 @@
             </div>
 
             <div id="component-generated-samples" class="model-component"
-              style="top: 320px; left: 310px">
+              style="top: 250px; left: 325px">
               <div id="g-samples-toggle" class="checkbox-toggle">
                 <paper-checkbox id="show-g-samples" checked></paper-checkbox>
               </div>
@@ -484,9 +540,9 @@
             </div>
 
             <div id="group-generator" class="model-component-group"
-              style="top: 465px; left: 170px">
+              style="top: 155px; left: 140px">
               <div id="component-generator" class="model-component"
-                style="top: 5px; left: 140px">
+                style="top: 62px; left: 2px">
                 <div id="manifold-toggle" class="checkbox-toggle">
                   <paper-checkbox id="enable-manifold" checked></paper-checkbox>
                 </div>
@@ -495,7 +551,7 @@
               </div>
 
               <div id="component-options-generator" class="model-component-options"
-                style="top: 35px; left: 5px">
+                style="top: 2px; left: 2px; width: 130px">
                 <div class="config-item">
                   <button class="mdl-button mdl-js-button mdl-button--icon"
                     id="g-layers-add-button" title="Add a layer">
@@ -522,7 +578,7 @@
             </div>
 
             <div id="component-generator-gradients" class="model-component"
-              style="top: 470px; left: 455px">
+              style="top: 400px; left: 325px">
               <div id="g-gradients-toggle" class="checkbox-toggle">
                 <paper-checkbox id="show-g-gradients" checked></paper-checkbox>
               </div>
@@ -531,7 +587,7 @@
             </div>
 
             <div id="component-noise" class="model-component"
-              style="top: 620px; left: 310px">
+              style="top: 250px; left: 30px">
               <svg id="svg-noise"></svg>
               <div class="component-label">noise</div>
               <div class="config-item">
@@ -546,7 +602,7 @@
                 <br />
                 <label><span id="noise-size">2</span>-D vectors</label>
                 <div>
-                  <paper-dropdown-menu no-animations>
+                  <paper-dropdown-menu no-animations no-label-float>
                     <paper-listbox attr-for-selected="value" id="noise-dropdown" class="dropdown-content" selected="{{selectedNoiseType}}">
                       <template is="dom-repeat" items="[[noiseTypes]]">
                         <paper-item value="[[item]]" label="[[item]]">
@@ -567,8 +623,8 @@
         <div id="visualization-container" class="ink-panel">
           <div class="panel-title">Visualization</div>
 
-          <svg id="vis-svg" width="420" height="530">
-            <g id="vis-area" transform="translate(10,10)">
+          <svg id="vis-svg" width="400" height="400">
+            <g id="vis-area">
               <g id="vis-discriminator-output" class="vis-panel">
                 <rect class="plot-bg" width="400" height="400" x="0" y="0"></rect>
               </g>
@@ -587,7 +643,9 @@
                 <rect class="plot-border" width="400" height="400" x="0" y="0"></rect>
               </g>
             </g>
-            <g id="vis-descriptions" transform="translate(10,420)">
+          </svg>
+          <svg id="vis-descriptions" width="400" height="120">
+            <g transform="translate(0,10)">
               <circle class="true-dot" r="2" transform="translate(5,5)"></circle>
               <text transform="translate(15,9)">Samples from true distribution</text>
               <circle class="generated-dot" r="2" transform="translate(5,25)"></circle>
@@ -595,11 +653,11 @@
 
               <rect class="true-dot" width="10" height="10" transform="translate(1,50)"></rect>
               <text transform="translate(16,59)">
-                Discriminator thinks samples in this region are from true distribution (real).
+                Discriminator thinks samples in this region are from true distribution.
               </text>
               <rect class="generated-dot" width="10" height="10" transform="translate(1,70)"></rect>
               <text transform="translate(16,79)">
-                Discriminator thinks samples in this region are from generators (fake).
+                Discriminator thinks samples in this region are from generators.
               </text>
             </g>
           </svg>
@@ -611,7 +669,7 @@
           </div>
         </div>
 
-        <div id="right-menu" class="ink-panel side-panel">
+        <div id="charts-panel" class="ink-panel">
           <div class="panel-title">Charts</div>
 
           <div id="chart-container">

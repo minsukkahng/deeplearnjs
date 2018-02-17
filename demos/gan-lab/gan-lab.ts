@@ -30,9 +30,11 @@ const SLOW_INTERVAL_MS = 500;
 const GANLabPolymer: new () => PolymerHTMLElement = PolymerElement({
   is: 'gan-lab',
   properties: {
-    learningRate: Number,
+    dLearningRate: Number,
+    gLearningRate: Number,
     learningRateOptions: Array,
-    optimizerType: String,
+    dOptimizerType: String,
+    gOptimizerType: String,
     optimizerTypeOptions: Array,
     selectedShapeName: String,
     shapeNames: Array,
@@ -70,7 +72,6 @@ class GANLab extends GANLabPolymer {
   private numGeneratorNeurons: number;
   private numDiscriminatorNeurons: number;
 
-  private learningRate: number;
   private kDSteps: number;
   private kGSteps: number;
 
@@ -227,21 +228,35 @@ class GANLab extends GANLabPolymer {
         }
       });
 
-    this.learningRateOptions = [0.001, 0.01, 0.05, 0.1, 0.5];
-    this.learningRate = 0.1;
-    this.querySelector('#learning-rate-dropdown')!.addEventListener(
+    this.learningRateOptions = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5];
+    this.dLearningRate = 0.1;
+    this.querySelector('#d-learning-rate-dropdown')!.addEventListener(
       // tslint:disable-next-line:no-any event has no type
       'iron-activate', (event: any) => {
-        this.learningRate = +event.detail.selected;
+        this.dLearningRate = +event.detail.selected;
+        this.createExperiment();
+      });
+    this.gLearningRate = 0.1;
+    this.querySelector('#g-learning-rate-dropdown')!.addEventListener(
+      // tslint:disable-next-line:no-any event has no type
+      'iron-activate', (event: any) => {
+        this.gLearningRate = +event.detail.selected;
         this.createExperiment();
       });
 
     this.optimizerTypeOptions = ['SGD', 'Adam'];
-    this.optimizerType = 'SGD';
-    this.querySelector('#optimizer-type-dropdown')!.addEventListener(
+    this.dOptimizerType = 'SGD';
+    this.querySelector('#d-optimizer-type-dropdown')!.addEventListener(
       // tslint:disable-next-line:no-any event has no type
       'iron-activate', (event: any) => {
-        this.optimizerType = event.detail.selected;
+        this.dOptimizerType = event.detail.selected;
+        this.createExperiment();
+      });
+    this.gOptimizerType = 'SGD';
+    this.querySelector('#g-optimizer-type-dropdown')!.addEventListener(
+      // tslint:disable-next-line:no-any event has no type
+      'iron-activate', (event: any) => {
+        this.gOptimizerType = event.detail.selected;
         this.createExperiment();
       });
 
@@ -346,6 +361,18 @@ class GANLab extends GANLabPolymer {
         this.slowMode = (event.target as any).active ? true : false;
       });
 
+    this.editMode = true;
+    document.getElementById('edit-model-button')!.addEventListener(
+      'click', () => {
+        const elements: NodeListOf<HTMLDivElement> =
+          this.querySelectorAll('.config-item');
+        for (let i = 0; i < elements.length; ++i) {
+          elements[i].style.visibility =
+            this.editMode ? 'hidden' : 'visible';
+        }
+        this.editMode = !this.editMode;
+      });
+
     this.iterCountElement =
       document.getElementById('iteration-count') as HTMLElement;
 
@@ -387,7 +414,6 @@ class GANLab extends GANLabPolymer {
       d3.select('#svg-real-samples').selectAll('.true-dot'),
       d3.select('#svg-prediction').selectAll('.true-dot'),
       d3.select('#vis-true-samples-contour').selectAll('path'),
-      d3.select('#svg-true-distribution').selectAll('path'),
       d3.select('#svg-noise').selectAll('.noise-dot'),
       d3.select('#vis-generated-samples').selectAll('.generated-dot'),
       d3.select('#svg-generated-samples').selectAll('.generated-dot'),
@@ -545,20 +571,11 @@ class GANLab extends GANLabPolymer {
       .size([this.plotSizePx, this.plotSizePx])
       .bandwidth(15)
       .thresholds(5);
-    const contourSmall = contourDensity()
-      .x((d: number[]) => d[0] * this.smallPlotSizePx)
-      .y((d: number[]) => (1.0 - d[1]) * this.smallPlotSizePx)
-      .size([this.smallPlotSizePx, this.smallPlotSizePx])
-      .bandwidth(0.5)
-      .thresholds(5);
 
     const trueContourList = [
       d3.select('#vis-true-samples-contour')
         .selectAll('path')
-        .data(contour(trueDistribution)),
-      d3.select('#svg-true-distribution')
-        .selectAll('path')
-        .data(contourSmall(trueDistribution))
+        .data(contour(trueDistribution))
     ];
     trueContourList.forEach((contours) => {
       contours.enter()
@@ -573,7 +590,7 @@ class GANLab extends GANLabPolymer {
         .selectAll('.true-dot').data(trueDistribution),
       d3.select('#svg-real-samples')
         .selectAll('.true-dot').data(trueDistribution),
-      d3.select('#svg-prediction')
+      d3.select('#svg-true-prediction')
         .selectAll('.true-dot').data(trueDistribution)
     ];
     trueDotsList.forEach((dots, k) => {
@@ -777,7 +794,7 @@ class GANLab extends GANLabPolymer {
           gradDotsList.forEach((dots, k) => {
             const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
             const arrowSize = k === 0 ? 5.0 : 1.0;
-            const arrowWidth = k === 0 ? 0.002 : 0.0004;
+            const arrowWidth = k === 0 ? 0.002 : 0.001;
             /*
             dots.enter()
               .append('line')
@@ -816,7 +833,7 @@ class GANLab extends GANLabPolymer {
         gradDotsList.forEach((dots, k) => {
           const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
           const arrowSize = k === 0 ? 5.0 : 1.0;
-          const arrowWidth = k === 0 ? 0.002 : 0.0004;
+          const arrowWidth = k === 0 ? 0.002 : 0.001;
           d3Transition.transition()//.duration(1000)
             .select(gradDotsElementList[k])
             .selectAll('.gradient-generated').selection().data(gradData)
@@ -868,7 +885,9 @@ class GANLab extends GANLabPolymer {
             .selectAll('.uniform-dot').data(dData),
           d3.select('#svg-discriminator-output')
             .selectAll('.uniform-dot').data(dData),
-          d3.select('#svg-prediction')
+          d3.select('#svg-true-prediction')
+            .selectAll('.uniform-dot').data(dData),
+          d3.select('#svg-generated-prediction')
             .selectAll('.uniform-dot').data(dData)
         ];
         if (this.iterationCount === 1) {
@@ -925,13 +944,13 @@ class GANLab extends GANLabPolymer {
             .selectAll('.generated-dot').data(gData),
           d3.select('#svg-generated-samples')
             .selectAll('.generated-dot').data(gData),
-          d3.select('#svg-prediction')
-            .selectAll('.generated-dot').data(gData),
+          d3.select('#svg-generated-prediction')
+            .selectAll('.generated-dot').data(gData)
         ];
         const gDotsElementList = [
           '#vis-generated-samples',
           '#svg-generated-samples',
-          '#svg-prediction'
+          '#svg-generated-prediction'
         ];
         if (this.iterationCount === 1) {
           gDotsList.forEach((dots, k) => {
@@ -1219,12 +1238,12 @@ class GANLab extends GANLabPolymer {
       const beta1 = 0.9;
       const beta2 = 0.999;
       this.gOptimizer = new AdamOptimizer(
-        this.learningRate, beta1, beta2, gNodes);
+        this.gLearningRate, beta1, beta2, gNodes);
       this.dOptimizer = new AdamOptimizer(
-        this.learningRate, beta1, beta2, dNodes);
+        this.dLearningRate, beta1, beta2, dNodes);
     } else {
-      this.gOptimizer = new SGDOptimizer(this.learningRate, gNodes);
-      this.dOptimizer = new SGDOptimizer(this.learningRate, dNodes);
+      this.gOptimizer = new SGDOptimizer(this.gLearningRate, gNodes);
+      this.dOptimizer = new SGDOptimizer(this.dLearningRate, dNodes);
     }
   }
 

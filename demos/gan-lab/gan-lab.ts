@@ -36,6 +36,8 @@ const GANLabPolymer: new () => PolymerHTMLElement = PolymerElement({
     dOptimizerType: String,
     gOptimizerType: String,
     optimizerTypeOptions: Array,
+    lossType: String,
+    lossTypeOptions: Array,
     selectedShapeName: String,
     shapeNames: Array,
     selectedNoiseType: String,
@@ -228,20 +230,29 @@ class GANLab extends GANLabPolymer {
         }
       });
 
+    this.lossTypeOptions = ['Log loss', 'LeastSq loss'];
+    this.lossType = 'Log loss';
+    this.querySelector('#loss-type-dropdown')!.addEventListener(
+      // tslint:disable-next-line:no-any event has no type
+      'iron-activate', (event: any) => {
+        this.lossType = event.detail.selected;
+        this.createExperiment();
+      });
+
     this.learningRateOptions = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5];
     this.dLearningRate = 0.1;
     this.querySelector('#d-learning-rate-dropdown')!.addEventListener(
       // tslint:disable-next-line:no-any event has no type
       'iron-activate', (event: any) => {
         this.dLearningRate = +event.detail.selected;
-        this.createExperiment();
+        this.updateOptimizers('D');
       });
     this.gLearningRate = 0.1;
     this.querySelector('#g-learning-rate-dropdown')!.addEventListener(
       // tslint:disable-next-line:no-any event has no type
       'iron-activate', (event: any) => {
         this.gLearningRate = +event.detail.selected;
-        this.createExperiment();
+        this.updateOptimizers('G');
       });
 
     this.optimizerTypeOptions = ['SGD', 'Adam'];
@@ -250,14 +261,14 @@ class GANLab extends GANLabPolymer {
       // tslint:disable-next-line:no-any event has no type
       'iron-activate', (event: any) => {
         this.dOptimizerType = event.detail.selected;
-        this.createExperiment();
+        this.updateOptimizers('D');
       });
     this.gOptimizerType = 'SGD';
     this.querySelector('#g-optimizer-type-dropdown')!.addEventListener(
       // tslint:disable-next-line:no-any event has no type
       'iron-activate', (event: any) => {
         this.gOptimizerType = event.detail.selected;
-        this.createExperiment();
+        this.updateOptimizers('G');
       });
 
     this.shapeNames = ['Line', 'Two Gaussian Hills', 'Five Dots', 'Drawing'];
@@ -738,14 +749,18 @@ class GANLab extends GANLabPolymer {
           document.getElementById('d-loss-value')!.innerText =
             dCostVal.toFixed(3);
           document.getElementById('d-loss-value-simple')!.innerText =
-            (Math.pow(dCostVal, 2) * 0.5).toFixed(3);
+            this.lossType === 'LeastSq loss'
+              ? dCostVal.toFixed(2)
+              : (Math.pow(dCostVal * 0.5, 2)).toFixed(2);
         }
 
         if (gCostVal) {
           document.getElementById('g-loss-value')!.innerText =
             gCostVal.toFixed(3);
           document.getElementById('g-loss-value-simple')!.innerText =
-            Math.pow(gCostVal, 2).toFixed(3);
+            this.lossType === 'LeastSq loss'
+              ? (gCostVal * 2.0).toFixed(2)
+              : Math.pow(gCostVal, 2).toFixed(2);
         }
 
         // Update charts.
@@ -1212,14 +1227,26 @@ class GANLab extends GANLabPolymer {
     this.predictionTensor2 = network2;
 
     // Define losses.
-    const dRealCostTensor = g.multiply(
-      g.constant(Scalar.new(0.9)), g.log(this.predictionTensor1));
-    const dFakeCostTensor = g.log(
-      g.subtract(g.constant(Scalar.new(1)), this.predictionTensor2));
-    this.dCostTensor = g.multiply(
-      g.add(dRealCostTensor, dFakeCostTensor), g.constant(Scalar.new(-1)));
-    this.gCostTensor = g.multiply(
-      g.log(this.predictionTensor2), g.constant(Scalar.new(-1)));
+    if (this.lossType === 'LeastSq loss') {
+      const diffPred1AndOne = g.subtract(
+        this.predictionTensor1, g.constant(Scalar.new(1)));
+      const dRealCostTensor = g.multiply(diffPred1AndOne, diffPred1AndOne);
+      const dFakeCostTensor = g.multiply(
+        this.predictionTensor2, this.predictionTensor2);
+      this.dCostTensor = g.add(dRealCostTensor, dFakeCostTensor);
+      const diffPred2AndOne = g.subtract(
+        this.predictionTensor2, g.constant(Scalar.new(1)));
+      this.gCostTensor = g.multiply(diffPred2AndOne, diffPred2AndOne);
+    } else {
+      const dRealCostTensor = g.multiply(
+        g.constant(Scalar.new(0.9)), g.log(this.predictionTensor1));
+      const dFakeCostTensor = g.log(
+        g.subtract(g.constant(Scalar.new(1)), this.predictionTensor2));
+      this.dCostTensor = g.multiply(
+        g.add(dRealCostTensor, dFakeCostTensor), g.constant(Scalar.new(-1)));
+      this.gCostTensor = g.multiply(
+        g.log(this.predictionTensor2), g.constant(Scalar.new(-1)));
+    }
 
     this.dCostTensor = g.divide(g.reduceSum(this.dCostTensor),
       g.constant(Scalar.new(BATCH_SIZE)));
@@ -1227,23 +1254,35 @@ class GANLab extends GANLabPolymer {
       g.constant(Scalar.new(BATCH_SIZE)));
 
     // Filter variable nodes for optimizers.
-    const gNodes = g.getNodes().filter(v => {
-      return v.name.slice(0, 3) === 'gfc';
-    });
-    const dNodes = g.getNodes().filter(v => {
+    this.dNodes = g.getNodes().filter(v => {
       return v.name.slice(0, 3) === 'dfc';
     });
+    this.gNodes = g.getNodes().filter(v => {
+      return v.name.slice(0, 3) === 'gfc';
+    });
 
+    this.updateOptimizers();
+  }
+
+  private updateOptimizers(dOrG?: string) {
     if (this.selectedOptimizerType === 'Adam') {
       const beta1 = 0.9;
       const beta2 = 0.999;
-      this.gOptimizer = new AdamOptimizer(
-        this.gLearningRate, beta1, beta2, gNodes);
-      this.dOptimizer = new AdamOptimizer(
-        this.dLearningRate, beta1, beta2, dNodes);
+      if (dOrG == null || dOrG === 'D') {
+        this.dOptimizer = new AdamOptimizer(
+          this.dLearningRate, beta1, beta2, this.dNodes);
+      }
+      if (dOrG == null || dOrG === 'G') {
+        this.gOptimizer = new AdamOptimizer(
+          this.gLearningRate, beta1, beta2, this.gNodes);
+      }
     } else {
-      this.gOptimizer = new SGDOptimizer(this.gLearningRate, gNodes);
-      this.dOptimizer = new SGDOptimizer(this.dLearningRate, dNodes);
+      if (dOrG == null || dOrG === 'D') {
+        this.dOptimizer = new SGDOptimizer(this.dLearningRate, this.dNodes);
+      }
+      if (dOrG == null || dOrG === 'G') {
+        this.gOptimizer = new SGDOptimizer(this.gLearningRate, this.gNodes);
+      }
     }
   }
 

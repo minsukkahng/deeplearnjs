@@ -187,12 +187,26 @@
     }
 
     #model-visualization-container .material-icons {
-      font-size: 16px;
+      font-size: 11px;
     }
 
-    #model-visualization-container .paper-input-container input.paper-input,
     #model-visualization-container paper-item {
-      font-size: 12px;
+      --paper-item: {
+        font-size: 12px;
+      };
+      --paper-item-min-height: 16px;
+    }
+
+    #model-visualization-container paper-dropdown-menu {
+      --paper-input-container-label-floating: {
+        line-height: 16px;
+      };
+      --paper-input-container-label: {
+        font-size: 13px;
+      };
+      --paper-input-container-input: {
+        font-size: 13px;
+      };
     }
 
     #drawing-container {
@@ -359,6 +373,23 @@
               <div id="g-loss-value" class="component-value" title="log loss">-</div>
               <div class="component-value">(<span
                 id="g-loss-value-simple" title="simple absolute loss"></span>)</div>
+            </div>
+
+            <div id="component-options-loss" class="model-component"
+            style="top: 335px; left: 730px">
+              <div class="config-item">
+                <paper-dropdown-menu no-animations no-label>
+                  <paper-listbox attr-for-selected="value"
+                    id="loss-type-dropdown" class="dropdown-content"
+                    selected="{{lossType}}">
+                    <template is="dom-repeat" items="[[lossTypeOptions]]">
+                      <paper-item value="[[item]]" label="[[item]]">
+                        [[item]]
+                      </paper-item>
+                    </template>
+                  </paper-listbox>
+                </paper-dropdown-menu>
+              </div>
             </div>
 
             <div id="component-d-loop" class="model-component"

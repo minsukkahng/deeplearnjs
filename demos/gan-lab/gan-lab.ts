@@ -24,7 +24,7 @@ const NUM_MANIFOLD_CELLS = 20;
 const GENERATED_SAMPLES_VISUALIZATION_INTERVAL = 10;
 const NUM_SAMPLES_VISUALIZED = 300;
 const NUM_TRUE_SAMPLES_VISUALIZED = 300;
-const SLOW_INTERVAL_MS = 500;
+const SLOW_INTERVAL_MS = 600;
 
 // tslint:disable-next-line:variable-name
 const GANLabPolymer: new () => PolymerHTMLElement = PolymerElement({
@@ -370,6 +370,15 @@ class GANLab extends GANLabPolymer {
       'change', (event: Event) => {
         // tslint:disable-next-line:no-any
         this.slowMode = (event.target as any).active ? true : false;
+
+        if (this.slowMode === true) {
+          document.getElementById('overlay-background')!.classList.add('shown');
+          document.getElementById('tooltips')!.classList.add('shown');
+        } else {
+          document.getElementById(
+            'overlay-background')!.classList.remove('shown');
+          document.getElementById('tooltips')!.classList.remove('shown');
+        }
       });
 
     this.editMode = true;
@@ -739,8 +748,11 @@ class GANLab extends GANLabPolymer {
         this.iterationCount % GENERATED_SAMPLES_VISUALIZATION_INTERVAL === 0) {
 
         if (this.slowMode) {
-          document.getElementById('tooltip')!.classList.add('shown');
-          document.getElementById('tooltip')!.innerText = 'losses';
+          await this.sleep(SLOW_INTERVAL_MS);
+          this.toggleTooltip(true, 'component-d-loss', 'tooltip-d-loss',
+            ['arrow-t-samples-d', 'arrow-d-t-prediction',
+              'arrow-g-samples-d', 'arrow-d-g-prediction',
+              'arrow-t-prediction-d-loss', 'arrow-g-prediction-d-loss']);
           await this.sleep(SLOW_INTERVAL_MS);
         }
 
@@ -755,8 +767,25 @@ class GANLab extends GANLabPolymer {
         }
 
         if (this.slowMode) {
-          document.getElementById('tooltip')!.style.left = '800px';
-          document.getElementById('tooltip')!.innerText = ' discriminator';
+          await this.sleep(SLOW_INTERVAL_MS);
+          this.toggleTooltip(false, 'component-d-loss', 'tooltip-d-loss',
+            ['arrow-t-samples-d', 'arrow-d-t-prediction',
+              'arrow-g-samples-d', 'arrow-d-g-prediction',
+              'arrow-t-prediction-d-loss', 'arrow-g-prediction-d-loss']);
+          this.toggleTooltip(true,
+            'component-discriminator-gradients', 'tooltip-d-gradients',
+            ['arrow-d-loss-d-1', 'arrow-d-loss-d-2']);
+          await this.sleep(SLOW_INTERVAL_MS);
+        }
+
+        if (this.slowMode) {
+          await this.sleep(SLOW_INTERVAL_MS);
+          this.toggleTooltip(false,
+            'component-discriminator-gradients', 'tooltip-d-gradients',
+            ['arrow-d-loss-d-1', 'arrow-d-loss-d-2']);
+          this.toggleTooltip(true,
+            'component-discriminator', 'tooltip-update-discriminator',
+            ['arrow-d-loss-d-3', 'arrow-d-loss-d-4']);
           await this.sleep(SLOW_INTERVAL_MS);
         }
 
@@ -791,14 +820,14 @@ class GANLab extends GANLabPolymer {
               .attr('width', plotSizePx / NUM_GRID_CELLS)
               .attr('height', plotSizePx / NUM_GRID_CELLS)
               .attr(
-              'x',
-              (d: number, i: number) =>
-                (i % NUM_GRID_CELLS) * (plotSizePx / NUM_GRID_CELLS))
+                'x',
+                (d: number, i: number) =>
+                  (i % NUM_GRID_CELLS) * (plotSizePx / NUM_GRID_CELLS))
               .attr(
-              'y',
-              (d: number, i: number) => plotSizePx -
-                (Math.floor(i / NUM_GRID_CELLS) + 1) *
-                (plotSizePx / NUM_GRID_CELLS))
+                'y',
+                (d: number, i: number) => plotSizePx -
+                  (Math.floor(i / NUM_GRID_CELLS) + 1) *
+                  (plotSizePx / NUM_GRID_CELLS))
               .style('fill', (d: number) => this.colorScale(d))
               .append('title')
               .text((d: number) => Number(d).toFixed(3));
@@ -810,7 +839,16 @@ class GANLab extends GANLabPolymer {
         });
 
         if (this.slowMode) {
-          document.getElementById('tooltip')!.innerText = 'generator\'s turn';
+          await this.sleep(SLOW_INTERVAL_MS);
+          this.toggleTooltip(false,
+            'component-discriminator', 'tooltip-update-discriminator',
+            ['arrow-d-loss-d-3', 'arrow-d-loss-d-4']);
+          await this.sleep(SLOW_INTERVAL_MS);
+          await this.sleep(SLOW_INTERVAL_MS);
+          this.toggleTooltip(true, 'component-g-loss', 'tooltip-g-loss',
+            ['arrow-noise-g', 'arrow-g-g-samples',
+              'arrow-g-samples-d', 'arrow-d-g-prediction',
+              'arrow-g-prediction-g-loss']);
           await this.sleep(SLOW_INTERVAL_MS);
         }
 
@@ -836,7 +874,14 @@ class GANLab extends GANLabPolymer {
         this.costChart.update();
 
         if (this.slowMode) {
-          document.getElementById('tooltip')!.innerText = 'compute gradients';
+          await this.sleep(SLOW_INTERVAL_MS);
+          this.toggleTooltip(false, 'component-g-loss', 'tooltip-g-loss',
+            ['arrow-noise-g', 'arrow-g-g-samples',
+              'arrow-g-samples-d', 'arrow-d-g-prediction',
+              'arrow-g-prediction-g-loss']);
+          this.toggleTooltip(true,
+            'component-generator-gradients', 'tooltip-g-gradients',
+            ['arrow-g-loss-g-1', 'arrow-g-loss-g-2']);
           await this.sleep(SLOW_INTERVAL_MS);
         }
 
@@ -928,7 +973,13 @@ class GANLab extends GANLabPolymer {
         });
 
         if (this.slowMode) {
-          document.getElementById('tooltip')!.innerText = 'generator';
+          await this.sleep(SLOW_INTERVAL_MS);
+          this.toggleTooltip(false,
+            'component-generator-gradients', 'tooltip-g-gradients',
+            ['arrow-g-loss-g-1', 'arrow-g-loss-g-2']);
+          this.toggleTooltip(true,
+            'component-generator', 'tooltip-update-generator',
+            ['arrow-g-loss-g-3', 'arrow-g-loss-g-4']);
           await this.sleep(SLOW_INTERVAL_MS);
         }
 
@@ -1046,7 +1097,13 @@ class GANLab extends GANLabPolymer {
         }
 
         if (this.slowMode) {
-          document.getElementById('tooltip')!.innerText = 'generated samples';
+          await this.sleep(SLOW_INTERVAL_MS);
+          this.toggleTooltip(false,
+            'component-generator', 'tooltip-update-generator',
+            ['arrow-g-loss-g-3', 'arrow-g-loss-g-4']);
+          this.toggleTooltip(true,
+            'component-generated-samples', 'tooltip-generated-samples',
+            ['arrow-noise-g', 'arrow-g-g-samples']);
           await this.sleep(SLOW_INTERVAL_MS);
         }
 
@@ -1104,7 +1161,10 @@ class GANLab extends GANLabPolymer {
         });
 
         if (this.slowMode) {
-          document.getElementById('tooltip')!.classList.remove('shown');
+          await this.sleep(SLOW_INTERVAL_MS);
+          this.toggleTooltip(false,
+            'component-generated-samples', 'tooltip-generated-samples',
+            ['arrow-noise-g', 'arrow-g-g-samples']);
           await this.sleep(SLOW_INTERVAL_MS);
         }
       }
@@ -1115,6 +1175,34 @@ class GANLab extends GANLabPolymer {
     }
 
     requestAnimationFrame(() => this.iterateTraining(true));
+  }
+
+  private toggleTooltip(isAdd: boolean,
+    componentElementName: string, tooltipElementName: string,
+    arrowElementList: string[]) {
+    if (isAdd === true) {
+      document.getElementById(
+        componentElementName)!.classList.add('highlighted');
+      document.getElementById(
+        tooltipElementName)!.classList.add('shown');
+      document.getElementById(
+        tooltipElementName)!.classList.add('highlighted');
+      arrowElementList.forEach((arrowElement) => {
+        document.getElementById(
+          arrowElement)!.classList.add('highlighted');
+      });
+    } else {
+      document.getElementById(
+        componentElementName)!.classList.remove('highlighted');
+      document.getElementById(
+        tooltipElementName)!.classList.remove('shown');
+      document.getElementById(
+        tooltipElementName)!.classList.remove('highlighted');
+      arrowElementList.forEach((arrowElement) => {
+        document.getElementById(
+          arrowElement)!.classList.remove('highlighted');
+      });
+    }
   }
 
   private buildNetwork() {

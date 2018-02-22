@@ -13,7 +13,6 @@
   <style>
     #gan-lab-container {
       background-color: #fafafa;
-      font-family: Roboto, Arial;
       width: 100%;
     }
 
@@ -97,7 +96,7 @@
       border-width: 0 1px 0 0;
       flex-grow: 2;
       min-height: 600px;
-      min-width: 785px;
+      min-width: 815px;
       padding: 25px;
       position: relative;
     }
@@ -112,13 +111,18 @@
     #model-vis-div {
       height: 600px;
       position: absolute;
-      width: 770px;
+      width: 800px;
     }
 
     #model-vis-svg path {
       fill: none;
       stroke: rgb(156, 156, 156);
       stroke-width: 2;
+    }
+
+    #model-vis-svg path.highlighted {
+      stroke: rgb(23, 104, 255);
+      stroke-width: 3;
     }
 
     .model-component-group {
@@ -142,7 +146,7 @@
       width: 75px;
     }
 
-    .model-component .component-label {
+    .component-label {
       font-size: 14px;
       font-weight: bold;
       line-height: 16px;
@@ -270,26 +274,50 @@
       stroke-linejoin: round;
     }
 
-    #tooltip {
-      background-color: rgba(48, 48, 48, 0.5);
-      color: white;
+    #overlay-background {
+      background-color: #999;
       display: none;
-      font-size: 11px;
-      height: 80px;
-      position: absolute;
-      width: 200px;
+      height: 100%;
+      opacity: 0.6;
+      width: 100%;
     }
 
-    #tooltip.shown {
+    #overlay-background.shown {
       display: block;
-      left: 700px;
-      top: 100px;
+      z-index: 99990;
+    }
+
+    .model-component.highlighted {
+      border: 2px solid #069;
+      z-index: 99997;
+    }
+
+    #tooltips {
+      display: none;
+    }
+
+    .tooltip {
+      background-color: rgba(248, 248, 248, 0.7);
+      border-radius: 4px;
+      font-size: 11px;
+      line-height: 13px;
+      padding: 4px 6px;
+      position: absolute;
+      width: 135px;
+    }
+
+    #tooltips.shown {
+      display: block;
+      z-index: 99995;
+    }
+
+    .tooltip.highlighted {
+      background-color: rgba(255, 255, 255, 1.0);
+      z-index: 99999;
     }
   </style>
   <template>
     <div id="gan-lab-container">
-      <div id="tooltip"></div>
-
       <div id="top-panel" class="mdl-grid">
         <div id="page-title" class="mdl-cell mdl-cell--3-col"><strong>GAN</strong> Lab</div>
         <div id="control-panel" class="mdl-cell mdl-cell--4-col">
@@ -337,22 +365,35 @@
                 </marker>
               </defs>
 
-              <path marker-end="url(#arrow-head)" d="M105,285 L135,285" />
-              <path marker-end="url(#arrow-head)" d="M290,285 L320,285" />
-              <path marker-end="url(#arrow-head)" d="M400,195 L430,195" />
-              <path marker-end="url(#arrow-head)" d="M400,285 L430,285" />
-              <path marker-end="url(#arrow-head)" d="M585,195 L615,195" />
-              <path marker-end="url(#arrow-head)" d="M585,285 L615,285" />
+              <path marker-end="url(#arrow-head)" d="M105,285 L135,285"
+                id="arrow-noise-g" />
+              <path marker-end="url(#arrow-head)" d="M290,285 L320,285"
+                id="arrow-g-g-samples" />
+              <path marker-end="url(#arrow-head)" d="M400,195 L430,195"
+                id="arrow-t-samples-d" />
+              <path marker-end="url(#arrow-head)" d="M400,285 L430,285"
+                id="arrow-g-samples-d" />
+              <path marker-end="url(#arrow-head)" d="M585,195 L615,195"
+                id="arrow-d-t-prediction" />
+              <path marker-end="url(#arrow-head)" d="M585,285 L615,285"
+                id="arrow-d-g-prediction" />
 
-              <path marker-end="url(#arrow-head)" d="M695,195 L725,235" />
-              <path marker-end="url(#arrow-head)" d="M695,285 L725,245" />
-              <path marker-end="url(#arrow-head)" d="M695,285 L725,325" />
-              <path d="M750,210 L750,50" />
-              <path d="M750,50 L490,50" />
-              <path marker-end="url(#arrow-head)" d="M490,50 L490,150" />
-              <path d="M750,350 L750,460" />
-              <path d="M750,460 L210,460" />
-              <path marker-end="url(#arrow-head)" d="M210,460 L210,330" />
+              <path marker-end="url(#arrow-head)" d="M695,195 L725,235"
+                id="arrow-t-prediction-d-loss" />
+              <path marker-end="url(#arrow-head)" d="M695,285 L725,245"
+                id="arrow-g-prediction-d-loss" />
+              <path marker-end="url(#arrow-head)" d="M695,285 L725,325"
+                id="arrow-g-prediction-g-loss" />
+              <path d="M750,210 L750,50" id="arrow-d-loss-d-1" />
+              <path d="M750,50 L550,50" id="arrow-d-loss-d-2" />
+              <path d="M550,50 L490,50" id="arrow-d-loss-d-3" />
+              <path marker-end="url(#arrow-head)" d="M490,50 L490,150"
+                id="arrow-d-loss-d-4" />
+              <path d="M750,350 L750,460" id="arrow-g-loss-g-1" />
+              <path d="M750,460 L395,460" id="arrow-g-loss-g-2" />
+              <path d="M325,460 L210,460" id="arrow-g-loss-g-3" />
+              <path marker-end="url(#arrow-head)" d="M210,460 L210,330"
+                id="arrow-g-loss-g-4" />
             </g>
           </svg>
 
@@ -646,6 +687,39 @@
               </div>
             </div>
 
+            <div id="overlay-background"></div>
+            <div id="overlay-selected-helper"></div>
+
+            <div id="tooltips">
+              <div id="tooltip-d-loss" class="tooltip"
+              style="top: 160px; left: 650px">
+                computes discriminator's loss
+              </div>
+              <div id="tooltip-d-gradients" class="tooltip"
+              style="top: 50px; left: 490px">
+                computed to determine how boundary should change to decrease loss
+              </div>
+              <div id="tooltip-update-discriminator" class="tooltip"
+              style="top: 120px; left: 400px">
+                updates decision boundary based on gradients
+              </div>
+              <div id="tooltip-g-loss" class="tooltip"
+              style="top: 360px; left: 650px">
+                computes generator's loss
+              </div>
+              <div id="tooltip-g-gradients" class="tooltip"
+              style="top: 510px; left: 310px">
+                computed to determine which direction each point should move to decrease loss
+              </div>
+              <div id="tooltip-update-generator" class="tooltip"
+              style="top: 330px; left: 150px">
+                updates function based on gradients
+              </div>
+              <div id="tooltip-generated-samples" class="tooltip"
+              style="top: 350px; left: 310px">
+                samples produced by generator from noise
+              </div>
+            </div>
           </div>
         </div>
 

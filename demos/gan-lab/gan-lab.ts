@@ -17,13 +17,13 @@ import * as gan_lab_input_providers from './gan_lab_input_providers';
 import * as gan_lab_drawing from './gan_lab_drawing';
 import * as gan_lab_evaluators from './gan_lab_evaluators';
 
-const BATCH_SIZE = 300;
+const BATCH_SIZE = 150;
 const ATLAS_SIZE = 12000;
 const NUM_GRID_CELLS = 30;
 const NUM_MANIFOLD_CELLS = 20;
 const GENERATED_SAMPLES_VISUALIZATION_INTERVAL = 10;
-const NUM_SAMPLES_VISUALIZED = 600;
-const NUM_TRUE_SAMPLES_VISUALIZED = 600;
+const NUM_SAMPLES_VISUALIZED = 300;
+const NUM_TRUE_SAMPLES_VISUALIZED = 300;
 const SLOW_INTERVAL_MS = 500;
 
 // tslint:disable-next-line:variable-name
@@ -744,7 +744,7 @@ class GANLab extends GANLabPolymer {
           await this.sleep(SLOW_INTERVAL_MS);
         }
 
-        // Update losses.
+        // Update discriminator loss.
         if (dCostVal) {
           document.getElementById('d-loss-value')!.innerText =
             dCostVal.toFixed(3);
@@ -754,132 +754,9 @@ class GANLab extends GANLabPolymer {
               : (Math.pow(dCostVal * 0.5, 2)).toFixed(2);
         }
 
-        if (gCostVal) {
-          document.getElementById('g-loss-value')!.innerText =
-            gCostVal.toFixed(3);
-          document.getElementById('g-loss-value-simple')!.innerText =
-            this.lossType === 'LeastSq loss'
-              ? (gCostVal * 2.0).toFixed(2)
-              : Math.pow(gCostVal, 2).toFixed(2);
-        }
-
-        // Update charts.
-        if (this.iterationCount === 1) {
-          const chartContainer =
-            document.getElementById('chart-container') as HTMLElement;
-          chartContainer.style.visibility = 'visible';
-        }
-
-        this.updateChartData(
-          this.costChartData, this.iterationCount, [dCostVal, gCostVal]);
-        this.costChart.update();
-
-        if (this.slowMode) {
-          document.getElementById('tooltip')!.innerText = 'compute gradients';
-          await this.sleep(SLOW_INTERVAL_MS);
-        }
-
-        // Visualize gradients for generator
-        const gradData: Array<[number, number, number, number]> = [];
-        const gActivation = await this.session.activationArrayMap.get(
-          this.generatedTensor).data();
-        const gGradient = await this.session.gradientArrayMap.get(
-          this.generatedTensor).data();
-        for (let i = 0; i < gActivation.length / 2; ++i) {
-          gradData.push([
-            gActivation[i * 2], gActivation[i * 2 + 1],
-            gGradient[i * 2], gGradient[i * 2 + 1]
-          ]);
-        }
-
-        // Todo: If not in step mode, need to update the positions of
-        // generated samples before showing gradients.
-
-        const gradDotsList = [
-          d3.select('#vis-generator-gradients')
-            .selectAll('.gradient-generated').data(gradData),
-          d3.select('#svg-generator-gradients')
-            .selectAll('.gradient-generated').data(gradData)
-        ];
-        const gradDotsElementList = [
-          '#vis-generator-gradients',
-          '#svg-generator-gradients'
-        ];
-        if (this.iterationCount === 1) {
-          gradDotsList.forEach((dots, k) => {
-            const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
-            const arrowSize = k === 0 ? 5.0 : 1.0;
-            const arrowWidth = k === 0 ? 0.002 : 0.001;
-            /*
-            dots.enter()
-              .append('line')
-              .attr('class', 'gradient-generated gan-lab')
-              .attr('x1', (d: number[]) => d[0] * plotSizePx)
-              .attr('y1', (d: number[]) => (1.0 - d[1]) * plotSizePx)
-              .attr('x2', (d: number[]) =>
-                (d[0] - d[2] * arrowSize) * plotSizePx)
-              .attr('y2', (d: number[]) =>
-                (1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx)
-              .style('stroke', 'url(#arrow-gradient)');*/
-            dots.enter()
-              .append('polygon')
-              .attr('class', 'gradient-generated gan-lab')
-              .attr('points', (d: number[]) => {
-                const gradSize = Math.sqrt(
-                  d[2] * d[2] + d[3] * d[3] + 0.00000001);
-                const xNorm = d[2] / gradSize;
-                const yNorm = d[3] / gradSize;
-                return `${d[0] * plotSizePx},
-                  ${(1.0 - d[1]) * plotSizePx}
-                  ${(d[0] - yNorm * (-1) * arrowWidth) * plotSizePx},
-                  ${(1.0 - (d[1] - xNorm * arrowWidth)) * plotSizePx}
-                  ${(d[0] - d[2] * arrowSize) * plotSizePx},
-                  ${(1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx}
-                  ${(d[0] - yNorm * arrowWidth) * plotSizePx},
-                  ${(1.0 - (d[1] - xNorm * (-1) * arrowWidth)) * plotSizePx}`;
-              });
-          });
-        }
-        /*const to = d3.select('#svg-generator-gradients').transition();
-        console.log(d3.select('#svg-generator-gradients'));
-        console.log(gradDotsList[0]);
-        to.select("div");*/
-
-        gradDotsList.forEach((dots, k) => {
-          const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
-          const arrowSize = k === 0 ? 5.0 : 1.0;
-          const arrowWidth = k === 0 ? 0.002 : 0.001;
-          d3Transition.transition()//.duration(1000)
-            .select(gradDotsElementList[k])
-            .selectAll('.gradient-generated').selection().data(gradData)
-            .transition().duration(SLOW_INTERVAL_MS)
-            /*dots
-              .attr('x1', (d: number[]) => d[0] * plotSizePx)
-              .attr('y1', (d: number[]) => (1.0 - d[1]) * plotSizePx)
-              .attr('x2', (d: number[]) =>
-                (d[0] - d[2] * arrowSize) * plotSizePx)
-              .attr('y2', (d: number[]) =>
-                (1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx);*/
-            //dots
-            .attr('points', (d: number[]) => {
-              const gradSize = Math.sqrt(
-                d[2] * d[2] + d[3] * d[3] + 0.00000001);
-              const xNorm = d[2] / gradSize;
-              const yNorm = d[3] / gradSize;
-              return `${d[0] * plotSizePx},
-                ${(1.0 - d[1]) * plotSizePx}
-                ${(d[0] - yNorm * (-1) * arrowWidth) * plotSizePx},
-                ${(1.0 - (d[1] - xNorm * arrowWidth)) * plotSizePx}
-                ${(d[0] - d[2] * arrowSize) * plotSizePx},
-                ${(1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx}
-                ${(d[0] - yNorm * arrowWidth) * plotSizePx},
-                ${(1.0 - (d[1] - xNorm * (-1) * arrowWidth)) * plotSizePx}`;
-            });
-        });
-
         if (this.slowMode) {
           document.getElementById('tooltip')!.style.left = '800px';
-          document.getElementById('tooltip')!.innerText = 'something';
+          document.getElementById('tooltip')!.innerText = ' discriminator';
           await this.sleep(SLOW_INTERVAL_MS);
         }
 
@@ -933,65 +810,125 @@ class GANLab extends GANLabPolymer {
         });
 
         if (this.slowMode) {
-          document.getElementById('tooltip')!.innerText = 'another';
+          document.getElementById('tooltip')!.innerText = 'generator\'s turn';
           await this.sleep(SLOW_INTERVAL_MS);
         }
 
-        // Visualize generated samples.
-        const gData: Array<[number, number]> = [];
-        const gResult = this.session.eval(
-          this.generatedTensor,
-          [{ tensor: this.noiseTensor, data: this.noiseProviderFixed }]);
-        const gResultData = await gResult.data();
-        for (let j = 0; j < gResultData.length / 2; ++j) {
-          gData.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
+        // Update generator loss.
+        if (gCostVal) {
+          document.getElementById('g-loss-value')!.innerText =
+            gCostVal.toFixed(3);
+          document.getElementById('g-loss-value-simple')!.innerText =
+            this.lossType === 'LeastSq loss'
+              ? (gCostVal * 2.0).toFixed(2)
+              : Math.pow(gCostVal, 2).toFixed(2);
         }
 
-        this.evaluator.updateGridsForGenerated(gData);
-        this.updateChartData(this.evalChartData, this.iterationCount, [
-          this.evaluator.getKLDivergenceScore(),
-          this.evaluator.getJSDivergenceScore()
-        ]);
-        this.evalChart.update();
-
-        const gDotsList = [
-          d3.select('#vis-generated-samples')
-            .selectAll('.generated-dot').data(gData),
-          d3.select('#svg-generated-samples')
-            .selectAll('.generated-dot').data(gData),
-          d3.select('#svg-generated-prediction')
-            .selectAll('.generated-dot').data(gData)
-        ];
-        const gDotsElementList = [
-          '#vis-generated-samples',
-          '#svg-generated-samples',
-          '#svg-generated-prediction'
-        ];
+        // Update charts.
         if (this.iterationCount === 1) {
-          gDotsList.forEach((dots, k) => {
+          const chartContainer =
+            document.getElementById('chart-container') as HTMLElement;
+          chartContainer.style.visibility = 'visible';
+        }
+
+        this.updateChartData(
+          this.costChartData, this.iterationCount, [dCostVal, gCostVal]);
+        this.costChart.update();
+
+        if (this.slowMode) {
+          document.getElementById('tooltip')!.innerText = 'compute gradients';
+          await this.sleep(SLOW_INTERVAL_MS);
+        }
+
+        // Visualize gradients for generator
+        const gradData: Array<[number, number, number, number]> = [];
+        const gActivation = await this.session.activationArrayMap.get(
+          this.generatedTensor).data();
+        const gGradient = await this.session.gradientArrayMap.get(
+          this.generatedTensor).data();
+        for (let i = 0; i < gActivation.length / 2; ++i) {
+          gradData.push([
+            gActivation[i * 2], gActivation[i * 2 + 1],
+            gGradient[i * 2], gGradient[i * 2 + 1]
+          ]);
+        }
+
+        // Todo: If not in step mode, need to update the positions of
+        // generated samples before showing gradients.
+
+        const gradDotsList = [
+          d3.select('#vis-generator-gradients')
+            .selectAll('.gradient-generated').data(gradData),
+          d3.select('#svg-generator-gradients')
+            .selectAll('.gradient-generated').data(gradData)
+        ];
+        /*const gradDotsElementList = [
+          '#vis-generator-gradients',
+          '#svg-generator-gradients'
+        ];*/
+        if (this.iterationCount === 1) {
+          gradDotsList.forEach((dots, k) => {
             const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
-            const radius = k === 0 ? 2 : 1;
+            const arrowSize = k === 0 ? 5.0 : 1.0;
+            const arrowWidth = k === 0 ? 0.002 : 0.001;
+            /*
             dots.enter()
-              .append('circle')
-              .attr('class', 'generated-dot gan-lab')
-              .attr('r', radius)
-              .attr('cx', (d: number[]) => d[0] * plotSizePx)
-              .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx);
+              .append('line')
+              .attr('class', 'gradient-generated gan-lab')
+              .attr('x1', (d: number[]) => d[0] * plotSizePx)
+              .attr('y1', (d: number[]) => (1.0 - d[1]) * plotSizePx)
+              .attr('x2', (d: number[]) =>
+                (d[0] - d[2] * arrowSize) * plotSizePx)
+              .attr('y2', (d: number[]) =>
+                (1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx)
+              .style('stroke', 'url(#arrow-gradient)');*/
+            dots.enter()
+              .append('polygon')
+              .attr('class', 'gradient-generated gan-lab')
+              .attr('points', (d: number[]) => {
+                const gradSize = Math.sqrt(
+                  d[2] * d[2] + d[3] * d[3] + 0.00000001);
+                const xNorm = d[2] / gradSize;
+                const yNorm = d[3] / gradSize;
+                return `${d[0] * plotSizePx},
+                  ${(1.0 - d[1]) * plotSizePx}
+                  ${(d[0] - yNorm * (-1) * arrowWidth) * plotSizePx},
+                  ${(1.0 - (d[1] - xNorm * arrowWidth)) * plotSizePx}
+                  ${(d[0] - d[2] * arrowSize) * plotSizePx},
+                  ${(1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx}
+                  ${(d[0] - yNorm * arrowWidth) * plotSizePx},
+                  ${(1.0 - (d[1] - xNorm * (-1) * arrowWidth)) * plotSizePx}`;
+              });
           });
         }
-        gDotsList.forEach((dots, k) => {
+
+        gradDotsList.forEach((dots, k) => {
           const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
-          d3Transition.transition()
-            .select(gDotsElementList[k])
-            .selectAll('.generated-dot')
-            .selection().data(gData)
-            .transition().duration(SLOW_INTERVAL_MS)
-            .attr('cx', (d: number[]) => d[0] * plotSizePx)
-            .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx);
+          const arrowSize = k === 0 ? 5.0 : 1.0;
+          const arrowWidth = k === 0 ? 0.002 : 0.001;
+          /*d3Transition.transition()//.duration(1000)
+            .select(gradDotsElementList[k])
+            .selectAll('.gradient-generated').selection().data(gradData)
+            .transition().duration(SLOW_INTERVAL_MS)*/
+          dots
+            .attr('points', (d: number[]) => {
+              const gradSize = Math.sqrt(
+                d[2] * d[2] + d[3] * d[3] + 0.00000001);
+              const xNorm = d[2] / gradSize;
+              const yNorm = d[3] / gradSize;
+              return `${d[0] * plotSizePx},
+                ${(1.0 - d[1]) * plotSizePx}
+                ${(d[0] - yNorm * (-1) * arrowWidth) * plotSizePx},
+                ${(1.0 - (d[1] - xNorm * arrowWidth)) * plotSizePx}
+                ${(d[0] - d[2] * arrowSize) * plotSizePx},
+                ${(1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx}
+                ${(d[0] - yNorm * arrowWidth) * plotSizePx},
+                ${(1.0 - (d[1] - xNorm * (-1) * arrowWidth)) * plotSizePx}`;
+            });
         });
 
         if (this.slowMode) {
-          document.getElementById('tooltip')!.innerText = 'generated samples';
+          document.getElementById('tooltip')!.innerText = 'generator';
           await this.sleep(SLOW_INTERVAL_MS);
         }
 
@@ -1107,6 +1044,64 @@ class GANLab extends GANLabPolymer {
               .attr('cy', (d: TypedArray) => (1.0 - d[1]) * this.plotSizePx);
           }
         }
+
+        if (this.slowMode) {
+          document.getElementById('tooltip')!.innerText = 'generated samples';
+          await this.sleep(SLOW_INTERVAL_MS);
+        }
+
+        // Visualize generated samples.
+        const gData: Array<[number, number]> = [];
+        const gResult = this.session.eval(
+          this.generatedTensor,
+          [{ tensor: this.noiseTensor, data: this.noiseProviderFixed }]);
+        const gResultData = await gResult.data();
+        for (let j = 0; j < gResultData.length / 2; ++j) {
+          gData.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
+        }
+
+        this.evaluator.updateGridsForGenerated(gData);
+        this.updateChartData(this.evalChartData, this.iterationCount, [
+          this.evaluator.getKLDivergenceScore(),
+          this.evaluator.getJSDivergenceScore()
+        ]);
+        this.evalChart.update();
+
+        const gDotsList = [
+          d3.select('#vis-generated-samples')
+            .selectAll('.generated-dot').data(gData),
+          d3.select('#svg-generated-samples')
+            .selectAll('.generated-dot').data(gData),
+          d3.select('#svg-generated-prediction')
+            .selectAll('.generated-dot').data(gData)
+        ];
+        const gDotsElementList = [
+          '#vis-generated-samples',
+          '#svg-generated-samples',
+          '#svg-generated-prediction'
+        ];
+        if (this.iterationCount === 1) {
+          gDotsList.forEach((dots, k) => {
+            const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
+            const radius = k === 0 ? 2 : 1;
+            dots.enter()
+              .append('circle')
+              .attr('class', 'generated-dot gan-lab')
+              .attr('r', radius)
+              .attr('cx', (d: number[]) => d[0] * plotSizePx)
+              .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx);
+          });
+        }
+        gDotsList.forEach((dots, k) => {
+          const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
+          d3Transition.transition()
+            .select(gDotsElementList[k])
+            .selectAll('.generated-dot')
+            .selection().data(gData)
+            .transition().duration(SLOW_INTERVAL_MS)
+            .attr('cx', (d: number[]) => d[0] * plotSizePx)
+            .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx);
+        });
 
         if (this.slowMode) {
           document.getElementById('tooltip')!.classList.remove('shown');

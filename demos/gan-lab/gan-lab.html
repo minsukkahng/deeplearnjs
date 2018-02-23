@@ -114,29 +114,54 @@
       width: 800px;
     }
 
+    #model-vis-svg {
+      pointer-events: none;
+    }
+
     #model-vis-svg path {
       fill: none;
       stroke: rgb(156, 156, 156);
       stroke-width: 2;
     }
 
-    #model-vis-svg path.highlighted {
-      stroke: rgb(23, 104, 255);
+    #model-vis-svg path.d-highlighted {
+      stroke: rgb(105, 158, 255);
       stroke-width: 3;
     }
 
+    #model-vis-svg path.g-highlighted {
+      stroke: rgb(186, 99, 207);
+      stroke-width: 3;
+    }
+
+    marker#arrow-head-d-highlighted path {
+      stroke: rgb(105, 158, 255);
+    }
+
+    marker#arrow-head-g-highlighted path {
+      stroke: rgb(186, 99, 207);
+    }
+
     .model-component-group {
-      background-color: #444;
-      height: 170px;
-      color: #fff;
+      background-color: #666;
+      height: 165px;
       position: absolute;
-      width: 155px;
+      width: 150px;
+    }
+
+    #group-discriminator.activated {
+      background-color: rgb(105, 158, 255);
+    }
+
+    #group-generator.activated {
+      background-color: rgb(186, 99, 207);
     }
 
     .model-component {
+      padding-top: 3px;
       position: absolute;
       text-align: center;
-      width: 75px;
+      width: 95px;
     }
 
     .model-component svg {
@@ -146,8 +171,18 @@
       width: 75px;
     }
 
+    .model-component-group .model-component {
+      color: #fff;
+      width: 135px;
+    }
+
+    .model-component-group .model-component svg {
+      height: 135px;
+      width: 135px;
+    }
+
     .component-label {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: bold;
       line-height: 16px;
     }
@@ -169,12 +204,8 @@
       margin: 0;
     }
 
-    .model-component-group .config-item label {
-      color: rgb(238, 238, 238);
-    }
-
     .checkbox-toggle {
-      left: 58px;
+      right: 2px;
       position: absolute;
     }
 
@@ -275,10 +306,10 @@
     }
 
     #overlay-background {
-      background-color: #999;
+      background-color: #fff;
       display: none;
       height: 100%;
-      opacity: 0.6;
+      opacity: 0.5;
       width: 100%;
     }
 
@@ -287,8 +318,12 @@
       z-index: 99990;
     }
 
+    .model-component-group.highlighted {
+      z-index: 99997;
+    }
+
     .model-component.highlighted {
-      border: 2px solid #069;
+      background-color: rgb(255, 249, 221);
       z-index: 99997;
     }
 
@@ -296,14 +331,36 @@
       display: none;
     }
 
+    .tooltip-number {
+      background-color: rgba(94, 94, 94, 0.7);
+      border-radius: 10px;
+      color: white;
+      font-size: 11px;
+      height: 10px;
+      left: -9px;
+      padding: 4px;
+      position: absolute;
+      text-align: center;
+      top: -7px;
+      width: 12px;
+    }
+
     .tooltip {
-      background-color: rgba(248, 248, 248, 0.7);
       border-radius: 4px;
+      color: #000;
       font-size: 11px;
       line-height: 13px;
-      padding: 4px 6px;
+      padding: 4px 6px 4px 9px;
       position: absolute;
       width: 135px;
+    }
+
+    .tooltip-for-d {
+      background-color: rgba(184, 194, 238, 0.8)
+    }
+
+    .tooltip-for-g {
+      background-color: rgba(217, 195, 236, 0.8);
     }
 
     #tooltips.shown {
@@ -312,8 +369,15 @@
     }
 
     .tooltip.highlighted {
-      background-color: rgba(255, 255, 255, 1.0);
       z-index: 99999;
+    }
+
+    .tooltip-for-d.highlighted {
+      background-color: rgba(153, 171, 248, 0.95);
+    }
+
+    .tooltip-for-g.highlighted {
+      background-color: rgba(212, 172, 248, 0.95);
     }
   </style>
   <template>
@@ -329,9 +393,6 @@
               <i class="material-icons">play_arrow</i>
               <i class="material-icons">pause</i>
             </button>
-            <div id="slow-toggle">
-              <paper-checkbox id="slow-step"></paper-checkbox>
-            </div>
             <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-button" title="Step">
               <i class="material-icons">skip_next</i>
             </button>
@@ -341,7 +402,10 @@
             <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-g-button" title="Step only generator">
               <i>G</i>
             </button>
-            <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="edit-model-button" title="Edit model">
+            <button class="mdl-button mdl-js-button mdl-button--icon" id="slow-step" title="Slow mode">
+              <i class="material-icons">slow_motion_video</i>
+            </button>
+            <button class="mdl-button mdl-js-button mdl-button--icon" id="edit-model-button" title="Edit model">
               <i class="material-icons">mode_edit</i>
             </button>
           </div>
@@ -356,68 +420,29 @@
 
       <div id="main-panel">
         <div id="model-visualization-container" class="ink-panel">
-          <svg id="model-vis-svg">
-            <g id="lines">
-              <defs>
-                <marker id="arrow-head" orient="auto" markerWidth="4" markerHeight="4"
-                  refX="0.3" refY="2">
-                  <path d="M0,0 V4 L2,2 Z" />
-                </marker>
-              </defs>
-
-              <path marker-end="url(#arrow-head)" d="M105,285 L135,285"
-                id="arrow-noise-g" />
-              <path marker-end="url(#arrow-head)" d="M290,285 L320,285"
-                id="arrow-g-g-samples" />
-              <path marker-end="url(#arrow-head)" d="M400,195 L430,195"
-                id="arrow-t-samples-d" />
-              <path marker-end="url(#arrow-head)" d="M400,285 L430,285"
-                id="arrow-g-samples-d" />
-              <path marker-end="url(#arrow-head)" d="M585,195 L615,195"
-                id="arrow-d-t-prediction" />
-              <path marker-end="url(#arrow-head)" d="M585,285 L615,285"
-                id="arrow-d-g-prediction" />
-
-              <path marker-end="url(#arrow-head)" d="M695,195 L725,235"
-                id="arrow-t-prediction-d-loss" />
-              <path marker-end="url(#arrow-head)" d="M695,285 L725,245"
-                id="arrow-g-prediction-d-loss" />
-              <path marker-end="url(#arrow-head)" d="M695,285 L725,325"
-                id="arrow-g-prediction-g-loss" />
-              <path d="M750,210 L750,50" id="arrow-d-loss-d-1" />
-              <path d="M750,50 L550,50" id="arrow-d-loss-d-2" />
-              <path d="M550,50 L490,50" id="arrow-d-loss-d-3" />
-              <path marker-end="url(#arrow-head)" d="M490,50 L490,150"
-                id="arrow-d-loss-d-4" />
-              <path d="M750,350 L750,460" id="arrow-g-loss-g-1" />
-              <path d="M750,460 L395,460" id="arrow-g-loss-g-2" />
-              <path d="M325,460 L210,460" id="arrow-g-loss-g-3" />
-              <path marker-end="url(#arrow-head)" d="M210,460 L210,330"
-                id="arrow-g-loss-g-4" />
-            </g>
-          </svg>
-
           <div id="model-vis-div">
             <div class="panel-title">Model</div>
 
             <div id="component-d-loss" class="model-component"
-              style="top: 210px; left: 730px">
-              <div class="component-label">D loss</div>
-              <div id="d-loss-value" class="component-value" title="log loss">-</div>
-              <div class="component-value">(<span
-                id="d-loss-value-simple" title="simple absolute loss"></span>)</div>
+              style="top: 210px; left: 720px">
+              <div class="component-label">discriminator loss</div>
+              <div class="component-value">
+                <span id="d-loss-value" title="log loss">-</span>
+                (<span id="d-loss-value-simple" title="simple absolute loss"></span>)
+              </div>
             </div>
 
             <div id="component-g-loss" class="model-component"
-              style="top: 295px; left: 730px">
-              <div class="component-label">G loss</div>
-              <div id="g-loss-value" class="component-value" title="log loss">-</div>
-              <div class="component-value">(<span
-                id="g-loss-value-simple" title="simple absolute loss"></span>)</div>
+              style="top: 295px; left: 720px">
+              <div class="component-label">generator loss</div>
+              <div class="component-value">
+                <span id="g-loss-value" title="log loss">-</span>
+                (<span id="g-loss-value-simple" title="simple absolute loss"></span>)
+              </div>
             </div>
 
             <div id="component-options-loss" class="model-component"
-            style="top: 335px; left: 730px">
+            style="top: 335px; left: 720px">
               <div class="config-item">
                 <paper-dropdown-menu no-animations no-label>
                   <paper-listbox attr-for-selected="value"
@@ -520,21 +545,24 @@
             </div>
 
             <div id="component-true-prediction" class="model-component"
-              style="top: 155px; left: 620px">
-              <svg id="svg-true-prediction"></svg>
+              style="top: 155px; left: 610px">
+              <svg id="svg-true-prediction">
+                <g class="uniform-dots"></g>
+                <g class="true-dots"></g>
+              </svg>
               <div class="component-label">prediction</div>
             </div>
 
             <div id="component-generated-prediction" class="model-component"
-              style="top: 250px; left: 620px">
+              style="top: 250px; left: 610px">
               <svg id="svg-generated-prediction"></svg>
               <div class="component-label">prediction</div>
             </div>
 
             <div id="group-discriminator" class="model-component-group"
-              style="top: 155px; left: 435px">
+              style="top: 160px; left: 435px">
               <div id="component-discriminator" class="model-component"
-                style="top: 62px; left: 2px">
+                style="top: 5px; left: 5px">
                 <div id="overlap-toggle" class="checkbox-toggle">
                   <paper-checkbox id="overlap-plots" checked></paper-checkbox>
                 </div>
@@ -570,7 +598,7 @@
             </div>
 
             <div id="component-discriminator-gradients" class="model-component"
-              style="top: 5px; left: 500px">
+              style="top: 15px; left: 500px">
               <div class="component-label">gradients for discriminator</div>
             </div>
 
@@ -580,21 +608,23 @@
                 <paper-checkbox class="tiny" id="show-t-contour" checked></paper-checkbox>
               </div>
               <div class="component-label">true distribution</div>
-              <div>
-                <paper-dropdown-menu no-animations no-label-float>
-                  <paper-listbox attr-for-selected="value" id="shape-dropdown" class="dropdown-content" selected="{{selectedShapeName}}">
-                    <template is="dom-repeat" items="[[shapeNames]]">
-                      <paper-item value="[[item]]" label="[[item]]">
-                        [[item]]
-                      </paper-item>
-                    </template>
-                  </paper-listbox>
-                </paper-dropdown-menu>
+              <div class="config-item">
+                <div>
+                  <paper-dropdown-menu no-animations no-label-float>
+                    <paper-listbox attr-for-selected="value" id="shape-dropdown" class="dropdown-content" selected="{{selectedShapeName}}">
+                      <template is="dom-repeat" items="[[shapeNames]]">
+                        <paper-item value="[[item]]" label="[[item]]">
+                          [[item]]
+                        </paper-item>
+                      </template>
+                    </paper-listbox>
+                  </paper-dropdown-menu>
+                </div>
               </div>
             </div>
 
             <div id="component-real-samples" class="model-component"
-              style="top: 155px; left: 325px">
+              style="top: 155px; left: 320px">
               <div id="t-samples-toggle" class="checkbox-toggle">
                 <paper-checkbox id="show-t-samples" checked></paper-checkbox>
               </div>
@@ -603,7 +633,7 @@
             </div>
 
             <div id="component-generated-samples" class="model-component"
-              style="top: 250px; left: 325px">
+              style="top: 250px; left: 320px">
               <div id="g-samples-toggle" class="checkbox-toggle">
                 <paper-checkbox id="show-g-samples" checked></paper-checkbox>
               </div>
@@ -612,9 +642,9 @@
             </div>
 
             <div id="group-generator" class="model-component-group"
-              style="top: 155px; left: 140px">
+              style="top: 160px; left: 140px">
               <div id="component-generator" class="model-component"
-                style="top: 62px; left: 2px">
+                style="top: 5px; left: 5px">
                 <div id="manifold-toggle" class="checkbox-toggle">
                   <paper-checkbox id="enable-manifold" checked></paper-checkbox>
                 </div>
@@ -650,7 +680,7 @@
             </div>
 
             <div id="component-generator-gradients" class="model-component"
-              style="top: 400px; left: 325px">
+              style="top: 400px; left: 320px">
               <div id="g-gradients-toggle" class="checkbox-toggle">
                 <paper-checkbox id="show-g-gradients" checked></paper-checkbox>
               </div>
@@ -659,11 +689,11 @@
             </div>
 
             <div id="component-noise" class="model-component"
-              style="top: 250px; left: 30px">
+              style="top: 250px; left: 25px">
               <svg id="svg-noise"></svg>
               <div class="component-label">noise</div>
               <div class="config-item">
-                  <button class="mdl-button mdl-js-button mdl-button--icon"
+                <button class="mdl-button mdl-js-button mdl-button--icon"
                   id="noise-size-add-button" title="Increase a dimension">
                   <i class="material-icons">add</i>
                 </button>
@@ -686,39 +716,99 @@
                 </div>
               </div>
             </div>
+          </div>
 
-            <div id="overlay-background"></div>
-            <div id="overlay-selected-helper"></div>
+          <div id="overlay-background"></div>
+          <div id="overlay-selected-helper"></div>
 
-            <div id="tooltips">
-              <div id="tooltip-d-loss" class="tooltip"
-              style="top: 160px; left: 650px">
-                computes discriminator's loss
-              </div>
-              <div id="tooltip-d-gradients" class="tooltip"
-              style="top: 50px; left: 490px">
-                computed to determine how boundary should change to decrease loss
-              </div>
-              <div id="tooltip-update-discriminator" class="tooltip"
-              style="top: 120px; left: 400px">
-                updates decision boundary based on gradients
-              </div>
-              <div id="tooltip-g-loss" class="tooltip"
-              style="top: 360px; left: 650px">
-                computes generator's loss
-              </div>
-              <div id="tooltip-g-gradients" class="tooltip"
-              style="top: 510px; left: 310px">
-                computed to determine which direction each point should move to decrease loss
-              </div>
-              <div id="tooltip-update-generator" class="tooltip"
-              style="top: 330px; left: 150px">
-                updates function based on gradients
-              </div>
-              <div id="tooltip-generated-samples" class="tooltip"
-              style="top: 350px; left: 310px">
-                samples produced by generator from noise
-              </div>
+          <svg id="model-vis-svg">
+            <g id="lines">
+              <defs>
+                <marker id="arrow-head" orient="auto"
+                  markerWidth="4" markerHeight="4" refX="0.3" refY="2">
+                  <path d="M0,0 V4 L2,2 Z" />
+                </marker>
+              </defs>
+              <defs>
+                <marker id="arrow-head-d-highlighted" orient="auto"
+                  markerWidth="4" markerHeight="4" refX="0.3" refY="2">
+                  <path d="M0,0 V4 L2,2 Z" />
+                </marker>
+              </defs>
+              <defs>
+                <marker id="arrow-head-g-highlighted" orient="auto"
+                  markerWidth="4" markerHeight="4" refX="0.3" refY="2">
+                  <path d="M0,0 V4 L2,2 Z" />
+                </marker>
+              </defs>
+
+              <path marker-end="url(#arrow-head)" d="M105,285 L135,285"
+                id="arrow-noise-g" />
+              <path marker-end="url(#arrow-head)" d="M290,285 L320,285"
+                id="arrow-g-g-samples" />
+              <path marker-end="url(#arrow-head)" d="M400,195 L430,195"
+                id="arrow-t-samples-d" />
+              <path marker-end="url(#arrow-head)" d="M400,285 L430,285"
+                id="arrow-g-samples-d" />
+              <path marker-end="url(#arrow-head)" d="M585,195 L615,195"
+                id="arrow-d-t-prediction" />
+              <path marker-end="url(#arrow-head)" d="M585,285 L615,285"
+                id="arrow-d-g-prediction" />
+
+              <path marker-end="url(#arrow-head)" d="M695,195 L725,235"
+                id="arrow-t-prediction-d-loss" />
+              <path marker-end="url(#arrow-head)" d="M695,285 L725,245"
+                id="arrow-g-prediction-d-loss" />
+              <path marker-end="url(#arrow-head)" d="M695,285 L725,325"
+                id="arrow-g-prediction-g-loss" />
+              <path d="M750,210 L750,50" id="arrow-d-loss-d-1" />
+              <path d="M750,50 L550,50" id="arrow-d-loss-d-2" />
+              <path d="M550,50 L490,50" id="arrow-d-loss-d-3" />
+              <path marker-end="url(#arrow-head)" d="M490,50 L490,150"
+                id="arrow-d-loss-d-4" />
+              <path d="M750,350 L750,460" id="arrow-g-loss-g-1" />
+              <path d="M750,460 L395,460" id="arrow-g-loss-g-2" />
+              <path d="M325,460 L210,460" id="arrow-g-loss-g-3" />
+              <path marker-end="url(#arrow-head)" d="M210,460 L210,330"
+                id="arrow-g-loss-g-4" />
+            </g>
+          </svg>
+
+          <div id="tooltips">
+            <div id="tooltip-d-loss" class="tooltip tooltip-for-d"
+              style="top: 150px; left: 630px">
+              <div class="tooltip-number">D1</div>
+              computes discriminator's loss
+            </div>
+            <div id="tooltip-d-gradients" class="tooltip tooltip-for-d"
+              style="top: 80px; left: 570px">
+              <div class="tooltip-number">D2</div>
+              computed to determine how boundary should change to decrease loss
+            </div>
+            <div id="tooltip-update-discriminator" class="tooltip tooltip-for-d"
+              style="top: 130px; left: 450px">
+              <div class="tooltip-number">D3</div>
+              updates decision boundary based on gradients
+            </div>
+            <div id="tooltip-g-loss" class="tooltip tooltip-for-g"
+              style="top: 370px; left: 630px">
+              <div class="tooltip-number">G1</div>
+              computes generator's loss
+            </div>
+            <div id="tooltip-g-gradients" class="tooltip tooltip-for-g"
+              style="top: 490px; left: 440px">
+              <div class="tooltip-number">G2</div>
+              computed to determine which direction each point should move to decrease loss
+            </div>
+            <div id="tooltip-update-generator" class="tooltip tooltip-for-g"
+              style="top: 360px; left: 170px">
+              <div class="tooltip-number">G3</div>
+              updates function based on gradients
+            </div>
+            <div id="tooltip-generated-samples" class="tooltip tooltip-for-g"
+              style="top: 245px; left: 310px; width: 110px;">
+              <div class="tooltip-number">G4</div>
+              samples produced by generator from noise
             </div>
           </div>
         </div>

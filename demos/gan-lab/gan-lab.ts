@@ -367,9 +367,9 @@ class GANLab extends GANLabPolymer {
 
     this.slowMode = false;
     this.querySelector('#slow-step')!.addEventListener(
-      'change', (event: Event) => {
+      'click', (event: Event) => {
         // tslint:disable-next-line:no-any
-        this.slowMode = (event.target as any).active ? true : false;
+        this.slowMode = !this.slowMode;
 
         if (this.slowMode === true) {
           document.getElementById('overlay-background')!.classList.add('shown');
@@ -398,6 +398,7 @@ class GANLab extends GANLabPolymer {
 
     // Visualization.
     this.plotSizePx = 400;
+    this.mediumPlotSizePx = 140;
     this.smallPlotSizePx = 80;
 
     this.colorScale = scaleLinear<string>().domain([0.0, 0.5, 1.0]).range([
@@ -432,12 +433,12 @@ class GANLab extends GANLabPolymer {
     const dataElements = [
       d3.select('#vis-true-samples').selectAll('.true-dot'),
       d3.select('#svg-real-samples').selectAll('.true-dot'),
-      d3.select('#svg-prediction').selectAll('.true-dot'),
+      d3.select('#svg-true-prediction').selectAll('.true-dot'),
       d3.select('#vis-true-samples-contour').selectAll('path'),
       d3.select('#svg-noise').selectAll('.noise-dot'),
       d3.select('#vis-generated-samples').selectAll('.generated-dot'),
       d3.select('#svg-generated-samples').selectAll('.generated-dot'),
-      d3.select('#svg-prediction').selectAll('.generated-dot'),
+      d3.select('#svg-generated-prediction').selectAll('.generated-dot'),
       d3.select('#vis-discriminator-output').selectAll('.uniform-dot'),
       d3.select('#svg-discriminator-output').selectAll('.uniform-dot'),
       d3.select('#svg-prediction').selectAll('.uniform-dot'),
@@ -610,7 +611,7 @@ class GANLab extends GANLabPolymer {
         .selectAll('.true-dot').data(trueDistribution),
       d3.select('#svg-real-samples')
         .selectAll('.true-dot').data(trueDistribution),
-      d3.select('#svg-true-prediction')
+      d3.select('#svg-true-prediction').select('.true-dots')
         .selectAll('.true-dot').data(trueDistribution)
     ];
     trueDotsList.forEach((dots, k) => {
@@ -749,7 +750,9 @@ class GANLab extends GANLabPolymer {
 
         if (this.slowMode) {
           await this.sleep(SLOW_INTERVAL_MS);
-          this.toggleTooltip(true, 'component-d-loss', 'tooltip-d-loss',
+          document.getElementById(
+            'group-discriminator').classList.add('activated');
+          this.toggleTooltip(true, true, 'component-d-loss', 'tooltip-d-loss',
             ['arrow-t-samples-d', 'arrow-d-t-prediction',
               'arrow-g-samples-d', 'arrow-d-g-prediction',
               'arrow-t-prediction-d-loss', 'arrow-g-prediction-d-loss']);
@@ -768,11 +771,11 @@ class GANLab extends GANLabPolymer {
 
         if (this.slowMode) {
           await this.sleep(SLOW_INTERVAL_MS);
-          this.toggleTooltip(false, 'component-d-loss', 'tooltip-d-loss',
+          this.toggleTooltip(false, true, 'component-d-loss', 'tooltip-d-loss',
             ['arrow-t-samples-d', 'arrow-d-t-prediction',
               'arrow-g-samples-d', 'arrow-d-g-prediction',
               'arrow-t-prediction-d-loss', 'arrow-g-prediction-d-loss']);
-          this.toggleTooltip(true,
+          this.toggleTooltip(true, true,
             'component-discriminator-gradients', 'tooltip-d-gradients',
             ['arrow-d-loss-d-1', 'arrow-d-loss-d-2']);
           await this.sleep(SLOW_INTERVAL_MS);
@@ -780,11 +783,11 @@ class GANLab extends GANLabPolymer {
 
         if (this.slowMode) {
           await this.sleep(SLOW_INTERVAL_MS);
-          this.toggleTooltip(false,
+          this.toggleTooltip(false, true,
             'component-discriminator-gradients', 'tooltip-d-gradients',
             ['arrow-d-loss-d-1', 'arrow-d-loss-d-2']);
-          this.toggleTooltip(true,
-            'component-discriminator', 'tooltip-update-discriminator',
+          this.toggleTooltip(true, true,
+            'group-discriminator', 'tooltip-update-discriminator',
             ['arrow-d-loss-d-3', 'arrow-d-loss-d-4']);
           await this.sleep(SLOW_INTERVAL_MS);
         }
@@ -806,14 +809,15 @@ class GANLab extends GANLabPolymer {
             .selectAll('.uniform-dot').data(dData),
           d3.select('#svg-discriminator-output')
             .selectAll('.uniform-dot').data(dData),
-          d3.select('#svg-true-prediction')
+          d3.select('#svg-true-prediction').select('.uniform-dots')
             .selectAll('.uniform-dot').data(dData),
           d3.select('#svg-generated-prediction')
             .selectAll('.uniform-dot').data(dData)
         ];
         if (this.iterationCount === 1) {
           gridDotsList.forEach((dots, k) => {
-            const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
+            const plotSizePx = k === 0 ? this.plotSizePx :
+              (k === 1 ? this.mediumPlotSizePx : this.smallPlotSizePx);
             dots.enter()
               .append('rect')
               .attr('class', 'uniform-dot gan-lab')
@@ -840,12 +844,16 @@ class GANLab extends GANLabPolymer {
 
         if (this.slowMode) {
           await this.sleep(SLOW_INTERVAL_MS);
-          this.toggleTooltip(false,
-            'component-discriminator', 'tooltip-update-discriminator',
+          this.toggleTooltip(false, true,
+            'group-discriminator', 'tooltip-update-discriminator',
             ['arrow-d-loss-d-3', 'arrow-d-loss-d-4']);
+          document.getElementById(
+            'group-discriminator').classList.remove('activated');
           await this.sleep(SLOW_INTERVAL_MS);
           await this.sleep(SLOW_INTERVAL_MS);
-          this.toggleTooltip(true, 'component-g-loss', 'tooltip-g-loss',
+          document.getElementById(
+            'group-generator').classList.add('activated');
+          this.toggleTooltip(true, false, 'component-g-loss', 'tooltip-g-loss',
             ['arrow-noise-g', 'arrow-g-g-samples',
               'arrow-g-samples-d', 'arrow-d-g-prediction',
               'arrow-g-prediction-g-loss']);
@@ -875,11 +883,11 @@ class GANLab extends GANLabPolymer {
 
         if (this.slowMode) {
           await this.sleep(SLOW_INTERVAL_MS);
-          this.toggleTooltip(false, 'component-g-loss', 'tooltip-g-loss',
+          this.toggleTooltip(false, false, 'component-g-loss', 'tooltip-g-loss',
             ['arrow-noise-g', 'arrow-g-g-samples',
               'arrow-g-samples-d', 'arrow-d-g-prediction',
               'arrow-g-prediction-g-loss']);
-          this.toggleTooltip(true,
+          this.toggleTooltip(true, false,
             'component-generator-gradients', 'tooltip-g-gradients',
             ['arrow-g-loss-g-1', 'arrow-g-loss-g-2']);
           await this.sleep(SLOW_INTERVAL_MS);
@@ -974,11 +982,11 @@ class GANLab extends GANLabPolymer {
 
         if (this.slowMode) {
           await this.sleep(SLOW_INTERVAL_MS);
-          this.toggleTooltip(false,
+          this.toggleTooltip(false, false,
             'component-generator-gradients', 'tooltip-g-gradients',
             ['arrow-g-loss-g-1', 'arrow-g-loss-g-2']);
-          this.toggleTooltip(true,
-            'component-generator', 'tooltip-update-generator',
+          this.toggleTooltip(true, false,
+            'group-generator', 'tooltip-update-generator',
             ['arrow-g-loss-g-3', 'arrow-g-loss-g-4']);
           await this.sleep(SLOW_INTERVAL_MS);
         }
@@ -1051,7 +1059,8 @@ class GANLab extends GANLabPolymer {
               .selectAll('.grids').data(gridData)
           ];
           gManifoldList.forEach((grids, k) => {
-            const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
+            const plotSizePx =
+              k === 0 ? this.plotSizePx : this.mediumPlotSizePx;
             const manifoldCell =
               line()
                 .x((d: number[]) => d[0] * plotSizePx)
@@ -1098,10 +1107,10 @@ class GANLab extends GANLabPolymer {
 
         if (this.slowMode) {
           await this.sleep(SLOW_INTERVAL_MS);
-          this.toggleTooltip(false,
-            'component-generator', 'tooltip-update-generator',
+          this.toggleTooltip(false, false,
+            'group-generator', 'tooltip-update-generator',
             ['arrow-g-loss-g-3', 'arrow-g-loss-g-4']);
-          this.toggleTooltip(true,
+          this.toggleTooltip(true, false,
             'component-generated-samples', 'tooltip-generated-samples',
             ['arrow-noise-g', 'arrow-g-g-samples']);
           await this.sleep(SLOW_INTERVAL_MS);
@@ -1162,10 +1171,35 @@ class GANLab extends GANLabPolymer {
 
         if (this.slowMode) {
           await this.sleep(SLOW_INTERVAL_MS);
-          this.toggleTooltip(false,
+          this.toggleTooltip(false, false,
             'component-generated-samples', 'tooltip-generated-samples',
             ['arrow-noise-g', 'arrow-g-g-samples']);
+          document.getElementById(
+            'group-generator').classList.remove('activated');
           await this.sleep(SLOW_INTERVAL_MS);
+        }
+
+        if (!this.slowMode) {
+          const componentElements: NodeListOf<HTMLDivElement> =
+            this.querySelectorAll('.model-component');
+          for (let i = 0; i < componentElements.length; ++i) {
+            componentElements[i].classList.remove('highlighted');
+          }
+          const componentGroupElements: NodeListOf<HTMLDivElement> =
+            this.querySelectorAll('.model-component-group');
+          for (let i = 0; i < componentGroupElements.length; ++i) {
+            componentGroupElements[i].classList.remove('activated');
+            componentGroupElements[i].classList.remove('highlighted');
+          }
+          const arrowElements: NodeListOf<HTMLDivElement> =
+            this.querySelectorAll('#model-vis-svg path');
+          for (let i = 0; i < arrowElements.length; ++i) {
+            arrowElements[i].classList.remove('d-highlighted');
+            arrowElements[i].classList.remove('g-highlighted');
+            if (arrowElements[i].hasAttribute('marker-end')) {
+              arrowElements[i].setAttribute('marker-end', 'url(#arrow-head)');
+            }
+          }
         }
       }
     });
@@ -1177,7 +1211,7 @@ class GANLab extends GANLabPolymer {
     requestAnimationFrame(() => this.iterateTraining(true));
   }
 
-  private toggleTooltip(isAdd: boolean,
+  private toggleTooltip(isAdd: boolean, isForD: boolean,
     componentElementName: string, tooltipElementName: string,
     arrowElementList: string[]) {
     if (isAdd === true) {
@@ -1189,7 +1223,14 @@ class GANLab extends GANLabPolymer {
         tooltipElementName)!.classList.add('highlighted');
       arrowElementList.forEach((arrowElement) => {
         document.getElementById(
-          arrowElement)!.classList.add('highlighted');
+          arrowElement).classList.add(
+            isForD ? 'd-highlighted' : 'g-highlighted');
+        if (document.getElementById(
+          arrowElement).hasAttribute('marker-end')) {
+          document.getElementById(arrowElement).setAttribute(
+            'marker-end', isForD ? 'url(#arrow-head-d-highlighted)'
+              : 'url(#arrow-head-g-highlighted)');
+        }
       });
     } else {
       document.getElementById(
@@ -1200,7 +1241,13 @@ class GANLab extends GANLabPolymer {
         tooltipElementName)!.classList.remove('highlighted');
       arrowElementList.forEach((arrowElement) => {
         document.getElementById(
-          arrowElement)!.classList.remove('highlighted');
+          arrowElement)!.classList.remove(
+            isForD ? 'd-highlighted' : 'g-highlighted');
+        if (document.getElementById(
+          arrowElement).hasAttribute('marker-end')) {
+          document.getElementById(arrowElement).setAttribute(
+            'marker-end', 'url(#arrow-head)');
+        }
       });
     }
   }

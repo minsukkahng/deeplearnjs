@@ -16,8 +16,9 @@
  */
 
 import {ENV} from '../environment';
-import {Array1D, NDArray} from '../math/ndarray';
-import {Tensor} from './graph';
+import * as dl from '../index';
+import {Tensor1D} from '../tensor';
+import {SymbolicTensor} from './graph';
 import {SummedTensorArrayMap, TensorArrayMap} from './tensor_array_map';
 
 describe('TensorArrayMap.size', () => {
@@ -27,14 +28,14 @@ describe('TensorArrayMap.size', () => {
 
   it('is 1 after add', () => {
     const map = new TensorArrayMap();
-    map.set(new Tensor([]), NDArray.zeros([1]));
+    map.set(new SymbolicTensor([]), dl.zeros([1]));
     expect(map.size()).toEqual(1);
   });
 
   it('increments for every add', () => {
     const map = new TensorArrayMap();
     for (let i = 0; i < 9; ++i) {
-      map.set(new Tensor([]), NDArray.zeros([1]));
+      map.set(new SymbolicTensor([]), dl.zeros([1]));
     }
     expect(map.size()).toEqual(9);
   });
@@ -42,10 +43,10 @@ describe('TensorArrayMap.size', () => {
 
 describe('TensorArrayMap.hasNullArray', () => {
   let map: TensorArrayMap;
-  let t: Tensor;
+  let t: SymbolicTensor;
   beforeEach(() => {
     map = new TensorArrayMap();
-    t = new Tensor([]);
+    t = new SymbolicTensor([]);
   });
 
   it('returns true for null NDArray entries', () => {
@@ -54,7 +55,7 @@ describe('TensorArrayMap.hasNullArray', () => {
   });
 
   it('returns false for non-null NDArray entries', () => {
-    map.set(t, NDArray.zeros([1]));
+    map.set(t, dl.zeros([1]));
     expect(map.hasNullArray(t)).toBe(false);
   });
 
@@ -65,14 +66,14 @@ describe('TensorArrayMap.hasNullArray', () => {
 
 describe('TensorArrayMap.get', () => {
   let map: TensorArrayMap;
-  let t: Tensor;
+  let t: SymbolicTensor;
   beforeEach(() => {
     map = new TensorArrayMap();
-    t = new Tensor([]);
+    t = new SymbolicTensor([]);
   });
 
   it('returns the associated NDArray', () => {
-    const nda = NDArray.zeros([1]);
+    const nda = dl.zeros([1]);
     map.set(t, nda);
     expect(map.get(t)).toBe(nda);
   });
@@ -89,10 +90,10 @@ describe('TensorArrayMap.get', () => {
 
 describe('TensorArrayMap.delete', () => {
   let map: TensorArrayMap;
-  let t: Tensor;
+  let t: SymbolicTensor;
   beforeEach(() => {
     map = new TensorArrayMap();
-    t = new Tensor([]);
+    t = new SymbolicTensor([]);
   });
 
   it('deletes the key from the map', () => {
@@ -112,18 +113,18 @@ describe('TensorArrayMap.delete', () => {
 
 describe('SummedTensorArrayMap.add', () => {
   let map: SummedTensorArrayMap;
-  let t: Tensor;
+  let t: SymbolicTensor;
   const math = ENV.math;
   beforeEach(() => {
     map = new SummedTensorArrayMap(math);
-    t = new Tensor([]);
+    t = new SymbolicTensor([]);
   });
 
   it('add sums gradients', () => {
-    map.add(t, Array1D.new([1, 2, 3]));
+    map.add(t, Tensor1D.new([1, 2, 3]));
     expect(map.get(t).dataSync()).toEqual(new Float32Array([1, 2, 3]));
 
-    map.add(t, Array1D.new([30, 20, 10]));
+    map.add(t, Tensor1D.new([30, 20, 10]));
     expect(map.get(t).dataSync()).toEqual(new Float32Array([31, 22, 13]));
   });
 });

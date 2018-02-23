@@ -14,11 +14,12 @@
  * limitations under the License.
  * =============================================================================
  */
+
 import * as device_util from './device_util';
 import {ENV, Environment, Features} from './environment';
-import {MathBackend} from './math/backends/backend';
-import {MathBackendCPU} from './math/backends/backend_cpu';
-import {MathBackendWebGL} from './math/backends/backend_webgl';
+import {KernelBackend} from './kernels/backend';
+import {MathBackendCPU} from './kernels/backend_cpu';
+import {MathBackendWebGL} from './kernels/backend_webgl';
 
 describe('disjoint query timer enabled', () => {
   afterEach(() => {
@@ -27,7 +28,7 @@ describe('disjoint query timer enabled', () => {
 
   it('no webgl', () => {
     ENV.setFeatures({'WEBGL_VERSION': 0});
-    expect(ENV.get('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_ENABLED')).toBe(false);
+    expect(ENV.get('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION')).toBe(0);
   });
 
   it('webgl 1', () => {
@@ -53,7 +54,7 @@ describe('disjoint query timer enabled', () => {
 
     ENV.setFeatures(features);
 
-    expect(ENV.get('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_ENABLED')).toBe(true);
+    expect(ENV.get('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION')).toBe(1);
   });
 
   it('webgl 2', () => {
@@ -78,7 +79,7 @@ describe('disjoint query timer enabled', () => {
     });
 
     ENV.setFeatures(features);
-    expect(ENV.get('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_ENABLED')).toBe(true);
+    expect(ENV.get('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION')).toBe(2);
   });
 });
 
@@ -89,7 +90,7 @@ describe('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_RELIABLE', () => {
 
   it('disjoint query timer disabled', () => {
     const features:
-        Features = {'WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_ENABLED': false};
+        Features = {'WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION': 0};
 
     const env = new Environment(features);
 
@@ -99,7 +100,7 @@ describe('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_RELIABLE', () => {
 
   it('disjoint query timer enabled, mobile', () => {
     const features:
-        Features = {'WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_ENABLED': true};
+        Features = {'WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION': 1};
     spyOn(device_util, 'isMobile').and.returnValue(true);
 
     const env = new Environment(features);
@@ -110,7 +111,7 @@ describe('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_RELIABLE', () => {
 
   it('disjoint query timer enabled, not mobile', () => {
     const features:
-        Features = {'WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_ENABLED': true};
+        Features = {'WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION': 1};
     spyOn(device_util, 'isMobile').and.returnValue(false);
 
     const env = new Environment(features);
@@ -220,9 +221,9 @@ describe('Backend', () => {
   });
 
   it('default ENV has cpu and webgl, and webgl is the best available', () => {
-    expect(ENV.getBackend('webgl') != null).toBe(true);
-    expect(ENV.getBackend('cpu') != null).toBe(true);
-    expect(ENV.getBestBackend()).toBe(ENV.getBackend('webgl'));
+    expect(ENV.findBackend('webgl') != null).toBe(true);
+    expect(ENV.findBackend('cpu') != null).toBe(true);
+    expect(ENV.getBestBackendType()).toBe('webgl');
   });
 
   it('custom webgl registration', () => {
@@ -230,31 +231,29 @@ describe('Backend', () => {
         Features = {'WEBGL_FLOAT_TEXTURE_ENABLED': true, 'WEBGL_VERSION': 2};
     ENV.setFeatures(features);
 
-    let backend: MathBackend;
-    ENV.registerBackend('webgl', () => {
+    let backend: KernelBackend;
+    ENV.addCustomBackend('webgl', () => {
       backend = new MathBackendWebGL();
       return backend;
     });
 
-    expect(ENV.getBackend('webgl')).toBe(backend);
+    expect(ENV.findBackend('webgl')).toBe(backend);
     expect(ENV.math).not.toBeNull();
   });
 
   it('double registration fails', () => {
     ENV.setFeatures({'WEBGL_FLOAT_TEXTURE_ENABLED': true, 'WEBGL_VERSION': 2});
-    ENV.registerBackend('webgl', () => new MathBackendWebGL());
-    expect(() => ENV.registerBackend('webgl', () => new MathBackendWebGL()))
+    ENV.addCustomBackend('webgl', () => new MathBackendWebGL());
+    expect(() => ENV.addCustomBackend('webgl', () => new MathBackendWebGL()))
         .toThrowError();
-    ENV.reset();
   });
 
   it('webgl not supported, falls back to cpu', () => {
     ENV.setFeatures({'WEBGL_VERSION': 0});
-    ENV.registerBackend('cpu', () => new MathBackendCPU());
-    const success = ENV.registerBackend('webgl', () => new MathBackendWebGL());
+    ENV.addCustomBackend('cpu', () => new MathBackendCPU());
+    const success = ENV.addCustomBackend('webgl', () => new MathBackendWebGL());
     expect(success).toBe(false);
-    expect(ENV.getBackend('webgl') == null).toBe(true);
-    expect(ENV.getBestBackend()).toBe(ENV.getBackend('cpu'));
-    ENV.reset();
+    expect(ENV.findBackend('webgl') == null).toBe(true);
+    expect(ENV.getBestBackendType()).toBe('cpu');
   });
 });

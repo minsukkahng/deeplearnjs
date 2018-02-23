@@ -18,9 +18,10 @@
 // tslint:disable-next-line:max-line-length
 import {InputProvider} from '../data/input_provider';
 import {ENV} from '../environment';
-import {NDArray} from '../math/ndarray';
+import * as dl from '../index';
+import {Tensor} from '../tensor';
 // tslint:disable-next-line:max-line-length
-import {ConstantNode, Graph, Node, PlaceholderNode, Tensor, VariableNode} from './graph';
+import {ConstantNode, Graph, Node, PlaceholderNode, SymbolicTensor, VariableNode} from './graph';
 import {FeedDictionary, FeedEntry} from './session';
 import * as session_util from './session_util';
 import {TensorArrayMap} from './tensor_array_map';
@@ -37,11 +38,10 @@ describe('getTerminatingNodesFromFeedDictionary', () => {
   });
 
   it('returns the only node in the feed dictionary', () => {
-    const math = ENV.math;
-    math.scope(() => {
-      const node = new TestNode(new Graph(), '', {}, new Tensor([]));
+    dl.tidy(() => {
+      const node = new TestNode(new Graph(), '', {}, new SymbolicTensor([]));
       const fd =
-          new FeedDictionary([{tensor: node.output, data: NDArray.zeros([1])}]);
+          new FeedDictionary([{tensor: node.output, data: dl.zeros([1])}]);
       expect(session_util.getTerminatingNodesFromFeedDictionary(fd)).toEqual([
         node
       ]);
@@ -49,19 +49,18 @@ describe('getTerminatingNodesFromFeedDictionary', () => {
   });
 
   it('returns every node from the feed dictionary', () => {
-    const math = ENV.math;
-    math.scope(() => {
-      const n0 = new TestNode(new Graph(), '', {}, new Tensor([]));
-      const n1 = new TestNode(new Graph(), '', {}, new Tensor([]));
-      const n2 = new TestNode(new Graph(), '', {}, new Tensor([]));
-      const n3 = new TestNode(new Graph(), '', {}, new Tensor([]));
-      const n4 = new TestNode(new Graph(), '', {}, new Tensor([]));
+    dl.tidy(() => {
+      const n0 = new TestNode(new Graph(), '', {}, new SymbolicTensor([]));
+      const n1 = new TestNode(new Graph(), '', {}, new SymbolicTensor([]));
+      const n2 = new TestNode(new Graph(), '', {}, new SymbolicTensor([]));
+      const n3 = new TestNode(new Graph(), '', {}, new SymbolicTensor([]));
+      const n4 = new TestNode(new Graph(), '', {}, new SymbolicTensor([]));
       const feeds: FeedEntry[] = [
-        {tensor: n0.output, data: NDArray.zeros([1])},
-        {tensor: n1.output, data: NDArray.zeros([1])},
-        {tensor: n2.output, data: NDArray.zeros([1])},
-        {tensor: n3.output, data: NDArray.zeros([1])},
-        {tensor: n4.output, data: NDArray.zeros([1])}
+        {tensor: n0.output, data: dl.zeros([1])},
+        {tensor: n1.output, data: dl.zeros([1])},
+        {tensor: n2.output, data: dl.zeros([1])},
+        {tensor: n3.output, data: dl.zeros([1])},
+        {tensor: n4.output, data: dl.zeros([1])}
       ];
       const fd = new FeedDictionary(feeds);
       const nodes = session_util.getTerminatingNodesFromFeedDictionary(fd);
@@ -77,7 +76,6 @@ describe('getTerminatingNodesFromFeedDictionary', () => {
 describe('addPersistentArraysToTensorArrayMap', () => {
   let map: TensorArrayMap;
   let g: Graph;
-  const math = ENV.math;
 
   beforeEach(() => {
     map = new TensorArrayMap();
@@ -90,29 +88,29 @@ describe('addPersistentArraysToTensorArrayMap', () => {
   });
 
   it('adds the only VariableNode to the map', () => {
-    const v = new VariableNode(g, '', NDArray.zeros([1]));
+    const v = new VariableNode(g, '', dl.zeros([1]));
     session_util.addPersistentArraysToTensorArrayMap([v], map);
     expect(map.get(v.output)).toBe(v.data);
   });
 
   it('adds the only ConstantNode to the map', () => {
-    const c = new ConstantNode(g, NDArray.zeros([1]));
+    const c = new ConstantNode(g, dl.zeros([1]));
     session_util.addPersistentArraysToTensorArrayMap([c], map);
     expect(map.get(c.output)).toBe(c.data);
   });
 
   it('does nothing with nodes that aren\'t VariableNodes or ConstantNodes',
      () => {
-       const nodes = [new TestNode(g, '', {}, new Tensor([]))];
+       const nodes = [new TestNode(g, '', {}, new SymbolicTensor([]))];
        session_util.addPersistentArraysToTensorArrayMap(nodes, map);
        expect(map.size()).toEqual(0);
      });
 
   it('adds multiple VariableNodes to the map', () => {
     const nodes = [
-      new VariableNode(g, '', NDArray.zeros([1])),
-      new VariableNode(g, '', NDArray.zeros([1])),
-      new VariableNode(g, '', NDArray.zeros([1]))
+      new VariableNode(g, '', dl.zeros([1])),
+      new VariableNode(g, '', dl.zeros([1])),
+      new VariableNode(g, '', dl.zeros([1]))
     ];
     session_util.addPersistentArraysToTensorArrayMap(nodes, map);
     expect(map.get(nodes[0].output)).toBe(nodes[0].data);
@@ -121,11 +119,10 @@ describe('addPersistentArraysToTensorArrayMap', () => {
   });
 
   it('adds multiple ConstantNodes to the map', () => {
-    math.scope(() => {
+    dl.tidy(() => {
       const nodes = [
-        new ConstantNode(g, NDArray.zeros([1])),
-        new ConstantNode(g, NDArray.zeros([1])),
-        new ConstantNode(g, NDArray.zeros([1]))
+        new ConstantNode(g, dl.zeros([1])), new ConstantNode(g, dl.zeros([1])),
+        new ConstantNode(g, dl.zeros([1]))
       ];
       session_util.addPersistentArraysToTensorArrayMap(nodes, map);
       expect(map.get(nodes[0].output)).toBe(nodes[0].data);
@@ -136,12 +133,12 @@ describe('addPersistentArraysToTensorArrayMap', () => {
 
   it('skips non-VariableNode or ConstantNode entries in the set', () => {
     const nodes: Node[] = [
-      new TestNode(g, '', {}, new Tensor([])),
-      new VariableNode(g, '', NDArray.zeros([1])),
-      new TestNode(g, '', {}, new Tensor([])),
-      new ConstantNode(g, NDArray.zeros([1])),
-      new TestNode(g, '', {}, new Tensor([])),
-      new VariableNode(g, '', NDArray.zeros([1]))
+      new TestNode(g, '', {}, new SymbolicTensor([])),
+      new VariableNode(g, '', dl.zeros([1])),
+      new TestNode(g, '', {}, new SymbolicTensor([])),
+      new ConstantNode(g, dl.zeros([1])),
+      new TestNode(g, '', {}, new SymbolicTensor([])),
+      new VariableNode(g, '', dl.zeros([1]))
     ];
     session_util.addPersistentArraysToTensorArrayMap(nodes, map);
     expect(map.size()).toEqual(3);
@@ -166,19 +163,19 @@ describe('loadInputsFromFeedDictionaryToTensorArrayMap', () => {
   });
 
   it('adds the only NDArray feed dict entry to the map', () => {
-    const tensor = new Tensor([1]);
-    const fd = new FeedDictionary([{tensor, data: NDArray.zeros([1])}]);
+    const tensor = new SymbolicTensor([1]);
+    const fd = new FeedDictionary([{tensor, data: dl.zeros([1])}]);
     session_util.loadInputsFromFeedDictionaryToTensorArrayMap(fd, map, math);
     expect(map.size()).toEqual(1);
-    expect(map.get(tensor)).toBe(fd.dict[tensor.id].data as NDArray);
+    expect(map.get(tensor)).toBe(fd.dict[tensor.id].data as Tensor);
   });
 
   it('adds the only provider feed dict entry to the map', () => {
-    const tensor = new Tensor([2]);
-    const ndarray = NDArray.zeros([2]);
+    const tensor = new SymbolicTensor([2]);
+    const ndarray = dl.zeros([2]);
     const provider: InputProvider = {
       getNextCopy():
-          NDArray {  // Don't return a copy in this case so we can test
+          Tensor {  // Don't return a copy in this case so we can test
             // that we returned the
             // right value.
             return ndarray;
@@ -194,32 +191,32 @@ describe('loadInputsFromFeedDictionaryToTensorArrayMap', () => {
 
   it('adds every NDArray feed dict entry to the map', () => {
     const tensors = [
-      new Tensor([1]), new Tensor([1]), new Tensor([1]), new Tensor([1]),
-      new Tensor([1])
+      new SymbolicTensor([1]), new SymbolicTensor([1]), new SymbolicTensor([1]),
+      new SymbolicTensor([1]), new SymbolicTensor([1])
     ];
     const feeds = tensors.map(tensor => {
-      return {tensor, data: NDArray.zeros([1])};
+      return {tensor, data: dl.zeros([1])};
     });
     const fd = new FeedDictionary(feeds);
     session_util.loadInputsFromFeedDictionaryToTensorArrayMap(fd, map, math);
     expect(map.size()).toEqual(tensors.length);
     tensors.forEach(
         tensor =>
-            expect(map.get(tensor)).toBe(fd.dict[tensor.id].data as NDArray));
+            expect(map.get(tensor)).toBe(fd.dict[tensor.id].data as Tensor));
   });
 
   it('adds every provider feed dict entry to the map', () => {
     const tensors = [
-      new Tensor([1]), new Tensor([1]), new Tensor([1]), new Tensor([1]),
-      new Tensor([1])
+      new SymbolicTensor([1]), new SymbolicTensor([1]), new SymbolicTensor([1]),
+      new SymbolicTensor([1]), new SymbolicTensor([1])
     ];
-    const ndarrays: NDArray[] = [];
+    const ndarrays: Tensor[] = [];
     for (let i = 0; i < tensors.length; i++) {
-      ndarrays.push(NDArray.zeros([1]));
+      ndarrays.push(dl.zeros([1]));
     }
     let idx = 0;
     const provider: InputProvider = {
-      getNextCopy(): NDArray {
+      getNextCopy(): Tensor {
         const ndarray = ndarrays[idx];
         idx++;
         return ndarray;
@@ -241,8 +238,8 @@ describe('loadInputsFromFeedDictionaryToTensorArrayMap', () => {
   });
 
   it('throws when provides data that does not match tensor shape', () => {
-    const tensor = new Tensor([4, 5]);
-    const fd = new FeedDictionary([{tensor, data: NDArray.zeros([2, 3])}]);
+    const tensor = new SymbolicTensor([4, 5]);
+    const fd = new FeedDictionary([{tensor, data: dl.zeros([2, 3])}]);
     expect(
         () => session_util.loadInputsFromFeedDictionaryToTensorArrayMap(
             fd, map, math))
@@ -259,18 +256,17 @@ describe('releaseFeedDictionaryInputsFromTensorArrayMap', () => {
   });
 
   it('doesn\'t remove anything when feed dictionary is empty', () => {
-    map.set(new Tensor([]), null);
+    map.set(new SymbolicTensor([]), null);
     const fd = new FeedDictionary();
     session_util.releaseFeedDictionaryInputsFromTensorArrayMap(fd, map, math);
     expect(map.size()).toEqual(1);
   });
 
   it('doesn\'t remove tensors from map that don\'t exist in feed', () => {
-    const fdTensor = new Tensor([]);
-    const nda = NDArray.zeros([1]);
-    const fd =
-        new FeedDictionary([{tensor: fdTensor, data: NDArray.zeros([1])}]);
-    const nonFDTensor = new Tensor([]);
+    const fdTensor = new SymbolicTensor([]);
+    const nda = dl.zeros([1]);
+    const fd = new FeedDictionary([{tensor: fdTensor, data: dl.zeros([1])}]);
+    const nonFDTensor = new SymbolicTensor([]);
     map.set(nonFDTensor, nda);
     session_util.releaseFeedDictionaryInputsFromTensorArrayMap(fd, map, math);
     expect(map.size()).toEqual(1);
@@ -278,8 +274,8 @@ describe('releaseFeedDictionaryInputsFromTensorArrayMap', () => {
   });
 
   it('removes only tensor in map and feed dict', () => {
-    const tensor = new Tensor([]);
-    const ndarray = NDArray.zeros([1]);
+    const tensor = new SymbolicTensor([]);
+    const ndarray = dl.zeros([1]);
     const fd = new FeedDictionary([{tensor, data: ndarray}]);
     map.set(tensor, ndarray);
     session_util.releaseFeedDictionaryInputsFromTensorArrayMap(fd, map, math);
@@ -287,14 +283,16 @@ describe('releaseFeedDictionaryInputsFromTensorArrayMap', () => {
   });
 
   it('removes from map all tensors in feed dict', () => {
-    const tensors = [new Tensor([]), new Tensor([]), new Tensor([])];
+    const tensors = [
+      new SymbolicTensor([]), new SymbolicTensor([]), new SymbolicTensor([])
+    ];
 
     const feeds = tensors.map(tensor => {
-      return {tensor, data: NDArray.zeros([1])};
+      return {tensor, data: dl.zeros([1])};
     });
     const fd = new FeedDictionary(feeds);
     tensors.forEach(
-        tensor => map.set(tensor, fd.dict[tensor.id].data as NDArray));
+        tensor => map.set(tensor, fd.dict[tensor.id].data as Tensor));
     session_util.releaseFeedDictionaryInputsFromTensorArrayMap(fd, map, math);
     expect(map.size()).toEqual(0);
   });
@@ -315,16 +313,15 @@ describe('disposeAndInitializeOperationOutputs', () => {
 
   it('does nothing to map if set has no input nodes', () => {
     const nodes = [
-      new VariableNode(g, '', NDArray.zeros([1])),
-      new PlaceholderNode(g, '', [1])
+      new VariableNode(g, '', dl.zeros([1])), new PlaceholderNode(g, '', [1])
     ];
     session_util.disposeAndInitializeOperationOutputs(nodes, map);
     expect(map.size()).toEqual(0);
   });
 
   it('adds output tensor from only operation node', () => {
-    const input = new Tensor([]);
-    const t = new Tensor([]);
+    const input = new SymbolicTensor([]);
+    const t = new SymbolicTensor([]);
     session_util.disposeAndInitializeOperationOutputs(
         [new TestNode(g, '', {'in': input}, t)], map);
     expect(map.size()).toEqual(1);
@@ -332,8 +329,10 @@ describe('disposeAndInitializeOperationOutputs', () => {
   });
 
   it('adds output tensors from all operation nodes', () => {
-    const input = new Tensor([]);
-    const tensors = [new Tensor([]), new Tensor([]), new Tensor([])];
+    const input = new SymbolicTensor([]);
+    const tensors = [
+      new SymbolicTensor([]), new SymbolicTensor([]), new SymbolicTensor([])
+    ];
     const nodes: Node[] = [];
     tensors.forEach(
         tensor => nodes.push(new TestNode(g, '', {'in': input}, tensor)));
@@ -351,7 +350,7 @@ describe('removeFeedDictionaryNodesFromEvaluationSet', () => {
   });
 
   it('does nothing when feed dictionary is empty', () => {
-    const node = new TestNode(new Graph(), '', {}, new Tensor([]));
+    const node = new TestNode(new Graph(), '', {}, new SymbolicTensor([]));
     set.push(node);
     const fd = new FeedDictionary();
     session_util.removeFeedDictionaryNodesFromEvaluationSet(fd, set);
@@ -360,9 +359,9 @@ describe('removeFeedDictionaryNodesFromEvaluationSet', () => {
   });
 
   it('removes only feed dict node from set', () => {
-    set.push(new TestNode(new Graph(), '', {}, new Tensor([])));
+    set.push(new TestNode(new Graph(), '', {}, new SymbolicTensor([])));
     const fd =
-        new FeedDictionary([{tensor: set[0].output, data: NDArray.zeros([1])}]);
+        new FeedDictionary([{tensor: set[0].output, data: dl.zeros([1])}]);
     session_util.removeFeedDictionaryNodesFromEvaluationSet(fd, set);
     expect(set.length).toEqual(0);
   });
@@ -370,18 +369,18 @@ describe('removeFeedDictionaryNodesFromEvaluationSet', () => {
   it('removes only feed dict nodes from set', () => {
     const g = new Graph();
     const remainingNodes = [
-      new TestNode(g, '', {}, new Tensor([])),
-      new TestNode(g, '', {}, new Tensor([])),
-      new TestNode(g, '', {}, new Tensor([]))
+      new TestNode(g, '', {}, new SymbolicTensor([])),
+      new TestNode(g, '', {}, new SymbolicTensor([])),
+      new TestNode(g, '', {}, new SymbolicTensor([]))
     ];
 
     set.push(remainingNodes[0]);
-    set.push(new TestNode(g, '', {}, new Tensor([])));
+    set.push(new TestNode(g, '', {}, new SymbolicTensor([])));
     const feeds: FeedEntry[] = [];
-    feeds.push({tensor: set[set.length - 1].output, data: NDArray.zeros([1])});
+    feeds.push({tensor: set[set.length - 1].output, data: dl.zeros([1])});
     set.push(remainingNodes[1]);
-    set.push(new TestNode(g, '', {}, new Tensor([])));
-    feeds.push({tensor: set[set.length - 1].output, data: NDArray.zeros([1])});
+    set.push(new TestNode(g, '', {}, new SymbolicTensor([])));
+    feeds.push({tensor: set[set.length - 1].output, data: dl.zeros([1])});
     set.push(remainingNodes[2]);
 
     const fd = new FeedDictionary(feeds);
@@ -400,7 +399,7 @@ describe('throwErrorIfEvaluationSetContainsPlaceholderNodes', () => {
 
   it('doesn\'t throw if array contains non-placeholder nodes', () => {
     session_util.throwErrorIfEvaluationSetContainsPlaceholderNodes(
-        [new TestNode(g, '', {}, new Tensor([]))]);
+        [new TestNode(g, '', {}, new SymbolicTensor([]))]);
   });
 
   it('throws if the array only contains a placeholder node', () => {
@@ -420,7 +419,7 @@ describe('throwErrorIfEvaluationSetContainsPlaceholderNodes', () => {
   it('throws if the non-first element in the array is a placeholder', () => {
     expect(
         () => session_util.throwErrorIfEvaluationSetContainsPlaceholderNodes([
-          new TestNode(g, '', {}, new Tensor([])),
+          new TestNode(g, '', {}, new SymbolicTensor([])),
           new PlaceholderNode(g, '', [])
         ]))
         .toThrowError(/Placeholder node/);

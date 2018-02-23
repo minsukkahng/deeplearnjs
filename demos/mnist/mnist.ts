@@ -15,47 +15,47 @@
  * =============================================================================
  */
 
-// tslint:disable-next-line:max-line-length
-import {Array1D, Array2D, CheckpointLoader, ENV, NDArray, Scalar} from 'deeplearn';
+import * as dl from 'deeplearn';
 
 // manifest.json lives in the same directory as the mnist demo.
-const reader = new CheckpointLoader('.');
+const reader = new dl.CheckpointLoader('.');
 reader.getAllVariables().then(vars => {
   // Get sample data.
   const xhr = new XMLHttpRequest();
   xhr.open('GET', 'sample_data.json');
   xhr.onload = async () => {
     const data = JSON.parse(xhr.responseText) as SampleData;
-    const math = ENV.math;
 
-    // Wrap everything in a math.scope so we clean up intermediate NDArrays.
-    math.scope(async () => {
-      console.log(`Evaluation set: n=${data.images.length}.`);
+    console.log(`Evaluation set: n=${data.images.length}.`);
 
-      let numCorrect = 0;
-      for (let i = 0; i < data.images.length; i++) {
-        const x = Array1D.new(data.images[i]);
-
+    let numCorrect = 0;
+    for (let i = 0; i < data.images.length; i++) {
+      const inferred = dl.tidy(() => {
+        const x = dl.tensor1d(data.images[i]);
+        return infer(x, vars);
         // Infer through the model to get a prediction.
-        const predictedLabel = Math.round(await infer(x, vars).val());
-        console.log(`Item ${i}, predicted label ${predictedLabel}.`);
+      });
+      const predictedLabel = Math.round(await inferred.val());
+      inferred.dispose();
+      console.log(`Item ${i}, predicted label ${predictedLabel}.`);
 
-        // Aggregate correctness to show accuracy.
-        const label = data.labels[i];
-        if (label === predictedLabel) {
-          numCorrect++;
-        }
-
-        // Show the image.
-        const result =
-            renderResults(Array1D.new(data.images[i]), label, predictedLabel);
-        document.body.appendChild(result);
+      // Aggregate correctness to show accuracy.
+      const label = data.labels[i];
+      if (label === predictedLabel) {
+        numCorrect++;
       }
 
-      // Compute final accuracy.
-      const accuracy = numCorrect * 100 / data.images.length;
-      document.getElementById('accuracy').innerHTML = `${accuracy}%`;
-    });
+      // Show the image.
+      dl.tidy(() => {
+        const result =
+            renderResults(dl.tensor1d(data.images[i]), label, predictedLabel);
+        document.body.appendChild(result);
+      });
+    }
+
+    // Compute final accuracy.
+    const accuracy = numCorrect * 100 / data.images.length;
+    document.getElementById('accuracy').innerHTML = `${accuracy}%`;
   };
   xhr.onerror = (err) => console.error(err);
   xhr.send();
@@ -67,32 +67,33 @@ export interface SampleData {
 }
 
 /**
- * Infers through a 3-layer fully connected MNIST model using the Math API. This
- * is the lowest level user-facing API in deeplearn.js giving the most control
- * to the user. Math commands execute immediately, like numpy.
+ * Infers through a 3-layer fully connected MNIST model using the Math API.
+ * This is the lowest level user-facing API in deeplearn.js giving the most
+ * control to the user. Math commands execute immediately, like numpy.
  */
 export function infer(
-    x: Array1D, vars: {[varName: string]: NDArray}): Scalar<'int32'> {
-  const hidden1W = vars['hidden1/weights'] as Array2D;
-  const hidden1B = vars['hidden1/biases'] as Array1D;
-  const hidden2W = vars['hidden2/weights'] as Array2D;
-  const hidden2B = vars['hidden2/biases'] as Array1D;
-  const softmaxW = vars['softmax_linear/weights'] as Array2D;
-  const softmaxB = vars['softmax_linear/biases'] as Array1D;
-  const math = ENV.math;
+    x: dl.Tensor1D, vars: {[varName: string]: dl.Tensor}): dl.Scalar {
+  const hidden1W = vars['hidden1/weights'] as dl.Tensor2D;
+  const hidden1B = vars['hidden1/biases'] as dl.Tensor1D;
+  const hidden2W = vars['hidden2/weights'] as dl.Tensor2D;
+  const hidden2B = vars['hidden2/biases'] as dl.Tensor1D;
+  const softmaxW = vars['softmax_linear/weights'] as dl.Tensor2D;
+  const softmaxB = vars['softmax_linear/biases'] as dl.Tensor1D;
+
   const hidden1 =
-      math.relu(math.add(math.vectorTimesMatrix(x, hidden1W), hidden1B)) as
-      Array1D;
-  const hidden2 =
-      math.relu(math.add(
-          math.vectorTimesMatrix(hidden1, hidden2W), hidden2B)) as Array1D;
+      x.as2D(-1, hidden1W.shape[0]).matMul(hidden1W).add(hidden1B).relu() as
+      dl.Tensor1D;
+  const hidden2 = hidden1.as2D(-1, hidden2W.shape[0])
+                      .matMul(hidden2W)
+                      .add(hidden2B)
+                      .relu() as dl.Tensor1D;
+  const logits =
+      hidden2.as2D(-1, softmaxW.shape[0]).matMul(softmaxW).add(softmaxB);
 
-  const logits = math.add(math.vectorTimesMatrix(hidden2, softmaxW), softmaxB);
-
-  return math.argMax(logits);
+  return logits.argMax();
 }
 
-function renderMnistImage(array: Array1D) {
+function renderMnistImage(array: dl.Tensor1D) {
   const width = 28;
   const height = 28;
   const canvas = document.createElement('canvas');
@@ -113,7 +114,8 @@ function renderMnistImage(array: Array1D) {
   return canvas;
 }
 
-function renderResults(array: Array1D, label: number, predictedLabel: number) {
+function renderResults(
+    array: dl.Tensor1D, label: number, predictedLabel: number) {
   const root = document.createElement('div');
   root.appendChild(renderMnistImage(array));
   const actual = document.createElement('div');

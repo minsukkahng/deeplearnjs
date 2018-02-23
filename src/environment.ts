@@ -16,18 +16,28 @@
  */
 
 import * as device_util from './device_util';
-import {MathBackend} from './math/backends/backend';
-import {NDArrayMath} from './math/math';
+import {doc} from './doc';
+import {Engine, MemoryInfo} from './engine';
+import {KernelBackend} from './kernels/backend';
+import {NDArrayMath} from './math';
 import * as util from './util';
 
 export enum Type {
   NUMBER,
-  BOOLEAN
+  BOOLEAN,
+  STRING
 }
 
 export interface Features {
-  // Whether the disjoint_query_timer extension is an available extension.
-  'WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_ENABLED'?: boolean;
+  // Whether to enable debug mode.
+  'DEBUG'?: boolean;
+  // The disjoint_query_timer extension version.
+  // 0: disabled, 1: EXT_disjoint_timer_query, 2:
+  // EXT_disjoint_timer_query_webgl2.
+  // In Firefox with WebGL 2.0,
+  // EXT_disjoint_timer_query_webgl2 is not available, so we must use the
+  // WebGL 1.0 extension.
+  'WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION'?: number;
   // Whether the timer object from the disjoint_query_timer extension gives
   // timing information that is reliable.
   'WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_RELIABLE'?: boolean;
@@ -38,21 +48,29 @@ export interface Features {
   'WEBGL_FLOAT_TEXTURE_ENABLED'?: boolean;
   // Whether WEBGL_get_buffer_sub_data_async is enabled.
   'WEBGL_GET_BUFFER_SUB_DATA_ASYNC_EXTENSION_ENABLED'?: boolean;
+  'BACKEND'?: BackendType;
 }
 
 export const URL_PROPERTIES: URLProperty[] = [
-  {name: 'WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_ENABLED', type: Type.BOOLEAN},
+  {name: 'DEBUG', type: Type.BOOLEAN},
+  {name: 'WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION', type: Type.NUMBER},
   {name: 'WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_RELIABLE', type: Type.BOOLEAN},
   {name: 'WEBGL_VERSION', type: Type.NUMBER},
   {name: 'WEBGL_FLOAT_TEXTURE_ENABLED', type: Type.BOOLEAN}, {
     name: 'WEBGL_GET_BUFFER_SUB_DATA_ASYNC_EXTENSION_ENABLED',
     type: Type.BOOLEAN
-  }
+  },
+  {name: 'BACKEND', type: Type.STRING}
 ];
 
 export interface URLProperty {
   name: keyof Features;
   type: Type;
+}
+
+function hasExtension(gl: WebGLRenderingContext, extensionName: string) {
+  const ext = gl.getExtension(extensionName);
+  return ext != null;
 }
 
 function getWebGLRenderingContext(webGLVersion: number): WebGLRenderingContext {
@@ -90,17 +108,27 @@ function isWebGLVersionEnabled(webGLVersion: 1|2) {
   return false;
 }
 
-function isWebGLDisjointQueryTimerEnabled(webGLVersion: number) {
+function getWebGLDisjointQueryTimerVersion(webGLVersion: number): number {
+  if (webGLVersion === 0) {
+    return 0;
+  }
+
+  let queryTimerVersion: number;
   const gl = getWebGLRenderingContext(webGLVersion);
 
-  const extensionName = webGLVersion === 1 ? 'EXT_disjoint_timer_query' :
-                                             'EXT_disjoint_timer_query_webgl2';
-  const ext = gl.getExtension(extensionName);
-  const isExtEnabled = ext != null;
+  if (hasExtension(gl, 'EXT_disjoint_timer_query_webgl2') &&
+      webGLVersion === 2) {
+    queryTimerVersion = 2;
+  } else if (hasExtension(gl, 'EXT_disjoint_timer_query')) {
+    queryTimerVersion = 1;
+  } else {
+    queryTimerVersion = 0;
+  }
+
   if (gl != null) {
     loseContext(gl);
   }
-  return isExtEnabled;
+  return queryTimerVersion;
 }
 
 function isFloatTextureReadPixelsEnabled(webGLVersion: number): boolean {
@@ -111,11 +139,11 @@ function isFloatTextureReadPixelsEnabled(webGLVersion: number): boolean {
   const gl = getWebGLRenderingContext(webGLVersion);
 
   if (webGLVersion === 1) {
-    if (gl.getExtension('OES_texture_float') == null) {
+    if (!hasExtension(gl, 'OES_texture_float')) {
       return false;
     }
   } else {
-    if (gl.getExtension('EXT_color_buffer_float') == null) {
+    if (!hasExtension(gl, 'EXT_color_buffer_float')) {
       return false;
     }
   }
@@ -151,25 +179,85 @@ function isWebGLGetBufferSubDataAsyncExtensionEnabled(webGLVersion: number) {
     return false;
   }
   const gl = getWebGLRenderingContext(webGLVersion);
-  const ext = gl.getExtension('WEBGL_get_buffer_sub_data_async');
-  const isEnabled = ext != null;
+
+  const isEnabled = hasExtension(gl, 'WEBGL_get_buffer_sub_data_async');
   loseContext(gl);
   return isEnabled;
 }
 
+/** @docalias 'webgl'|'cpu' */
 export type BackendType = 'webgl'|'cpu';
+
+/** List of currently supported backends ordered by preference. */
+const SUPPORTED_BACKENDS: BackendType[] = ['webgl', 'cpu'];
 
 export class Environment {
   private features: Features = {};
-  private globalMath: NDArrayMath = null;
-  // tslint:disable-next-line:no-any
-  private backendRegistry: {[id in BackendType]: MathBackend} = {} as any;
-  private prevBackendRegistry: {[id in BackendType]: MathBackend} = null;
+  private globalMath: NDArrayMath;
+  private globalEngine: Engine;
+  private BACKEND_REGISTRY: {[id: string]: KernelBackend} = {};
+  private backends: {[id: string]: KernelBackend} = this.BACKEND_REGISTRY;
+  private currentBackendType: BackendType;
 
   constructor(features?: Features) {
     if (features != null) {
       this.features = features;
     }
+
+    if (this.get('DEBUG')) {
+      console.warn(
+          'Debugging mode is ON. The output of every math call will ' +
+          'be downloaded to CPU and checked for NaNs. ' +
+          'This significantly impacts performance.');
+    }
+  }
+
+  /**
+   * Sets the backend (cpu, webgl, etc) responsible for creating tensors and
+   * executing operations on those tensors.
+   *
+   * @param backendType The backend type. Currently supports 'webgl'|'cpu'.
+   * @param safeMode Defaults to false. In safe mode, you are forced to
+   *     construct tensors and call math operations inside a dl.tidy() which
+   *     will automatically clean up intermediate tensors.
+   */
+  @doc({heading: 'Environment'})
+  static setBackend(backendType: BackendType, safeMode = false) {
+    if (!(backendType in ENV.backends)) {
+      throw new Error(`Backend type '${backendType}' not found in registry`);
+    }
+    ENV.globalMath = new NDArrayMath(backendType, safeMode);
+  }
+
+  /**
+   * Returns the current backend (cpu, webgl, etc). The backend is responsible
+   * for creating tensors and executing operations on those tensors.
+   */
+  @doc({heading: 'Environment'})
+  static getBackend(): BackendType {
+    ENV.initEngine();
+    return ENV.currentBackendType;
+  }
+
+  /**
+   * Returns memory info at the current time in the program. The result is an
+   * object with the following properties:
+   *
+   * - `numBytes`: number of bytes allocated (undisposed) at this time.
+   * - `numTensors`: number of unique tensors allocated
+   * - `numDataBuffers`: number of unique data buffers allocated
+   *   (undisposed) at this time, which is ≤ the number of tensors
+   *   (e.g. `a.reshape(newShape)` makes a new Tensor that shares the same
+   *   data buffer with `a`).
+   * - `unreliable`: optional boolean:
+   *    - On WebGL, not present (always reliable).
+   *    - On CPU, true. Due to automatic garbage collection, these numbers
+   *     represent undisposed tensors, i.e. not wrapped in `dl.tidy()`, or
+   *     lacking a call to `tensor.dispose()`.
+   */
+  @doc({heading: 'Performance', subheading: 'Memory'})
+  static memory(): MemoryInfo {
+    return ENV.engine.memory();
   }
 
   get<K extends keyof Features>(feature: K): Features[K] {
@@ -182,28 +270,35 @@ export class Environment {
     return this.features[feature];
   }
 
-  getBestBackend(): MathBackend {
-    const orderedBackends: BackendType[] = ['webgl', 'cpu'];
-    for (let i = 0; i < orderedBackends.length; ++i) {
-      const backendId = orderedBackends[i];
-      if (backendId in this.backendRegistry) {
-        return this.backendRegistry[backendId];
+  set<K extends keyof Features>(feature: K, value: Features[K]): void {
+    this.features[feature] = value;
+  }
+
+  getBestBackendType(): BackendType {
+    for (let i = 0; i < SUPPORTED_BACKENDS.length; ++i) {
+      const backendId = SUPPORTED_BACKENDS[i];
+      if (backendId in this.backends) {
+        return backendId;
       }
     }
     throw new Error('No backend found in registry.');
   }
 
   private evaluateFeature<K extends keyof Features>(feature: K): Features[K] {
-    if (feature === 'WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_ENABLED') {
+    if (feature === 'DEBUG') {
+      return false;
+    } else if (feature === 'BACKEND') {
+      return this.getBestBackendType();
+    } else if (feature === 'WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION') {
       const webGLVersion = this.get('WEBGL_VERSION');
 
       if (webGLVersion === 0) {
-        return false;
+        return 0;
       }
 
-      return isWebGLDisjointQueryTimerEnabled(webGLVersion);
+      return getWebGLDisjointQueryTimerVersion(webGLVersion);
     } else if (feature === 'WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_RELIABLE') {
-      return this.get('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_ENABLED') &&
+      return this.get('WEBGL_DISJOINT_QUERY_TIMER_EXTENSION_VERSION') > 0 &&
           !device_util.isMobile();
     } else if (feature === 'WEBGL_VERSION') {
       if (isWebGLVersionEnabled(2)) {
@@ -223,8 +318,9 @@ export class Environment {
   }
 
   setFeatures(features: Features) {
-    this.empty();
+    this.reset();
     this.features = features;
+    this.backends = {};
   }
 
   reset() {
@@ -232,59 +328,97 @@ export class Environment {
     if (this.globalMath != null) {
       this.globalMath.dispose();
       this.globalMath = null;
+      this.globalEngine = null;
     }
-    if (this.prevBackendRegistry != null) {
-      for (const name in this.backendRegistry) {
-        this.backendRegistry[name as BackendType].dispose();
+    if (this.backends !== this.BACKEND_REGISTRY) {
+      for (const name in this.backends) {
+        this.backends[name].dispose();
       }
-      this.backendRegistry = this.prevBackendRegistry;
-      this.prevBackendRegistry = null;
+      this.backends = this.BACKEND_REGISTRY;
     }
   }
 
-  setMath(math: NDArrayMath) {
+  setMath(
+      math: NDArrayMath, backend?: BackendType|KernelBackend,
+      safeMode = false) {
+    if (this.globalMath === math) {
+      return;
+    }
+    let customBackend = false;
+    if (typeof backend === 'string') {
+      this.currentBackendType = backend;
+      backend = ENV.findBackend(backend);
+    } else {
+      customBackend = true;
+      this.currentBackendType = 'custom' as BackendType;
+    }
+    this.globalEngine = new Engine(backend, customBackend, safeMode);
     this.globalMath = math;
   }
 
-  getBackend(name: BackendType): MathBackend {
-    return this.backendRegistry[name];
+  findBackend(name: BackendType): KernelBackend {
+    return this.backends[name];
   }
 
   /**
-   * Registers the backend to the global environment.
+   * Adds a custom backend. Usually used in tests to simulate different
+   * environments.
    *
    * @param factory: The backend factory function. When called, it should return
    *     an instance of the backend.
    * @return False if the creation/registration failed. True otherwise.
    */
-  registerBackend(name: BackendType, factory: () => MathBackend): boolean {
-    if (name in this.backendRegistry) {
+  addCustomBackend(name: BackendType, factory: () => KernelBackend): boolean {
+    if (name in this.backends) {
       throw new Error(`${name} backend was already registered`);
     }
     try {
       const backend = factory();
-      this.backendRegistry[name] = backend;
+      this.backends[name] = backend;
       return true;
     } catch (err) {
       return false;
     }
   }
 
-  get math(): NDArrayMath {
-    if (this.globalMath == null) {
-      const bestBackend = this.getBestBackend();
-      const safeMode = false;
-      this.globalMath = new NDArrayMath(bestBackend, safeMode);
+  /**
+   * Registers a global backend. The registration should happen when importing
+   * a module file (e.g. when importing `backend_webgl.ts`), and is used for
+   * modular builds (e.g. custom deeplearn.js bundle with only webgl support).
+   *
+   * @param factory: The backend factory function. When called, it should
+   * return an instance of the backend.
+   * @return False if the creation/registration failed. True otherwise.
+   */
+  registerBackend(name: BackendType, factory: () => KernelBackend): boolean {
+    if (name in this.BACKEND_REGISTRY) {
+      throw new Error(`${name} backend was already registered as global`);
     }
+    try {
+      const backend = factory();
+      this.BACKEND_REGISTRY[name] = backend;
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  /** @deprecated. Use ENV.engine. */
+  get math(): NDArrayMath {
+    this.initEngine();
     return this.globalMath;
   }
 
-  private empty() {
-    this.globalMath = null;
-    this.prevBackendRegistry = this.backendRegistry;
-    // tslint:disable-next-line:no-any
-    this.backendRegistry = {} as any;
-    this.features = null;
+  get engine(): Engine {
+    this.initEngine();
+    return this.globalEngine;
+  }
+
+  private initEngine() {
+    if (this.globalEngine == null) {
+      this.globalMath =
+          new NDArrayMath(ENV.get('BACKEND'), false /* safeMode */);
+    }
   }
 }
 
@@ -316,6 +450,9 @@ function getFeaturesFromURL(): Features {
           features[urlProperty.name] = +urlFlags[urlProperty.name];
         } else if (urlProperty.type === Type.BOOLEAN) {
           features[urlProperty.name] = urlFlags[urlProperty.name] === 'true';
+        } else if (urlProperty.type === Type.STRING) {
+          // tslint:disable-next-line:no-any
+          features[urlProperty.name] = urlFlags[urlProperty.name] as any;
         } else {
           console.warn(`Unknown URL param: ${urlProperty.name}.`);
         }

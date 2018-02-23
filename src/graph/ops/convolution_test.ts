@@ -16,15 +16,17 @@
  */
 
 import {ENV} from '../../environment';
-import * as conv_util from '../../math/conv_util';
-import {Array1D, Array2D, Array3D, Array4D, NDArray} from '../../math/ndarray';
+import * as dl from '../../index';
+import * as conv_util from '../../ops/conv_util';
+import {Tensor1D, Tensor2D, Tensor} from '../../tensor';
+import {Rank} from '../../types';
 import * as test_util from '../../test_util';
-import {Tensor} from '../graph';
+import {SymbolicTensor} from '../graph';
 import {SummedTensorArrayMap, TensorArrayMap} from '../tensor_array_map';
 
 import {Convolution2D} from './convolution';
 
-function assertNoNaNs(t: NDArray) {
+function assertNoNaNs(t: Tensor) {
   const values = t.dataSync();
   for (let i = 0; i < values.length; ++i) {
     expect(isNaN(values[i])).toBe(false);
@@ -33,10 +35,10 @@ function assertNoNaNs(t: NDArray) {
 
 describe('Convolution', () => {
   const math = ENV.math;
-  let wTensor: Tensor;
-  let xTensor: Tensor;
-  let bTensor: Tensor;
-  let yTensor: Tensor;
+  let wTensor: SymbolicTensor;
+  let xTensor: SymbolicTensor;
+  let bTensor: SymbolicTensor;
+  let yTensor: SymbolicTensor;
   let activations: TensorArrayMap;
   let gradients: SummedTensorArrayMap;
 
@@ -63,7 +65,7 @@ describe('Convolution', () => {
     const stride = 2;
     const zeroPad = 1;
     const weights2D =
-        Array2D.new([fieldSize * fieldSize * inputDepth, outputDepth], [
+        Tensor2D.new([fieldSize * fieldSize * inputDepth, outputDepth], [
           1,  -1, 1, 0, -1, 1, -1, 0,  -1, 0,  0, 1,  -1, 1, 1, 1,  1, 1,
           0,  1,  0, 0, 0,  1, -1, -1, 1,  0,  1, -1, 1,  1, 1, 1,  1, -1,
           -1, 0,  1, 0, 0,  0, 1,  -1, -1, -1, 1, 0,  -1, 1, 0, -1, 0, 1
@@ -71,8 +73,8 @@ describe('Convolution', () => {
 
     const weights =
         weights2D.as4D(fieldSize, fieldSize, inputDepth, outputDepth);
-    const biases = Array1D.new([1, 0]);
-    const x2D = Array2D.new([25, inputDepth], [
+    const biases = Tensor1D.new([1, 0]);
+    const x2D = Tensor2D.new([25, inputDepth], [
       1, 2, 2, 0, 0, 2, 2, 2, 1, 1, 2, 1, 1, 1, 2, 1, 2, 2, 0,
       2, 2, 1, 1, 0, 0, 2, 1, 1, 0, 1, 2, 2, 0, 0, 2, 2, 1, 2,
       2, 2, 1, 2, 2, 2, 1, 1, 0, 0, 2, 0, 0, 0, 2, 0, 2, 0, 1,
@@ -80,10 +82,10 @@ describe('Convolution', () => {
     ]);
     const x = x2D.as3D(5, 5, inputDepth);
 
-    wTensor = new Tensor(weights.shape);
-    xTensor = new Tensor(x.shape);
-    bTensor = new Tensor(biases.shape);
-    yTensor = new Tensor(conv_util.computeOutputShape3D(
+    wTensor = new SymbolicTensor(weights.shape);
+    xTensor = new SymbolicTensor(x.shape);
+    bTensor = new SymbolicTensor(biases.shape);
+    yTensor = new SymbolicTensor(conv_util.computeOutputShape3D(
         x.shape, fieldSize, outputDepth, stride, zeroPad));
 
     activations.set(wTensor, weights);
@@ -106,15 +108,14 @@ describe('Convolution', () => {
     const outputDepth = 2;
     const fSize = 3;
     const stride = 1;
+    const weights = dl.randomNormal([fSize, fSize, inputDepth, outputDepth]);
+    const biases = dl.randomNormal([outputDepth]);
+    const x = dl.randomNormal<Rank.R3>([5, 5, inputDepth]);
 
-    const weights = Array4D.randNormal([fSize, fSize, inputDepth, outputDepth]);
-    const biases = Array1D.randNormal([outputDepth]);
-    const x = Array3D.randNormal([5, 5, inputDepth]);
-
-    wTensor = new Tensor(weights.shape);
-    xTensor = new Tensor(x.shape);
-    bTensor = new Tensor(biases.shape);
-    yTensor = new Tensor(
+    wTensor = new SymbolicTensor(weights.shape);
+    xTensor = new SymbolicTensor(x.shape);
+    bTensor = new SymbolicTensor(biases.shape);
+    yTensor = new SymbolicTensor(
         conv_util.computeOutputShape3D(x.shape, fSize, outputDepth, stride));
 
     activations.set(wTensor, weights);
@@ -137,14 +138,14 @@ describe('Convolution', () => {
     const fSize = 2;
     const stride = 1;
 
-    const weights = Array4D.randNormal([fSize, fSize, inputDepth, outputDepth]);
-    const biases = Array1D.randNormal([outputDepth]);
-    const x = Array3D.randNormal([5, 5, inputDepth]);
+    const weights = dl.randomNormal([fSize, fSize, inputDepth, outputDepth]);
+    const biases = dl.randomNormal([outputDepth]);
+    const x = dl.randomNormal<Rank.R3>([5, 5, inputDepth]);
 
-    wTensor = new Tensor(weights.shape);
-    xTensor = new Tensor(x.shape);
-    bTensor = new Tensor(biases.shape);
-    yTensor = new Tensor(
+    wTensor = new SymbolicTensor(weights.shape);
+    xTensor = new SymbolicTensor(x.shape);
+    bTensor = new SymbolicTensor(biases.shape);
+    yTensor = new SymbolicTensor(
         conv_util.computeOutputShape3D(x.shape, fSize, outputDepth, stride));
 
     activations.set(wTensor, weights);
@@ -168,14 +169,14 @@ describe('Convolution', () => {
     const stride = 1;
     const zeroPad = 1;
 
-    const weights = Array4D.randNormal([fSize, fSize, inputDepth, outputDepth]);
-    const biases = Array1D.randNormal([outputDepth]);
-    const x = Array3D.randNormal([30, 30, inputDepth]);
+    const weights = dl.randomNormal([fSize, fSize, inputDepth, outputDepth]);
+    const biases = dl.randomNormal([outputDepth]);
+    const x = dl.randomNormal<Rank.R3>([30, 30, inputDepth]);
 
-    wTensor = new Tensor(weights.shape);
-    xTensor = new Tensor(x.shape);
-    bTensor = new Tensor(biases.shape);
-    yTensor = new Tensor(conv_util.computeOutputShape3D(
+    wTensor = new SymbolicTensor(weights.shape);
+    xTensor = new SymbolicTensor(x.shape);
+    bTensor = new SymbolicTensor(biases.shape);
+    yTensor = new SymbolicTensor(conv_util.computeOutputShape3D(
         x.shape, fSize, outputDepth, stride, zeroPad));
 
     activations.set(wTensor, weights);
@@ -203,15 +204,15 @@ describe('Convolution', () => {
     const stride = 1;
     const zeroPad = 0;
 
-    const x3d = Array3D.randNormal([3, 3, inputDepth]);
+    const x3d = dl.randomNormal<Rank.R3>([3, 3, inputDepth]);
     const x = x3d.as2D(3, 3);
-    const weights = Array4D.randNormal([fSize, fSize, inputDepth, outputDepth]);
-    const biases = Array1D.randNormal([outputDepth]);
+    const weights = dl.randomNormal([fSize, fSize, inputDepth, outputDepth]);
+    const biases = dl.randomNormal([outputDepth]);
 
-    wTensor = new Tensor(weights.shape);
-    xTensor = new Tensor(x3d.shape);
-    bTensor = new Tensor(biases.shape);
-    yTensor = new Tensor(conv_util.computeOutputShape3D(
+    wTensor = new SymbolicTensor(weights.shape);
+    xTensor = new SymbolicTensor(x3d.shape);
+    bTensor = new SymbolicTensor(biases.shape);
+    yTensor = new SymbolicTensor(conv_util.computeOutputShape3D(
         x3d.shape, fSize, outputDepth, stride, zeroPad));
 
     activations.set(wTensor, weights);
@@ -255,7 +256,7 @@ describe('Convolution', () => {
             x.get(2, 1) * weights.get(1, 0, 0, 0) +
             x.get(2, 2) * weights.get(1, 1, 0, 0) + biases.get(0));
 
-    const dy3d = Array3D.randNormal([2, 2, 1]);
+    const dy3d = dl.randomNormal([2, 2, 1]);
 
     gradients.add(yTensor, dy3d);
 
@@ -313,14 +314,14 @@ describe('Convolution', () => {
     const stride = 1;
     const zeroPad = 1;
 
-    const weights = Array4D.randNormal([fSize, fSize, inputDepth, outputDepth]);
-    const biases = Array1D.randNormal([outputDepth]);
-    const x = Array3D.randNormal([10, 10, inputDepth]);
+    const weights = dl.randomNormal([fSize, fSize, inputDepth, outputDepth]);
+    const biases = dl.randomNormal([outputDepth]);
+    const x = dl.randomNormal<Rank.R3>([10, 10, inputDepth]);
 
-    wTensor = new Tensor(weights.shape);
-    xTensor = new Tensor(x.shape);
-    bTensor = new Tensor(biases.shape);
-    yTensor = new Tensor(conv_util.computeOutputShape3D(
+    wTensor = new SymbolicTensor(weights.shape);
+    xTensor = new SymbolicTensor(x.shape);
+    bTensor = new SymbolicTensor(biases.shape);
+    yTensor = new SymbolicTensor(conv_util.computeOutputShape3D(
         x.shape, fSize, outputDepth, stride, zeroPad));
 
     activations.set(wTensor, weights);
@@ -337,7 +338,7 @@ describe('Convolution', () => {
 
     assertNoNaNs(result);
 
-    const dy = Array3D.randNormal(result.shape as [number, number, number]);
+    const dy = dl.randomNormal(result.shape as [number, number, number]);
 
     gradients.add(yTensor, dy);
 

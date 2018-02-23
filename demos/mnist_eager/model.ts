@@ -2,63 +2,93 @@ import * as dl from 'deeplearn';
 import {MnistData} from './data';
 
 // Hyperparameters.
-const LEARNING_RATE = .05;
+const LEARNING_RATE = .1;
 const BATCH_SIZE = 64;
 const TRAIN_STEPS = 100;
 
 // Data constants.
-const IMAGE_SIZE = 784;
+const IMAGE_SIZE = 28;
 const LABELS_SIZE = 10;
+const optimizer = dl.train.sgd(LEARNING_RATE);
 
-const math = dl.ENV.math;
+// Variables that we want to optimize
+const conv1OutputDepth = 8;
+const conv1Weights = dl.variable(
+    dl.randomNormal([5, 5, 1, conv1OutputDepth], 0, 0.1) as dl.Tensor4D);
 
-const optimizer = new dl.SGDOptimizer(LEARNING_RATE);
+const conv2InputDepth = conv1OutputDepth;
+const conv2OutputDepth = 16;
+const conv2Weights = dl.variable(
+    dl.randomNormal([5, 5, conv2InputDepth, conv2OutputDepth], 0, 0.1) as
+    dl.Tensor4D);
 
-// Set up the model and loss function.
-const weights = dl.variable(dl.Array2D.randNormal(
-    [IMAGE_SIZE, LABELS_SIZE], 0, 1 / Math.sqrt(IMAGE_SIZE), 'float32'));
+const fullyConnectedWeights = dl.variable(
+    dl.randomNormal(
+        [7 * 7 * conv2OutputDepth, LABELS_SIZE], 0,
+        1 / Math.sqrt(7 * 7 * conv2OutputDepth)) as dl.Tensor2D);
+const fullyConnectedBias = dl.variable(dl.zeros([LABELS_SIZE]) as dl.Tensor1D);
 
-const model = (xs: dl.Array2D<'float32'>): dl.Array2D<'float32'> => {
-  return math.matMul(xs, weights) as dl.Array2D<'float32'>;
-};
+// Loss function
+function loss(labels: dl.Tensor2D, ys: dl.Tensor2D) {
+  return dl.losses.softmaxCrossEntropy(labels, ys).mean() as dl.Scalar;
+}
 
-const loss = (labels: dl.Array2D<'float32'>,
-              ys: dl.Array2D<'float32'>): dl.Scalar => {
-  return math.mean(math.softmaxCrossEntropyWithLogits(labels, ys)) as dl.Scalar;
-};
+// Our actual model
+function model(inputXs: dl.Tensor2D): dl.Tensor2D {
+  const xs = inputXs.as4D(-1, IMAGE_SIZE, IMAGE_SIZE, 1);
+
+  const strides = 2;
+  const pad = 0;
+
+  // Conv 1
+  const layer1 = dl.tidy(() => {
+    return xs.conv2d(conv1Weights, 1, 'same')
+        .relu()
+        .maxPool([2, 2], strides, pad);
+  });
+
+  // Conv 2
+  const layer2 = dl.tidy(() => {
+    return layer1.conv2d(conv2Weights, 1, 'same')
+        .relu()
+        .maxPool([2, 2], strides, pad);
+  });
+
+  // Final layer
+  return layer2.as2D(-1, fullyConnectedWeights.shape[0])
+      .matMul(fullyConnectedWeights)
+      .add(fullyConnectedBias);
+}
 
 // Train the model.
 export async function train(data: MnistData, log: (message: string) => void) {
   const returnCost = true;
+
   for (let i = 0; i < TRAIN_STEPS; i++) {
     const cost = optimizer.minimize(() => {
       const batch = data.nextTrainBatch(BATCH_SIZE);
-
       return loss(batch.labels, model(batch.xs));
     }, returnCost);
 
     log(`loss[${i}]: ${cost.dataSync()}`);
 
-    await dl.util.nextFrame();
+    await dl.nextFrame();
   }
 }
 
-// Tests the model on a set
-export async function test(data: MnistData) {}
-
 // Predict the digit number from a batch of input images.
-export function predict(x: dl.Array2D<'float32'>): number[] {
-  const pred = math.scope(() => {
+export function predict(x: dl.Tensor2D): number[] {
+  const pred = dl.tidy(() => {
     const axis = 1;
-    return math.argMax(model(x), axis);
+    return model(x).argMax(axis);
   });
   return Array.from(pred.dataSync());
 }
 
 // Given a logits or label vector, return the class indices.
-export function classesFromLabel(y: dl.Array2D<'float32'>): number[] {
+export function classesFromLabel(y: dl.Tensor2D): number[] {
   const axis = 1;
-  const pred = math.argMax(y, axis);
+  const pred = y.argMax(axis);
 
   return Array.from(pred.dataSync());
 }

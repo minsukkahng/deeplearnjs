@@ -14,16 +14,17 @@
  * limitations under the License.
  * =============================================================================
  */
-// tslint:disable-next-line:max-line-length
+
 import {ENV} from '../../environment';
-// tslint:disable-next-line:max-line-length
-import {ElementWiseCostFunction, SquareCostFunc} from '../../math/cost_functions';
-import {NDArrayMath} from '../../math/math';
-import {Scalar} from '../../math/ndarray';
+import {keep, tidy} from '../../globals';
+import {NDArrayMath} from '../../math';
+import {Scalar} from '../../tensor';
 import * as util from '../../util';
-import {Tensor} from '../graph';
+import {ElementWiseCostFunction, SquareCostFunc} from '../cost_functions';
+import {SymbolicTensor} from '../graph';
 import * as graph_util from '../graph_util';
 import {SummedTensorArrayMap, TensorArrayMap} from '../tensor_array_map';
+
 import {Operation} from './op';
 
 /**
@@ -33,8 +34,9 @@ export class ElementWiseCost extends Operation {
   private oneOverNScalar: Scalar;
 
   constructor(
-      protected x1Tensor: Tensor, protected x2Tensor: Tensor,
-      protected yTensor: Tensor, protected func: ElementWiseCostFunction) {
+      protected x1Tensor: SymbolicTensor, protected x2Tensor: SymbolicTensor,
+      protected yTensor: SymbolicTensor,
+      protected func: ElementWiseCostFunction) {
     super();
     this.oneOverNScalar =
         ENV.math.keep(Scalar.new(1 / util.sizeFromShape(x1Tensor.shape)));
@@ -44,8 +46,8 @@ export class ElementWiseCost extends Operation {
     const x1 = inferenceArrays.get(this.x1Tensor);
     const x2 = inferenceArrays.get(this.x2Tensor);
 
-    math.scope((keep) => {
-      const elementWiseCost = this.func.cost(math, x1, x2);
+    tidy(() => {
+      const elementWiseCost = this.func.cost(x1, x2);
       const sum = math.sum(elementWiseCost);
       const result = math.scalarTimesArray(this.oneOverNScalar, sum);
       inferenceArrays.set(this.yTensor, keep(result));
@@ -58,12 +60,12 @@ export class ElementWiseCost extends Operation {
     const x1 = inferenceArrays.get(this.x1Tensor);
     const x2 = inferenceArrays.get(this.x2Tensor);
 
-    math.scope(() => {
+    tidy(() => {
       if (graph_util.shouldBackProp(this.x1Tensor)) {
-        gradientArrays.add(this.x1Tensor, this.func.der(math, x1, x2));
+        gradientArrays.add(this.x1Tensor, this.func.der(x1, x2));
       }
       if (graph_util.shouldBackProp(this.x2Tensor)) {
-        gradientArrays.add(this.x2Tensor, this.func.der(math, x2, x1));
+        gradientArrays.add(this.x2Tensor, this.func.der(x2, x1));
       }
     });
   }
@@ -78,7 +80,9 @@ export class ElementWiseCost extends Operation {
  * @hidden
  */
 export class MeanSquaredCost extends ElementWiseCost {
-  constructor(x1Tensor: Tensor, x2Tensor: Tensor, yTensor: Tensor) {
+  constructor(
+      x1Tensor: SymbolicTensor, x2Tensor: SymbolicTensor,
+      yTensor: SymbolicTensor) {
     super(x1Tensor, x2Tensor, yTensor, new SquareCostFunc());
   }
 }

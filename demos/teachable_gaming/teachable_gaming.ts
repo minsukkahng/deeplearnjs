@@ -18,9 +18,9 @@
 import '../demo-header';
 import '../demo-footer';
 
-// tslint:disable-next-line:max-line-length
-import {Array3D, ENV, NDArrayMath} from 'deeplearn';
+import * as dl from 'deeplearn';
 import {KNNImageClassifier} from 'deeplearn-knn-image-classifier';
+
 import {PolymerElement, PolymerHTMLElement} from '../polymer-spec';
 
 // tslint:disable-next-line:no-any
@@ -78,7 +78,6 @@ export class TeachableGamingDemo extends TeachableGamingDemoPolymer {
   predicting: boolean;
   selectedGameIndex = 0;
 
-  private math: NDArrayMath;
   private selectedIndex: number;
   private predictedIndex: number;
   private hasAnyTrainedClass: boolean;
@@ -106,7 +105,6 @@ export class TeachableGamingDemo extends TeachableGamingDemoPolymer {
   private loggedEnv: boolean;
 
   ready() {
-    this.math = ENV.math;
     this.webcamVideoElement =
         this.querySelector('#webcamVideo') as HTMLVideoElement;
     this.addNewKeyDialog = this.$.addkeydialog;
@@ -205,8 +203,7 @@ export class TeachableGamingDemo extends TeachableGamingDemoPolymer {
           });
     }
     this.classifier = new KNNImageClassifier(
-        TeachableGamingDemo.maxControls, TeachableGamingDemo.knnKValue,
-        this.math);
+        TeachableGamingDemo.maxControls, TeachableGamingDemo.knnKValue);
     this.classifier.load();
     this.predictedIndex = -1;
     this.selectedIndex = -1;
@@ -328,8 +325,8 @@ export class TeachableGamingDemo extends TeachableGamingDemoPolymer {
     this.previousFrameTime = frameTimeStart;
     if (this.selectedIndex >= 0) {
       this.predicting = false;
-      await this.math.scope(async () => {
-        const image = Array3D.fromPixels(this.webcamVideoElement);
+      dl.tidy(() => {
+        const image = dl.fromPixels(this.webcamVideoElement);
         const indicators = document.querySelectorAll('.indicators');
         for (let i = 0; i < indicators.length; i++) {
           (indicators[i] as HTMLElement).style.backgroundColor = 'lightgray';
@@ -341,57 +338,55 @@ export class TeachableGamingDemo extends TeachableGamingDemoPolymer {
       });
     } else if (this.hasAnyTrainedClass) {
       this.predicting = true;
-      await this.math.scope(async () => {
-        const image = Array3D.fromPixels(this.webcamVideoElement);
-        const timeStart = performance.now();
-        const results = await this.classifier.predictClass(image);
-        this.predictTimes.add(performance.now() - timeStart);
-        if (this.animateLoopIndex % TeachableGamingDemo.animateLoopStatsFreq ===
-            0) {
-          this.$$('#predperf').innerHTML =
-              String(this.predictTimes.getAverage().toFixed(3));
-        }
-        const indicators = document.querySelectorAll('.indicator');
-        if (results.classIndex >= 0) {
-          for (let i = 0; i < indicators.length; i++) {
-            if (this.getIndexFromId(indicators[i].id) === results.classIndex) {
-              (indicators[i] as HTMLElement).style.backgroundColor = 'green';
-            } else {
-              (indicators[i] as HTMLElement).style.backgroundColor =
-                  'lightgray';
-            }
-          }
-          const elem = this.$.dosbox;
-
-          if (this.$.predictswitch.checked) {
-            if (results.classIndex !== this.predictedIndex) {
-              if (this.keyEventData[results.classIndex].code >= 0) {
-                // tslint:disable-next-line:no-any
-                const down = document.createEvent('Event') as any;
-                down.initEvent('keydown', true, true);
-                down.key = this.keyEventData[results.classIndex].key;
-                down.keyCode = this.keyEventData[results.classIndex].code;
-                elem.dispatchEvent(down);
-              }
-
-              if (this.predictedIndex !== -1 &&
-                  this.keyEventData[this.predictedIndex].code >= 0) {
-                // tslint:disable-next-line: no-any
-                const up = document.createEvent('Event') as any;
-                up.initEvent('keyup', true, true);
-                up.key = this.keyEventData[this.predictedIndex].key;
-                up.keyCode = this.keyEventData[this.predictedIndex].code;
-                elem.dispatchEvent(up);
-              }
-              this.predictedIndex = results.classIndex;
-            }
+      const image = dl.fromPixels(this.webcamVideoElement);
+      const timeStart = performance.now();
+      const results = await this.classifier.predictClass(image);
+      image.dispose();
+      this.predictTimes.add(performance.now() - timeStart);
+      if (this.animateLoopIndex % TeachableGamingDemo.animateLoopStatsFreq ===
+          0) {
+        this.$$('#predperf').innerHTML =
+            String(this.predictTimes.getAverage().toFixed(3));
+      }
+      const indicators = document.querySelectorAll('.indicator');
+      if (results.classIndex >= 0) {
+        for (let i = 0; i < indicators.length; i++) {
+          if (this.getIndexFromId(indicators[i].id) === results.classIndex) {
+            (indicators[i] as HTMLElement).style.backgroundColor = 'green';
+          } else {
+            (indicators[i] as HTMLElement).style.backgroundColor = 'lightgray';
           }
         }
-      });
+        const elem = this.$.dosbox;
+
+        if (this.$.predictswitch.checked) {
+          if (results.classIndex !== this.predictedIndex) {
+            if (this.keyEventData[results.classIndex].code >= 0) {
+              // tslint:disable-next-line:no-any
+              const down = document.createEvent('Event') as any;
+              down.initEvent('keydown', true, true);
+              down.key = this.keyEventData[results.classIndex].key;
+              down.keyCode = this.keyEventData[results.classIndex].code;
+              elem.dispatchEvent(down);
+            }
+
+            if (this.predictedIndex !== -1 &&
+                this.keyEventData[this.predictedIndex].code >= 0) {
+              // tslint:disable-next-line: no-any
+              const up = document.createEvent('Event') as any;
+              up.initEvent('keyup', true, true);
+              up.key = this.keyEventData[this.predictedIndex].key;
+              up.keyCode = this.keyEventData[this.predictedIndex].code;
+              elem.dispatchEvent(up);
+            }
+            this.predictedIndex = results.classIndex;
+          }
+        }
+      }
       // Log the environment first time through prediction.
       if (!this.loggedEnv) {
-        console.log('Evaulated environment flags:');
-        console.log(ENV);
+        console.log('Evaluated environment flags:');
+        console.log(dl.ENV);
         this.loggedEnv = true;
       }
     }

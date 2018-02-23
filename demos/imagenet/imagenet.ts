@@ -18,8 +18,7 @@
 import '../demo-header';
 import '../demo-footer';
 
-// tslint:disable-next-line:max-line-length
-import {Array3D, ENV, gpgpu_util, GPGPUContext, MathBackendWebGL, NDArrayMath} from 'deeplearn';
+import * as dl from 'deeplearn';
 import {ActivationName, SqueezeNet} from 'deeplearn-squeezenet';
 
 import {PolymerElement, PolymerHTMLElement} from '../polymer-spec';
@@ -54,9 +53,9 @@ export class ImagenetDemo extends ImagenetDemoPolymer {
   inputNames: string[];
   selectedInputName: string;
 
-  private math: NDArrayMath;
-  private backend: MathBackendWebGL;
-  private gpgpu: GPGPUContext;
+  private math: dl.NDArrayMath;
+  private backend: dl.MathBackendWebGL;
+  private gpgpu: dl.GPGPUContext;
   private renderGrayscaleChannelsCollageShader: WebGLShader;
 
   private squeezeNet: SqueezeNet;
@@ -75,12 +74,12 @@ export class ImagenetDemo extends ImagenetDemoPolymer {
     this.webcamVideoElement =
         this.querySelector('#webcamVideo') as HTMLVideoElement;
 
-    const gl = gpgpu_util.createWebGLContext(this.inferenceCanvas);
-    this.gpgpu = new GPGPUContext(gl);
-    this.backend = new MathBackendWebGL(this.gpgpu);
+    const gl = dl.gpgpu_util.createWebGLContext(this.inferenceCanvas);
+    this.gpgpu = new dl.GPGPUContext(gl);
+    this.backend = new dl.MathBackendWebGL(this.gpgpu);
     const safeMode = false;
-    this.math = new NDArrayMath(this.backend, safeMode);
-    ENV.setMath(this.math);
+    this.math = new dl.NDArrayMath(this.backend, safeMode);
+    dl.ENV.setMath(this.math);
 
     this.layerNames = [
       'conv_1', 'maxpool_1', 'fire2', 'fire3', 'maxpool_2', 'fire4', 'fire5',
@@ -112,7 +111,7 @@ export class ImagenetDemo extends ImagenetDemoPolymer {
         imagenet_util.getRenderGrayscaleChannelsCollageShader(this.gpgpu);
 
     const cameraSetup = this.setupCameraInput();
-    this.squeezeNet = new SqueezeNet(this.math);
+    this.squeezeNet = new SqueezeNet();
 
     await Promise.all([this.squeezeNet.load(), cameraSetup]);
 
@@ -126,6 +125,7 @@ export class ImagenetDemo extends ImagenetDemoPolymer {
       navigator.getUserMedia = navigator.getUserMedia ||
           navigatorAny.webkitGetUserMedia || navigatorAny.mozGetUserMedia ||
           navigatorAny.msGetUserMedia;
+
       if (navigator.getUserMedia) {
         navigator.getUserMedia(
             {video: true},
@@ -153,6 +153,9 @@ export class ImagenetDemo extends ImagenetDemoPolymer {
     this.inputNames = INPUT_NAMES;
     this.selectedInputName = 'cat';
     this.staticImgElement.src = 'images/cat.jpg';
+    this.staticImgElement.onload = () => {
+      this.isMediaLoaded = true;
+    };
     this.webcamVideoElement.style.display = 'none';
     this.staticImgElement.style.display = '';
 
@@ -177,29 +180,32 @@ export class ImagenetDemo extends ImagenetDemoPolymer {
 
     const isWebcam = this.selectedInputName === 'webcam';
 
-    await this.math.scope(async () => {
-      if (!this.isMediaLoaded) {
-        return;
-      }
+    if (!this.isMediaLoaded) {
+      return;
+    }
 
-      const element =
-          isWebcam ? this.webcamVideoElement : this.staticImgElement;
-      const image = Array3D.fromPixels(element, 3, this.math);
+    const element = isWebcam ? this.webcamVideoElement : this.staticImgElement;
 
-      const inferenceResult =
-          this.squeezeNet.predictWithActivation(image, this.selectedLayerName);
+    const image = dl.fromPixels(element, 3);
 
-      const topClassesToProbability = await this.squeezeNet.getTopKClasses(
-          inferenceResult.logits, TOP_K_CLASSES);
+    const inferenceResult =
+        this.squeezeNet.predictWithActivation(image, this.selectedLayerName);
 
-      const endTime = performance.now();
+    const topClassesToProbability = await this.squeezeNet.getTopKClasses(
+        inferenceResult.logits, TOP_K_CLASSES);
 
-      const elapsed = Math.floor(1000 * (endTime - startTime)) / 1000;
-      (this.querySelector('#totalTime') as HTMLDivElement).innerHTML =
-          `last inference time: ${elapsed} ms`;
+    const endTime = performance.now();
 
-      let count = 0;
-      for (const className in topClassesToProbability) {
+    const elapsed = Math.floor(1000 * (endTime - startTime)) / 1000;
+    (this.querySelector('#totalTime') as HTMLDivElement).innerHTML =
+        `last inference time: ${elapsed} ms`;
+
+    let count = 0;
+    for (const className in topClassesToProbability) {
+      if (isWebcam) {
+        document.getElementById(`class${count}`).innerHTML = '';
+        document.getElementById(`prob${count}`).innerHTML = '';
+      } else {
         if (!(className in topClassesToProbability)) {
           continue;
         }
@@ -207,39 +213,46 @@ export class ImagenetDemo extends ImagenetDemoPolymer {
         document.getElementById(`prob${count}`).innerHTML =
             (Math.floor(1000 * topClassesToProbability[className]) / 1000)
                 .toString();
-        count++;
       }
+      count++;
+    }
 
-      // Render activations.
-      const activationNDArray = inferenceResult.activation;
+    // Render activations.
+    const activationTensor = inferenceResult.activation;
 
+    const [minValues, maxValues] = dl.tidy(() => {
       // Compute max and min per channel for normalization.
-      const maxValues = this.math.maxPool(
-          activationNDArray, activationNDArray.shape[1],
-          activationNDArray.shape[1], 0);
-      const minValues = this.math.minPool(
-          activationNDArray, activationNDArray.shape[1],
-          activationNDArray.shape[1], 0);
+      const maxValues = activationTensor.maxPool(
+          activationTensor.shape[1], activationTensor.shape[1], 0);
+      const minValues = activationTensor.minPool(
+          activationTensor.shape[1], activationTensor.shape[1], 0);
 
       // Logically resize the rendering canvas. The displayed width is fixed.
-      const imagesPerRow = Math.ceil(Math.sqrt(activationNDArray.shape[2]));
-      const numRows = Math.ceil(activationNDArray.shape[2] / imagesPerRow);
-      this.inferenceCanvas.width = imagesPerRow * activationNDArray.shape[0];
-      this.inferenceCanvas.height = numRows * activationNDArray.shape[0];
+      const imagesPerRow = Math.ceil(Math.sqrt(activationTensor.shape[2]));
+      const numRows = Math.ceil(activationTensor.shape[2] / imagesPerRow);
+      this.inferenceCanvas.width = imagesPerRow * activationTensor.shape[0];
+      this.inferenceCanvas.height = numRows * activationTensor.shape[0];
 
       imagenet_util.renderGrayscaleChannelsCollage(
           this.gpgpu, this.renderGrayscaleChannelsCollageShader,
-          this.backend.getTexture(activationNDArray.dataId),
+          this.backend.getTexture(activationTensor.dataId),
           this.backend.getTexture(minValues.dataId),
           this.backend.getTexture(maxValues.dataId),
-          this.backend.getTextureData(activationNDArray.dataId).texShape,
-          activationNDArray.shape[0], activationNDArray.shape[2],
+          this.backend.getTextureData(activationTensor.dataId).texShape,
+          activationTensor.shape[0], activationTensor.shape[2],
           this.inferenceCanvas.width, numRows);
-      // Unclear why, but unless we wait for the gpu to fully end, we get a
-      // flicker effect.
-      await maxValues.data();
-      await minValues.data();
+      return [minValues, maxValues];
     });
+    // Unclear why, but unless we wait for the gpu to fully end, we get a
+    // flicker effect.
+    await maxValues.data();
+    await minValues.data();
+
+    image.dispose();
+    inferenceResult.activation.dispose();
+    inferenceResult.logits.dispose();
+    minValues.dispose();
+    maxValues.dispose();
     requestAnimationFrame(() => this.animate());
   }
 }

@@ -236,7 +236,7 @@ class GANLab extends GANLabPolymer {
         this.createExperiment();
       });
 
-    this.learningRateOptions = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5];
+    this.learningRateOptions = [0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0];
     this.dLearningRate = 0.1;
     this.querySelector('#d-learning-rate-dropdown')!.addEventListener(
       // tslint:disable-next-line:no-any event has no type
@@ -268,7 +268,8 @@ class GANLab extends GANLabPolymer {
         this.updateOptimizers('G');
       });
 
-    this.shapeNames = ['Line', 'Two Gaussian Hills', 'Five Dots', 'Drawing'];
+    this.shapeNames = [
+      'Line', 'Gaussian', 'Two Gaussian Hills', 'Three Dots', 'Drawing'];
     this.selectedShapeName = 'Two Gaussian Hills';
     this.querySelector('#shape-dropdown')!.addEventListener(
       // tslint:disable-next-line:no-any event has no type
@@ -533,6 +534,12 @@ class GANLab extends GANLabPolymer {
           0.6 + 0.3 * rand + 0.01 * gan_lab_input_providers.randNormal()
         ];
       }
+      case 'Gaussian': {
+        return [
+          0.6 + 0.125 * gan_lab_input_providers.randNormal(),
+          0.3 + 0.05 * gan_lab_input_providers.randNormal()
+        ];
+      }
       case 'Two Gaussian Hills': {
         if (rand < 0.5)
           return [
@@ -545,32 +552,22 @@ class GANLab extends GANLabPolymer {
             0.4 + 0.2 * gan_lab_input_providers.randNormal()
           ];
       }
-      case 'Five Dots': {
+      case 'Three Dots': {
         const stdev = 0.03;
-        if (rand < 0.2) {
+        if (rand < 0.333) {
           return [
             0.35 + stdev * gan_lab_input_providers.randNormal(),
             0.75 + stdev * gan_lab_input_providers.randNormal()
           ];
-        } else if (rand < 0.4) {
+        } else if (rand < 0.666) {
           return [
-            0.7 + stdev * gan_lab_input_providers.randNormal(),
-            0.7 + stdev * gan_lab_input_providers.randNormal()
-          ];
-        } else if (rand < 0.6) {
-          return [
-            0.8 + stdev * gan_lab_input_providers.randNormal(),
-            0.35 + stdev * gan_lab_input_providers.randNormal()
-          ];
-        } else if (rand < 0.8) {
-          return [
-            0.5 + stdev * gan_lab_input_providers.randNormal(),
-            0.2 + stdev * gan_lab_input_providers.randNormal()
+            0.75 + stdev * gan_lab_input_providers.randNormal(),
+            0.6 + stdev * gan_lab_input_providers.randNormal()
           ];
         } else {
           return [
-            0.25 + stdev * gan_lab_input_providers.randNormal(),
-            0.4 + stdev * gan_lab_input_providers.randNormal()
+            0.45 + stdev * gan_lab_input_providers.randNormal(),
+            0.35 + stdev * gan_lab_input_providers.randNormal()
           ];
         }
       }
@@ -1173,13 +1170,15 @@ class GANLab extends GANLabPolymer {
           const componentElements: NodeListOf<HTMLDivElement> =
             this.querySelectorAll('.model-component');
           for (let i = 0; i < componentElements.length; ++i) {
-            componentElements[i].classList.remove('highlighted');
+            componentElements[i].classList.remove('d-highlighted');
+            componentElements[i].classList.remove('g-highlighted');
           }
           const componentGroupElements: NodeListOf<HTMLDivElement> =
             this.querySelectorAll('.model-component-group');
           for (let i = 0; i < componentGroupElements.length; ++i) {
             componentGroupElements[i].classList.remove('activated');
-            componentGroupElements[i].classList.remove('highlighted');
+            componentGroupElements[i].classList.remove('d-highlighted');
+            componentGroupElements[i].classList.remove('g-highlighted');
           }
           const arrowElements: NodeListOf<HTMLDivElement> =
             this.querySelectorAll('#model-vis-svg path');
@@ -1211,7 +1210,8 @@ class GANLab extends GANLabPolymer {
     this.highlightedArrowList = arrowElementList.map(
       elementName => document.getElementById(elementName));
 
-    this.highlightedComponent.classList.add('highlighted');
+    this.highlightedComponent.classList.add(
+      isForD ? 'd-highlighted' : 'g-highlighted');
     this.highlightedTooltip.classList.add('shown');
     this.highlightedTooltip.classList.add('highlighted');
     this.highlightedArrowList.forEach((arrowElement: SVGElement) => {
@@ -1227,7 +1227,8 @@ class GANLab extends GANLabPolymer {
 
   private dehighlightStep() {
     if (this.highlightedComponent) {
-      this.highlightedComponent.classList.remove('highlighted');
+      this.highlightedComponent.classList.remove('d-highlighted');
+      this.highlightedComponent.classList.remove('g-highlighted');
     }
     if (this.highlightedTooltip) {
       this.highlightedTooltip.classList.remove('shown');
@@ -1242,22 +1243,6 @@ class GANLab extends GANLabPolymer {
         }
       });
     }
-    /*
-  const componentGroupElements: NodeListOf<HTMLDivElement> =
-    this.querySelectorAll('.model-component-group');
-  for (let i = 0; i < componentGroupElements.length; ++i) {
-    componentGroupElements[i].classList.remove('activated');
-    componentGroupElements[i].classList.remove('highlighted');
-  }
-  const arrowElements: NodeListOf<HTMLDivElement> =
-    this.querySelectorAll('#model-vis-svg path');
-  for (let i = 0; i < arrowElements.length; ++i) {
-    arrowElements[i].classList.remove('d-highlighted');
-    arrowElements[i].classList.remove('g-highlighted');
-    if (arrowElements[i].hasAttribute('marker-end')) {
-      arrowElements[i].setAttribute('marker-end', 'url(#arrow-head)');
-    }
-  }*/
   }
 
   private buildNetwork() {
@@ -1453,7 +1438,7 @@ class GANLab extends GANLabPolymer {
       { label: 'JS Divergence (grid)', color: 'rgba(220, 120, 64, 0.5)' }
     ];
     this.evalChart = this.createChart(
-      'eval-chart', this.evalChartData, evalChartSpecification, 0, 1.5);
+      'eval-chart', this.evalChartData, evalChartSpecification, 0);
   }
 
   private updateChartData(data: ChartData[][], xVal: number, yList: number[]) {

@@ -372,6 +372,11 @@ class GANLab extends GANLabPolymer {
           document.getElementById('overlay-background')!.classList.add('shown');
           document.getElementById('tooltips')!.classList.add('shown');
         } else {
+          this.dehighlightStep();
+          document.getElementById(
+            'group-discriminator').classList.remove('activated');
+          document.getElementById(
+            'group-generator').classList.remove('activated');
           document.getElementById(
             'overlay-background')!.classList.remove('shown');
           document.getElementById('tooltips')!.classList.remove('shown');
@@ -424,6 +429,8 @@ class GANLab extends GANLabPolymer {
     this.pause();
     this.iterationCount = 0;
     this.iterCountElement.innerText = this.iterationCount;
+
+    this.isPausedOngoingIteration = false;
 
     this.recreateCharts();
 
@@ -669,7 +676,9 @@ class GANLab extends GANLabPolymer {
   private play() {
     this.isPlaying = true;
     document.getElementById('play-pause-button')!.classList.add('playing');
-    this.iterateTraining(true);
+    if (!this.isPausedOngoingIteration) {
+      this.iterateTraining(true);
+    }
   }
 
   private pause() {
@@ -749,7 +758,7 @@ class GANLab extends GANLabPolymer {
           await this.sleep(SLOW_INTERVAL_MS);
           document.getElementById(
             'group-discriminator').classList.add('activated');
-          this.toggleTooltip(true, true, 'component-d-loss', 'tooltip-d-loss',
+          this.highlightStep(true, 'component-d-loss', 'tooltip-d-loss',
             ['arrow-t-samples-d', 'arrow-d-t-prediction',
               'arrow-g-samples-d', 'arrow-d-g-prediction',
               'arrow-t-prediction-d-loss', 'arrow-g-prediction-d-loss']);
@@ -768,11 +777,8 @@ class GANLab extends GANLabPolymer {
 
         if (this.slowMode) {
           await this.sleep(SLOW_INTERVAL_MS);
-          this.toggleTooltip(false, true, 'component-d-loss', 'tooltip-d-loss',
-            ['arrow-t-samples-d', 'arrow-d-t-prediction',
-              'arrow-g-samples-d', 'arrow-d-g-prediction',
-              'arrow-t-prediction-d-loss', 'arrow-g-prediction-d-loss']);
-          this.toggleTooltip(true, true,
+          this.dehighlightStep();
+          this.highlightStep(true,
             'component-discriminator-gradients', 'tooltip-d-gradients',
             ['arrow-d-loss-d-1', 'arrow-d-loss-d-2']);
           await this.sleep(SLOW_INTERVAL_MS);
@@ -780,10 +786,8 @@ class GANLab extends GANLabPolymer {
 
         if (this.slowMode) {
           await this.sleep(SLOW_INTERVAL_MS);
-          this.toggleTooltip(false, true,
-            'component-discriminator-gradients', 'tooltip-d-gradients',
-            ['arrow-d-loss-d-1', 'arrow-d-loss-d-2']);
-          this.toggleTooltip(true, true,
+          this.dehighlightStep();
+          this.highlightStep(true,
             'group-discriminator', 'tooltip-update-discriminator',
             ['arrow-d-loss-d-3', 'arrow-d-loss-d-4']);
           await this.sleep(SLOW_INTERVAL_MS);
@@ -841,16 +845,14 @@ class GANLab extends GANLabPolymer {
 
         if (this.slowMode) {
           await this.sleep(SLOW_INTERVAL_MS);
-          this.toggleTooltip(false, true,
-            'group-discriminator', 'tooltip-update-discriminator',
-            ['arrow-d-loss-d-3', 'arrow-d-loss-d-4']);
+          this.dehighlightStep();
           document.getElementById(
             'group-discriminator').classList.remove('activated');
           await this.sleep(SLOW_INTERVAL_MS);
           await this.sleep(SLOW_INTERVAL_MS);
           document.getElementById(
             'group-generator').classList.add('activated');
-          this.toggleTooltip(true, false, 'component-g-loss', 'tooltip-g-loss',
+          this.highlightStep(false, 'component-g-loss', 'tooltip-g-loss',
             ['arrow-noise-g', 'arrow-g-g-samples',
               'arrow-g-samples-d', 'arrow-d-g-prediction',
               'arrow-g-prediction-g-loss']);
@@ -880,11 +882,8 @@ class GANLab extends GANLabPolymer {
 
         if (this.slowMode) {
           await this.sleep(SLOW_INTERVAL_MS);
-          this.toggleTooltip(false, false, 'component-g-loss', 'tooltip-g-loss',
-            ['arrow-noise-g', 'arrow-g-g-samples',
-              'arrow-g-samples-d', 'arrow-d-g-prediction',
-              'arrow-g-prediction-g-loss']);
-          this.toggleTooltip(true, false,
+          this.dehighlightStep();
+          this.highlightStep(false,
             'component-generator-gradients', 'tooltip-g-gradients',
             ['arrow-g-loss-g-1', 'arrow-g-loss-g-2']);
           await this.sleep(SLOW_INTERVAL_MS);
@@ -979,10 +978,8 @@ class GANLab extends GANLabPolymer {
 
         if (this.slowMode) {
           await this.sleep(SLOW_INTERVAL_MS);
-          this.toggleTooltip(false, false,
-            'component-generator-gradients', 'tooltip-g-gradients',
-            ['arrow-g-loss-g-1', 'arrow-g-loss-g-2']);
-          this.toggleTooltip(true, false,
+          this.dehighlightStep();
+          this.highlightStep(false,
             'group-generator', 'tooltip-update-generator',
             ['arrow-g-loss-g-3', 'arrow-g-loss-g-4']);
           await this.sleep(SLOW_INTERVAL_MS);
@@ -1104,10 +1101,8 @@ class GANLab extends GANLabPolymer {
 
         if (this.slowMode) {
           await this.sleep(SLOW_INTERVAL_MS);
-          this.toggleTooltip(false, false,
-            'group-generator', 'tooltip-update-generator',
-            ['arrow-g-loss-g-3', 'arrow-g-loss-g-4']);
-          this.toggleTooltip(true, false,
+          this.dehighlightStep();
+          this.highlightStep(false,
             'component-generated-samples', 'tooltip-generated-samples',
             ['arrow-noise-g', 'arrow-g-g-samples']);
           await this.sleep(SLOW_INTERVAL_MS);
@@ -1168,9 +1163,7 @@ class GANLab extends GANLabPolymer {
 
         if (this.slowMode) {
           await this.sleep(SLOW_INTERVAL_MS);
-          this.toggleTooltip(false, false,
-            'component-generated-samples', 'tooltip-generated-samples',
-            ['arrow-noise-g', 'arrow-g-g-samples']);
+          this.dehighlightStep();
           document.getElementById(
             'group-generator').classList.remove('activated');
           await this.sleep(SLOW_INTERVAL_MS);
@@ -1208,45 +1201,63 @@ class GANLab extends GANLabPolymer {
     requestAnimationFrame(() => this.iterateTraining(true));
   }
 
-  private toggleTooltip(isAdd: boolean, isForD: boolean,
+  private highlightStep(isForD: boolean,
     componentElementName: string, tooltipElementName: string,
     arrowElementList: string[]) {
-    if (isAdd === true) {
-      document.getElementById(
-        componentElementName)!.classList.add('highlighted');
-      document.getElementById(
-        tooltipElementName)!.classList.add('shown');
-      document.getElementById(
-        tooltipElementName)!.classList.add('highlighted');
-      arrowElementList.forEach((arrowElement) => {
-        document.getElementById(
-          arrowElement).classList.add(
-            isForD ? 'd-highlighted' : 'g-highlighted');
-        if (document.getElementById(
-          arrowElement).hasAttribute('marker-end')) {
-          document.getElementById(arrowElement).setAttribute(
-            'marker-end', isForD ? 'url(#arrow-head-d-highlighted)'
-              : 'url(#arrow-head-g-highlighted)');
-        }
-      });
-    } else {
-      document.getElementById(
-        componentElementName)!.classList.remove('highlighted');
-      document.getElementById(
-        tooltipElementName)!.classList.remove('shown');
-      document.getElementById(
-        tooltipElementName)!.classList.remove('highlighted');
-      arrowElementList.forEach((arrowElement) => {
-        document.getElementById(
-          arrowElement)!.classList.remove(
-            isForD ? 'd-highlighted' : 'g-highlighted');
-        if (document.getElementById(
-          arrowElement).hasAttribute('marker-end')) {
-          document.getElementById(arrowElement).setAttribute(
-            'marker-end', 'url(#arrow-head)');
+    this.highlightedComponent =
+      document.getElementById(componentElementName);
+    this.highlightedTooltip =
+      document.getElementById(tooltipElementName);
+    this.highlightedArrowList = arrowElementList.map(
+      elementName => document.getElementById(elementName));
+
+    this.highlightedComponent.classList.add('highlighted');
+    this.highlightedTooltip.classList.add('shown');
+    this.highlightedTooltip.classList.add('highlighted');
+    this.highlightedArrowList.forEach((arrowElement: SVGElement) => {
+      arrowElement.classList.add(
+        isForD ? 'd-highlighted' : 'g-highlighted');
+      if (arrowElement.hasAttribute('marker-end')) {
+        arrowElement.setAttribute('marker-end',
+          isForD ? 'url(#arrow-head-d-highlighted)'
+            : 'url(#arrow-head-g-highlighted)');
+      }
+    });
+  }
+
+  private dehighlightStep() {
+    if (this.highlightedComponent) {
+      this.highlightedComponent.classList.remove('highlighted');
+    }
+    if (this.highlightedTooltip) {
+      this.highlightedTooltip.classList.remove('shown');
+      this.highlightedTooltip.classList.remove('highlighted');
+    }
+    if (this.highlightedArrowList) {
+      this.highlightedArrowList.forEach((arrowElement: SVGElement) => {
+        arrowElement.classList.remove('d-highlighted');
+        arrowElement.classList.remove('g-highlighted');
+        if (arrowElement.hasAttribute('marker-end')) {
+          arrowElement.setAttribute('marker-end', 'url(#arrow-head)');
         }
       });
     }
+    /*
+  const componentGroupElements: NodeListOf<HTMLDivElement> =
+    this.querySelectorAll('.model-component-group');
+  for (let i = 0; i < componentGroupElements.length; ++i) {
+    componentGroupElements[i].classList.remove('activated');
+    componentGroupElements[i].classList.remove('highlighted');
+  }
+  const arrowElements: NodeListOf<HTMLDivElement> =
+    this.querySelectorAll('#model-vis-svg path');
+  for (let i = 0; i < arrowElements.length; ++i) {
+    arrowElements[i].classList.remove('d-highlighted');
+    arrowElements[i].classList.remove('g-highlighted');
+    if (arrowElements[i].hasAttribute('marker-end')) {
+      arrowElements[i].setAttribute('marker-end', 'url(#arrow-head)');
+    }
+  }*/
   }
 
   private buildNetwork() {
@@ -1485,7 +1496,18 @@ class GANLab extends GANLabPolymer {
   }
 
   private sleep(ms: number) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise(resolve => {
+      const check = () => {
+        if (this.isPlaying) {
+          this.isPausedOngoingIteration = false;
+          resolve();
+        } else {
+          this.isPausedOngoingIteration = true;
+          setTimeout(check, 1000);
+        }
+      };
+      setTimeout(check, ms);
+    });
   }
 }
 

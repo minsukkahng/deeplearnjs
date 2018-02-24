@@ -7,11 +7,8 @@ import { line } from 'd3-shape';
 import * as d3Transition from 'd3-transition';
 
 import { PolymerElement, PolymerHTMLElement } from '../polymer-spec';
-import {
-  AdamOptimizer, Array1D, CostReduction, ENV, Graph, InputProvider, NDArray,
-  NDArrayMath, Optimizer, Scalar, Session, SGDOptimizer, Tensor
-} from 'deeplearn';
-import { TypedArray } from '../../src/util';
+import * as dl from 'deeplearn';
+import { TypedArray } from '../../src/types';
 
 import * as gan_lab_input_providers from './gan_lab_input_providers';
 import * as gan_lab_drawing from './gan_lab_drawing';
@@ -46,27 +43,27 @@ const GANLabPolymer: new () => PolymerHTMLElement = PolymerElement({
 });
 
 class GANLab extends GANLabPolymer {
-  private math: NDArrayMath;
+  private math: dl.NDArrayMath;
 
-  private graph: Graph;
-  private session: Session;
+  private graph: dl.Graph;
+  private session: dl.Session;
   private iterationCount: number;
 
-  private gOptimizer: Optimizer;
-  private dOptimizer: Optimizer;
-  private predictionTensor1: Tensor;
-  private predictionTensor2: Tensor;
-  private gCostTensor: Tensor;
-  private dCostTensor: Tensor;
+  private gOptimizer: dl.Optimizer;
+  private dOptimizer: dl.Optimizer;
+  private predictionTensor1: dl.SymbolicTensor;
+  private predictionTensor2: dl.SymbolicTensor;
+  private gCostTensor: dl.SymbolicTensor;
+  private dCostTensor: dl.SymbolicTensor;
 
-  private noiseTensor: Tensor;
-  private inputTensor: Tensor;
-  private generatedTensor: Tensor;
+  private noiseTensor: dl.SymbolicTensor;
+  private inputTensor: dl.SymbolicTensor;
+  private generatedTensor: dl.SymbolicTensor;
 
-  private noiseProvider: InputProvider;
-  private trueSampleProvider: InputProvider;
-  private uniformNoiseProvider: InputProvider;
-  private uniformInputProvider: InputProvider;
+  private noiseProvider: dl.InputProvider;
+  private trueSampleProvider: dl.InputProvider;
+  private uniformNoiseProvider: dl.InputProvider;
+  private uniformInputProvider: dl.InputProvider;
 
   private noiseSize: number;
   private numGeneratorLayers: number;
@@ -417,7 +414,7 @@ class GANLab extends GANLabPolymer {
       'click', () => this.onClickFinishDrawingButton());
 
     // Math.
-    this.math = ENV.math;
+    this.math = dl.ENV.math;
 
     this.createExperiment();
   }
@@ -461,7 +458,7 @@ class GANLab extends GANLabPolymer {
     if (this.session != null) {
       this.session.dispose();
     }
-    this.session = new Session(this.graph, this.math);
+    this.session = new dl.Session(this.graph, this.math);
 
     // Input providers.
     const noiseProviderBuilder =
@@ -726,7 +723,7 @@ class GANLab extends GANLabPolymer {
             { tensor: this.inputTensor, data: this.trueSampleProvider },
             { tensor: this.noiseTensor, data: this.noiseProvider }
           ],
-          1, this.dOptimizer, CostReduction.MEAN);
+          1, this.dOptimizer, dl.CostReduction.MEAN);
         if (j + 1 === this.kDSteps) {
           dCostVal = dCost.get();
         }
@@ -737,7 +734,7 @@ class GANLab extends GANLabPolymer {
         const gCost = this.session.train(
           this.gCostTensor,
           [{ tensor: this.noiseTensor, data: this.noiseProvider }],
-          1, this.gOptimizer, CostReduction.MEAN);
+          1, this.gOptimizer, dl.CostReduction.MEAN);
         if (j + 1 === this.kGSteps) {
           gCostVal = gCost.get();
         }
@@ -1253,7 +1250,7 @@ class GANLab extends GANLabPolymer {
   }
 
   private buildNetwork() {
-    this.graph = new Graph();
+    this.graph = new dl.Graph();
     const g = this.graph;
 
     // Noise.
@@ -1263,10 +1260,10 @@ class GANLab extends GANLabPolymer {
     // Generator.
     const gfc0W = g.variable(
       'gfc0W',
-      NDArray.randNormal(
+      dl.Tensor2D.randNormal(
         [this.noiseSize, this.numGeneratorNeurons], 0, 1.0 / Math.sqrt(2)));
     const gfc0B =
-      g.variable('gfc0B', Array1D.zeros([this.numGeneratorNeurons]));
+      g.variable('gfc0B', dl.Tensor1D.zeros([this.numGeneratorNeurons]));
 
     let network = g.matmul(this.noiseTensor, gfc0W);
     network = g.add(network, gfc0B);
@@ -1275,11 +1272,11 @@ class GANLab extends GANLabPolymer {
     for (let i = 0; i < this.numGeneratorLayers; ++i) {
       const gfcW = g.variable(
         `gfc${i + 1}W`,
-        NDArray.randNormal(
+        dl.Tensor2D.randNormal(
           [this.numGeneratorNeurons, this.numGeneratorNeurons], 0,
           1.0 / Math.sqrt(this.numGeneratorNeurons)));
       const gfcB = g.variable(
-        `gfc${i + 1}B`, Array1D.zeros([this.numGeneratorNeurons]));
+        `gfc${i + 1}B`, dl.Tensor1D.zeros([this.numGeneratorNeurons]));
 
       network = g.matmul(network, gfcW);
       network = g.add(network, gfcB);
@@ -1288,10 +1285,10 @@ class GANLab extends GANLabPolymer {
 
     const gfcLastW = g.variable(
       'gfcLastW',
-      NDArray.randNormal(
+      dl.Tensor2D.randNormal(
         [this.numGeneratorNeurons, 2], 0,
         1.0 / Math.sqrt(this.numGeneratorNeurons)));
-    const gfcLastB = g.variable('gfcLastB', Array1D.zeros([2]));
+    const gfcLastB = g.variable('gfcLastB', dl.Tensor1D.zeros([2]));
 
     network = g.matmul(network, gfcLastW);
     network = g.add(network, gfcLastB);
@@ -1303,11 +1300,11 @@ class GANLab extends GANLabPolymer {
     // Discriminator.
     const dfc0W = g.variable(
       'dfc0W',
-      NDArray.randNormal(
+      dl.Tensor2D.randNormal(
         [2, this.numDiscriminatorNeurons], 0, 1.0 / Math.sqrt(2)));
     const dfc0B =
       g.variable('dfc0B',
-        NDArray.randNormal(
+        dl.Tensor1D.randNormal(
           [this.numDiscriminatorNeurons], 0,
           1.0 / Math.sqrt(this.numDiscriminatorNeurons)));
 
@@ -1322,11 +1319,11 @@ class GANLab extends GANLabPolymer {
     for (let i = 0; i < this.numDiscriminatorLayers; ++i) {
       const dfcW = g.variable(
         `dfc${i + 1}W`,
-        NDArray.randNormal(
+        dl.Tensor2D.randNormal(
           [this.numDiscriminatorNeurons, this.numDiscriminatorNeurons], 0,
           1.0 / Math.sqrt(this.numDiscriminatorNeurons)));
       const dfcB = g.variable(
-        `dfc${i + 1}B`, Array1D.zeros([this.numDiscriminatorNeurons]));
+        `dfc${i + 1}B`, dl.Tensor1D.zeros([this.numDiscriminatorNeurons]));
 
       network1 = g.matmul(network1, dfcW);
       network1 = g.add(network1, dfcB);
@@ -1339,10 +1336,10 @@ class GANLab extends GANLabPolymer {
 
     const dfcLastW = g.variable(
       'dfcLastW',
-      NDArray.randNormal(
+      dl.Tensor2D.randNormal(
         [this.numDiscriminatorNeurons, 1], 0,
         1.0 / Math.sqrt(this.numDiscriminatorNeurons)));
-    const dfcLastB = g.variable('dfcLastB', NDArray.zeros([1]));
+    const dfcLastB = g.variable('dfcLastB', dl.Tensor1D.zeros([1]));
 
     network1 = g.matmul(network1, dfcLastW);
     network1 = g.add(network1, dfcLastB);
@@ -1359,29 +1356,29 @@ class GANLab extends GANLabPolymer {
     // Define losses.
     if (this.lossType === 'LeastSq loss') {
       const diffPred1AndOne = g.subtract(
-        this.predictionTensor1, g.constant(Scalar.new(1)));
+        this.predictionTensor1, g.constant(dl.Scalar.new(1)));
       const dRealCostTensor = g.multiply(diffPred1AndOne, diffPred1AndOne);
       const dFakeCostTensor = g.multiply(
         this.predictionTensor2, this.predictionTensor2);
       this.dCostTensor = g.add(dRealCostTensor, dFakeCostTensor);
       const diffPred2AndOne = g.subtract(
-        this.predictionTensor2, g.constant(Scalar.new(1)));
+        this.predictionTensor2, g.constant(dl.Scalar.new(1)));
       this.gCostTensor = g.multiply(diffPred2AndOne, diffPred2AndOne);
     } else {
       const dRealCostTensor = g.multiply(
-        g.constant(Scalar.new(0.9)), g.log(this.predictionTensor1));
+        g.constant(dl.Scalar.new(0.9)), g.log(this.predictionTensor1));
       const dFakeCostTensor = g.log(
-        g.subtract(g.constant(Scalar.new(1)), this.predictionTensor2));
+        g.subtract(g.constant(dl.Scalar.new(1)), this.predictionTensor2));
       this.dCostTensor = g.multiply(
-        g.add(dRealCostTensor, dFakeCostTensor), g.constant(Scalar.new(-1)));
+        g.add(dRealCostTensor, dFakeCostTensor), g.constant(dl.Scalar.new(-1)));
       this.gCostTensor = g.multiply(
-        g.log(this.predictionTensor2), g.constant(Scalar.new(-1)));
+        g.log(this.predictionTensor2), g.constant(dl.Scalar.new(-1)));
     }
 
     this.dCostTensor = g.divide(g.reduceSum(this.dCostTensor),
-      g.constant(Scalar.new(BATCH_SIZE)));
+      g.constant(dl.Scalar.new(BATCH_SIZE)));
     this.gCostTensor = g.divide(g.reduceSum(this.gCostTensor),
-      g.constant(Scalar.new(BATCH_SIZE)));
+      g.constant(dl.Scalar.new(BATCH_SIZE)));
 
     // Filter variable nodes for optimizers.
     this.dNodes = g.getNodes().filter(v => {
@@ -1399,19 +1396,19 @@ class GANLab extends GANLabPolymer {
       const beta1 = 0.9;
       const beta2 = 0.999;
       if (dOrG == null || dOrG === 'D') {
-        this.dOptimizer = new AdamOptimizer(
+        this.dOptimizer = new dl.AdamOptimizer(
           this.dLearningRate, beta1, beta2, this.dNodes);
       }
       if (dOrG == null || dOrG === 'G') {
-        this.gOptimizer = new AdamOptimizer(
+        this.gOptimizer = new dl.AdamOptimizer(
           this.gLearningRate, beta1, beta2, this.gNodes);
       }
     } else {
       if (dOrG == null || dOrG === 'D') {
-        this.dOptimizer = new SGDOptimizer(this.dLearningRate, this.dNodes);
+        this.dOptimizer = new dl.SGDOptimizer(this.dLearningRate, this.dNodes);
       }
       if (dOrG == null || dOrG === 'G') {
-        this.gOptimizer = new SGDOptimizer(this.gLearningRate, this.gNodes);
+        this.gOptimizer = new dl.SGDOptimizer(this.gLearningRate, this.gNodes);
       }
     }
   }

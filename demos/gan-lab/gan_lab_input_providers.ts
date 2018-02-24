@@ -1,7 +1,7 @@
-import { Array2D, InputProvider, NDArray, NDArrayMath } from 'deeplearn';
+import * as dl from 'deeplearn';
 
 export abstract class GANLabInputProviderBuilder {
-  protected atlas: Array2D;
+  protected atlas: dl.Tensor2D;
   protected providerCounter: number;
 
   constructor(protected batchSize: number) {
@@ -10,14 +10,14 @@ export abstract class GANLabInputProviderBuilder {
 
   protected abstract generateAtlas(): void;
 
-  abstract getInputProvider(fixStarting?: boolean): InputProvider;
+  abstract getInputProvider(fixStarting?: boolean): dl.InputProvider;
 }
 
 export class GANLabNoiseProviderBuilder extends
   GANLabInputProviderBuilder {
 
   constructor(
-    private math: NDArrayMath,
+    private math: dl.NDArrayMath,
     private noiseSize: number, private noiseType: string,
     private numSamplesVisualized: number, batchSize: number) {
     super(batchSize);
@@ -25,20 +25,20 @@ export class GANLabNoiseProviderBuilder extends
 
   generateAtlas() {
     if (this.noiseType === "Gaussian") {
-      this.atlas = Array2D.randTruncatedNormal(
+      this.atlas = dl.Tensor2D.randTruncatedNormal(
         [this.numSamplesVisualized * this.batchSize, this.noiseSize],
         0.5, 0.25);
     } else {
-      this.atlas = Array2D.randUniform(
+      this.atlas = dl.Tensor2D.randUniform(
         [this.numSamplesVisualized * this.batchSize, this.noiseSize],
         0.0, 1.0);
     }
   }
 
-  getInputProvider(fixStarting?: boolean): InputProvider {
+  getInputProvider(fixStarting?: boolean): dl.InputProvider {
     const provider = this;
     return {
-      getNextCopy(): NDArray {
+      getNextCopy(): dl.Tensor {
         provider.providerCounter++;
         return provider.math.scope(() => {
           return provider.math.slice2D(
@@ -49,7 +49,7 @@ export class GANLabNoiseProviderBuilder extends
             [provider.batchSize, provider.noiseSize]);
         });
       },
-      disposeCopy(math: NDArrayMath, copy: NDArray) {
+      disposeCopy(copy: dl.Tensor) {
         copy.dispose();
       }
     };
@@ -67,7 +67,7 @@ export class GANLabTrueSampleProviderBuilder extends
   private inputAtlasList: number[];
 
   constructor(
-    private math: NDArrayMath, private atlasSize: number,
+    private math: dl.NDArrayMath, private atlasSize: number,
     private selectedShapeName: string,
     private drawingPositions: Array<[number, number]>,
     private sampleFromTrueDistribution: Function, batchSize: number) {
@@ -82,13 +82,13 @@ export class GANLabTrueSampleProviderBuilder extends
       this.inputAtlasList.push(distribution[0]);
       this.inputAtlasList.push(distribution[1]);
     }
-    this.atlas = Array2D.new([this.atlasSize, 2], this.inputAtlasList);
+    this.atlas = dl.Tensor2D.new([this.atlasSize, 2], this.inputAtlasList);
   }
 
-  getInputProvider(fixStarting?: boolean): InputProvider {
+  getInputProvider(fixStarting?: boolean): dl.InputProvider {
     const provider = this;
     return {
-      getNextCopy(): NDArray {
+      getNextCopy(): dl.Tensor {
         provider.providerCounter++;
         return provider.math.scope(() => {
           return provider.math.slice2D(
@@ -99,7 +99,7 @@ export class GANLabTrueSampleProviderBuilder extends
             [provider.batchSize, 2]);
         });
       },
-      disposeCopy(math: NDArrayMath, copy: NDArray) {
+      disposeCopy(copy: dl.Tensor) {
         copy.dispose();
       }
     };
@@ -114,7 +114,7 @@ export class GANLabUniformNoiseProviderBuilder extends
   GANLabInputProviderBuilder {
 
   constructor(
-    private math: NDArrayMath, private noiseSize: number,
+    private math: dl.NDArrayMath, private noiseSize: number,
     private numManifoldCells: number, batchSize: number) {
     super(batchSize);
   }
@@ -136,15 +136,15 @@ export class GANLabUniformNoiseProviderBuilder extends
     while ((inputAtlasList.length / this.noiseSize) % this.batchSize > 0) {
       inputAtlasList.push(0.5);
     }
-    this.atlas = Array2D.new(
+    this.atlas = dl.Tensor2D.new(
       [inputAtlasList.length / this.noiseSize, this.noiseSize],
       inputAtlasList);
   }
 
-  getInputProvider(): InputProvider {
+  getInputProvider(): dl.InputProvider {
     const provider = this;
     return {
-      getNextCopy(): NDArray {
+      getNextCopy(): dl.Tensor {
         provider.providerCounter++;
         if (provider.providerCounter * provider.batchSize >
           Math.pow(provider.numManifoldCells + 1, provider.noiseSize)) {
@@ -160,7 +160,7 @@ export class GANLabUniformNoiseProviderBuilder extends
             [provider.batchSize, provider.noiseSize]);
         });
       },
-      disposeCopy(math: NDArrayMath, copy: NDArray) {
+      disposeCopy(copy: dl.Tensor) {
         copy.dispose();
       }
     };
@@ -171,7 +171,7 @@ export class GANLabUniformSampleProviderBuilder extends
   GANLabInputProviderBuilder {
 
   constructor(
-    private math: NDArrayMath, private numGridCells: number,
+    private math: dl.NDArrayMath, private numGridCells: number,
     batchSize: number) {
     super(batchSize);
   }
@@ -184,14 +184,14 @@ export class GANLabUniformSampleProviderBuilder extends
         inputAtlasList.push((j + 0.5) / this.numGridCells);
       }
     }
-    this.atlas = Array2D.new(
+    this.atlas = dl.Tensor2D.new(
       [this.numGridCells * this.numGridCells, 2], inputAtlasList);
   }
 
-  getInputProvider(): InputProvider {
+  getInputProvider(): dl.InputProvider {
     const provider = this;
     return {
-      getNextCopy(): NDArray {
+      getNextCopy(): dl.Tensor {
         provider.providerCounter++;
         return provider.math.scope(() => {
           const begin: [number, number] = [
@@ -203,7 +203,7 @@ export class GANLabUniformSampleProviderBuilder extends
             [provider.batchSize, 2]);
         });
       },
-      disposeCopy(math: NDArrayMath, copy: NDArray) {
+      disposeCopy(copy: dl.Tensor) {
         copy.dispose();
       }
     };

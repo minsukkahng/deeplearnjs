@@ -17,7 +17,7 @@ export class GANLabNoiseProviderBuilder extends
   GANLabInputProviderBuilder {
 
   constructor(
-    private math: dl.NDArrayMath,
+    //private math: dl.NDArrayMath,
     private noiseSize: number, private noiseType: string,
     private numSamplesVisualized: number, batchSize: number) {
     super(batchSize);
@@ -38,16 +38,14 @@ export class GANLabNoiseProviderBuilder extends
   getInputProvider(fixStarting?: boolean): dl.InputProvider {
     const provider = this;
     return {
-      getNextCopy(): dl.Tensor {
+      getNextCopy(): dl.Tensor2D {
         provider.providerCounter++;
-        return provider.math.scope(() => {
-          return provider.math.slice2D(
-            provider.atlas,
-            [fixStarting ? 0 :
-              (provider.providerCounter * provider.batchSize) %
-              provider.numSamplesVisualized, 0],
-            [provider.batchSize, provider.noiseSize]);
-        });
+        return provider.atlas.slice(
+          [fixStarting ? 0 :
+            (provider.providerCounter * provider.batchSize) %
+            provider.numSamplesVisualized, 0],
+          [provider.batchSize, provider.noiseSize]
+        );
       },
       disposeCopy(copy: dl.Tensor) {
         copy.dispose();
@@ -56,7 +54,7 @@ export class GANLabNoiseProviderBuilder extends
   }
 
   getNoiseSample(): Float32Array {
-    return this.math.slice2D(this.atlas,
+    return this.atlas.slice(
       [0, 0], [this.batchSize, this.noiseSize]).dataSync() as Float32Array;
   }
 }
@@ -67,7 +65,7 @@ export class GANLabTrueSampleProviderBuilder extends
   private inputAtlasList: number[];
 
   constructor(
-    private math: dl.NDArrayMath, private atlasSize: number,
+    private atlasSize: number,
     private selectedShapeName: string,
     private drawingPositions: Array<[number, number]>,
     private sampleFromTrueDistribution: Function, batchSize: number) {
@@ -88,16 +86,14 @@ export class GANLabTrueSampleProviderBuilder extends
   getInputProvider(fixStarting?: boolean): dl.InputProvider {
     const provider = this;
     return {
-      getNextCopy(): dl.Tensor {
+      getNextCopy(): dl.Tensor2D {
         provider.providerCounter++;
-        return provider.math.scope(() => {
-          return provider.math.slice2D(
-            provider.atlas,
-            [fixStarting ? 0 :
-              (provider.providerCounter * provider.batchSize) %
-              provider.atlasSize, 0],
-            [provider.batchSize, 2]);
-        });
+        return provider.atlas.slice(
+          [fixStarting ? 0 :
+            (provider.providerCounter * provider.batchSize) %
+            provider.atlasSize, 0],
+          [provider.batchSize, 2]
+        );
       },
       disposeCopy(copy: dl.Tensor) {
         copy.dispose();
@@ -144,7 +140,7 @@ export class GANLabUniformNoiseProviderBuilder extends
   getInputProvider(): dl.InputProvider {
     const provider = this;
     return {
-      getNextCopy(): dl.Tensor {
+      getNextCopy(): dl.Tensor2D {
         provider.providerCounter++;
         if (provider.providerCounter * provider.batchSize >
           Math.pow(provider.numManifoldCells + 1, provider.noiseSize)) {
@@ -170,9 +166,7 @@ export class GANLabUniformNoiseProviderBuilder extends
 export class GANLabUniformSampleProviderBuilder extends
   GANLabInputProviderBuilder {
 
-  constructor(
-    private math: dl.NDArrayMath, private numGridCells: number,
-    batchSize: number) {
+  constructor(private numGridCells: number, batchSize: number) {
     super(batchSize);
   }
 
@@ -191,17 +185,15 @@ export class GANLabUniformSampleProviderBuilder extends
   getInputProvider(): dl.InputProvider {
     const provider = this;
     return {
-      getNextCopy(): dl.Tensor {
+      getNextCopy(): dl.Tensor2D {
         provider.providerCounter++;
-        return provider.math.scope(() => {
-          const begin: [number, number] = [
+        return provider.atlas.slice(
+          [
             (provider.providerCounter * provider.batchSize) %
             (provider.numGridCells * provider.numGridCells),
             0
-          ];
-          return provider.math.slice2D(provider.atlas, begin,
-            [provider.batchSize, 2]);
-        });
+          ],
+          [provider.batchSize, 2]);
       },
       disposeCopy(copy: dl.Tensor) {
         copy.dispose();

@@ -3,12 +3,12 @@ import { contourDensity } from 'd3-contour';
 import { geoPath } from 'd3-geo';
 import { scaleLinear, scaleSequential } from 'd3-scale';
 import { interpolateYlGnBu } from 'd3-scale-chromatic';
-import { line } from 'd3-shape';
+//import { line } from 'd3-shape';
 import * as d3Transition from 'd3-transition';
 
 import { PolymerElement, PolymerHTMLElement } from '../polymer-spec';
 import * as dl from 'deeplearn';
-import { TypedArray } from '../../src/types';
+//import { TypedArray } from '../../src/types';
 
 import * as gan_lab_input_providers from './gan_lab_input_providers';
 import * as gan_lab_drawing from './gan_lab_drawing';
@@ -17,7 +17,7 @@ import * as gan_lab_evaluators from './gan_lab_evaluators';
 const BATCH_SIZE = 150;
 const ATLAS_SIZE = 12000;
 const NUM_GRID_CELLS = 30;
-const NUM_MANIFOLD_CELLS = 20;
+//const NUM_MANIFOLD_CELLS = 20;
 const GENERATED_SAMPLES_VISUALIZATION_INTERVAL = 10;
 const NUM_SAMPLES_VISUALIZED = 300;
 const NUM_TRUE_SAMPLES_VISUALIZED = 300;
@@ -43,26 +43,14 @@ const GANLabPolymer: new () => PolymerHTMLElement = PolymerElement({
 });
 
 class GANLab extends GANLabPolymer {
-  private math: dl.NDArrayMath;
-
-  private graph: dl.Graph;
-  private session: dl.Session;
   private iterationCount: number;
 
   private gOptimizer: dl.Optimizer;
   private dOptimizer: dl.Optimizer;
-  private predictionTensor1: dl.SymbolicTensor;
-  private predictionTensor2: dl.SymbolicTensor;
-  private gCostTensor: dl.SymbolicTensor;
-  private dCostTensor: dl.SymbolicTensor;
-
-  private noiseTensor: dl.SymbolicTensor;
-  private inputTensor: dl.SymbolicTensor;
-  private generatedTensor: dl.SymbolicTensor;
 
   private noiseProvider: dl.InputProvider;
   private trueSampleProvider: dl.InputProvider;
-  private uniformNoiseProvider: dl.InputProvider;
+  //private uniformNoiseProvider: dl.InputProvider;
   private uniformInputProvider: dl.InputProvider;
 
   private noiseSize: number;
@@ -461,17 +449,17 @@ class GANLab extends GANLabPolymer {
     });
 
     // Create a new graph.
-    this.buildNetwork();
+    /*this.buildNetwork();
 
     if (this.session != null) {
       this.session.dispose();
     }
-    this.session = new dl.Session(this.graph, this.math);
+    this.session = new dl.Session(this.graph, this.math);*/
 
     // Input providers.
     const noiseProviderBuilder =
       new gan_lab_input_providers.GANLabNoiseProviderBuilder(
-        this.math, this.noiseSize, this.selectedNoiseType,
+        this.noiseSize, this.selectedNoiseType,
         NUM_SAMPLES_VISUALIZED, BATCH_SIZE);
     noiseProviderBuilder.generateAtlas();
     this.noiseProvider = noiseProviderBuilder.getInputProvider();
@@ -480,25 +468,25 @@ class GANLab extends GANLabPolymer {
     const drawingPositions = this.drawing.drawingPositions;
     const trueSampleProviderBuilder =
       new gan_lab_input_providers.GANLabTrueSampleProviderBuilder(
-        this.math, ATLAS_SIZE, this.selectedShapeName,
+        ATLAS_SIZE, this.selectedShapeName,
         drawingPositions, this.sampleFromTrueDistribution, BATCH_SIZE);
     trueSampleProviderBuilder.generateAtlas();
     this.trueSampleProvider = trueSampleProviderBuilder.getInputProvider();
     this.trueSampleProviderFixed =
       trueSampleProviderBuilder.getInputProvider(true);
 
-    if (this.noiseSize <= 2) {
+    /*if (this.noiseSize <= 2) {
       const uniformNoiseProviderBuilder =
         new gan_lab_input_providers.GANLabUniformNoiseProviderBuilder(
           this.math, this.noiseSize, NUM_MANIFOLD_CELLS, BATCH_SIZE);
       uniformNoiseProviderBuilder.generateAtlas();
       this.uniformNoiseProvider =
         uniformNoiseProviderBuilder.getInputProvider();
-    }
+    }*/
 
     const uniformSampleProviderBuilder =
       new gan_lab_input_providers.GANLabUniformSampleProviderBuilder(
-        this.math, NUM_GRID_CELLS, BATCH_SIZE);
+        NUM_GRID_CELLS, BATCH_SIZE);
     uniformSampleProviderBuilder.generateAtlas();
     this.uniformInputProvider = uniformSampleProviderBuilder.getInputProvider();
 
@@ -513,6 +501,10 @@ class GANLab extends GANLabPolymer {
       new gan_lab_evaluators.GANLabEvaluatorGridDensities(NUM_GRID_CELLS);
     this.evaluator.createGridsForTrue(
       trueSampleProviderBuilder.getInputAtlas(), NUM_TRUE_SAMPLES_VISUALIZED);
+
+    // Prepare for model.
+    this.initializeVariables();
+    this.updateOptimizers();
   }
 
   private sampleFromTrueDistribution(
@@ -723,13 +715,14 @@ class GANLab extends GANLabPolymer {
 
       let dCostVal = null;
       for (let j = 0; j < kDSteps; j++) {
-        const dCost = this.session.train(
-          this.dCostTensor,
-          [
-            { tensor: this.inputTensor, data: this.trueSampleProvider },
-            { tensor: this.noiseTensor, data: this.noiseProvider }
-          ],
-          1, this.dOptimizer, dl.CostReduction.MEAN);
+        const dCost = this.dOptimizer.minimize(() => {
+          const noiseBatch = this.noiseProvider.getNextCopy() as dl.Tensor2D;
+          const trueSampleBatch =
+            this.trueSampleProvider.getNextCopy() as dl.Tensor2D;
+          const pred = this.modelDiscriminator(
+            trueSampleBatch, this.modelGenerator(noiseBatch));
+          return this.dLoss(pred.truePred, pred.generatedPred);
+        }, true, this.dVariables);
         if (j + 1 === this.kDSteps) {
           dCostVal = dCost.get();
         }
@@ -737,10 +730,12 @@ class GANLab extends GANLabPolymer {
 
       let gCostVal = null;
       for (let j = 0; j < kGSteps; j++) {
-        const gCost = this.session.train(
-          this.gCostTensor,
-          [{ tensor: this.noiseTensor, data: this.noiseProvider }],
-          1, this.gOptimizer, dl.CostReduction.MEAN);
+        const gCost = this.gOptimizer.minimize(() => {
+          const noiseBatch = this.noiseProvider.getNextCopy() as dl.Tensor2D;
+          const pred = this.modelDiscriminator(
+            null, this.modelGenerator(noiseBatch));
+          return this.gLoss(pred.generatedPred);
+        }, true, this.gVariables);
         if (j + 1 === this.kGSteps) {
           gCostVal = gCost.get();
         }
@@ -793,10 +788,11 @@ class GANLab extends GANLabPolymer {
         // Visualize discriminator's output.
         const dData = [];
         for (let i = 0; i < NUM_GRID_CELLS * NUM_GRID_CELLS / BATCH_SIZE; ++i) {
-          const result = this.session.eval(
-            this.predictionTensor1,
-            [{ tensor: this.inputTensor, data: this.uniformInputProvider }]);
-          const resultData = await result.data();
+          const inputBatch =
+            this.uniformInputProvider.getNextCopy() as dl.Tensor2D;
+          const result = this.modelDiscriminator(inputBatch, null);
+          const resultData = result.truePred.dataSync();
+          //const resultData = await result.data();
           for (let j = 0; j < resultData.length; ++j) {
             dData.push(resultData[j]);
           }
@@ -885,243 +881,232 @@ class GANLab extends GANLabPolymer {
             ['arrow-g-loss-g-1', 'arrow-g-loss-g-2']);
           await this.sleep(SLOW_INTERVAL_MS);
         }
+        /*
+                        // Visualize gradients for generator
+                        const gradData: Array<[number, number, number, number]> = [];
+                        const gActivation = await this.session.activationArrayMap.get(
+                          this.generatedTensor).data();
+                        const gGradient = await this.session.gradientArrayMap.get(
+                          this.generatedTensor).data();
+                        for (let i = 0; i < gActivation.length / 2; ++i) {
+                          gradData.push([
+                            gActivation[i * 2], gActivation[i * 2 + 1],
+                            gGradient[i * 2], gGradient[i * 2 + 1]
+                          ]);
+                        }
 
-        // Visualize gradients for generator
-        const gradData: Array<[number, number, number, number]> = [];
-        const gActivation = await this.session.activationArrayMap.get(
-          this.generatedTensor).data();
-        const gGradient = await this.session.gradientArrayMap.get(
-          this.generatedTensor).data();
-        for (let i = 0; i < gActivation.length / 2; ++i) {
-          gradData.push([
-            gActivation[i * 2], gActivation[i * 2 + 1],
-            gGradient[i * 2], gGradient[i * 2 + 1]
-          ]);
-        }
+                        // Todo: If not in step mode, need to update the positions of
+                        // generated samples before showing gradients.
 
-        // Todo: If not in step mode, need to update the positions of
-        // generated samples before showing gradients.
+                        const gradDotsList = [
+                          d3.select('#vis-generator-gradients')
+                            .selectAll('.gradient-generated').data(gradData),
+                          d3.select('#svg-generator-gradients')
+                            .selectAll('.gradient-generated').data(gradData)
+                        ];
+                        //const gradDotsElementList = [
+                        //  '#vis-generator-gradients',
+                        //  '#svg-generator-gradients'
+                        //];
+                        if (this.iterationCount === 1) {
+                          gradDotsList.forEach((dots, k) => {
+                            const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
+                            const arrowSize = k === 0 ? 5.0 : 1.0;
+                            const arrowWidth = k === 0 ? 0.002 : 0.001;
+                            dots.enter()
+                              .append('polygon')
+                              .attr('class', 'gradient-generated gan-lab')
+                              .attr('points', (d: number[]) => {
+                                const gradSize = Math.sqrt(
+                                  d[2] * d[2] + d[3] * d[3] + 0.00000001);
+                                const xNorm = d[2] / gradSize;
+                                const yNorm = d[3] / gradSize;
+                                return `${d[0] * plotSizePx},
+                                  ${(1.0 - d[1]) * plotSizePx}
+                                  ${(d[0] - yNorm * (-1) * arrowWidth) * plotSizePx},
+                                  ${(1.0 - (d[1] - xNorm * arrowWidth)) * plotSizePx}
+                                  ${(d[0] - d[2] * arrowSize) * plotSizePx},
+                                  ${(1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx}
+                                  ${(d[0] - yNorm * arrowWidth) * plotSizePx},
+                                  ${(1.0 - (d[1] - xNorm * (-1) * arrowWidth)) * plotSizePx}`;
+                              });
+                          });
+                        }
 
-        const gradDotsList = [
-          d3.select('#vis-generator-gradients')
-            .selectAll('.gradient-generated').data(gradData),
-          d3.select('#svg-generator-gradients')
-            .selectAll('.gradient-generated').data(gradData)
-        ];
-        /*const gradDotsElementList = [
-          '#vis-generator-gradients',
-          '#svg-generator-gradients'
-        ];*/
-        if (this.iterationCount === 1) {
-          gradDotsList.forEach((dots, k) => {
-            const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
-            const arrowSize = k === 0 ? 5.0 : 1.0;
-            const arrowWidth = k === 0 ? 0.002 : 0.001;
-            /*
-            dots.enter()
-              .append('line')
-              .attr('class', 'gradient-generated gan-lab')
-              .attr('x1', (d: number[]) => d[0] * plotSizePx)
-              .attr('y1', (d: number[]) => (1.0 - d[1]) * plotSizePx)
-              .attr('x2', (d: number[]) =>
-                (d[0] - d[2] * arrowSize) * plotSizePx)
-              .attr('y2', (d: number[]) =>
-                (1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx)
-              .style('stroke', 'url(#arrow-gradient)');*/
-            dots.enter()
-              .append('polygon')
-              .attr('class', 'gradient-generated gan-lab')
-              .attr('points', (d: number[]) => {
-                const gradSize = Math.sqrt(
-                  d[2] * d[2] + d[3] * d[3] + 0.00000001);
-                const xNorm = d[2] / gradSize;
-                const yNorm = d[3] / gradSize;
-                return `${d[0] * plotSizePx},
-                  ${(1.0 - d[1]) * plotSizePx}
-                  ${(d[0] - yNorm * (-1) * arrowWidth) * plotSizePx},
-                  ${(1.0 - (d[1] - xNorm * arrowWidth)) * plotSizePx}
-                  ${(d[0] - d[2] * arrowSize) * plotSizePx},
-                  ${(1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx}
-                  ${(d[0] - yNorm * arrowWidth) * plotSizePx},
-                  ${(1.0 - (d[1] - xNorm * (-1) * arrowWidth)) * plotSizePx}`;
+                        gradDotsList.forEach((dots, k) => {
+                          const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
+                          const arrowSize = k === 0 ? 5.0 : 1.0;
+                          const arrowWidth = k === 0 ? 0.002 : 0.001;
+                          //d3Transition.transition()//.duration(1000)
+                          //  .select(gradDotsElementList[k])
+                          //  .selectAll('.gradient-generated').selection().data(gradData)
+                          //  .transition().duration(SLOW_INTERVAL_MS)
+                dots
+                  .attr('points', (d: number[]) => {
+                    const gradSize = Math.sqrt(
+                      d[2] * d[2] + d[3] * d[3] + 0.00000001);
+                    const xNorm = d[2] / gradSize;
+                    const yNorm = d[3] / gradSize;
+                    return `${d[0] * plotSizePx},
+                        ${(1.0 - d[1]) * plotSizePx}
+                        ${(d[0] - yNorm * (-1) * arrowWidth) * plotSizePx},
+                        ${(1.0 - (d[1] - xNorm * arrowWidth)) * plotSizePx}
+                        ${(d[0] - d[2] * arrowSize) * plotSizePx},
+                        ${(1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx}
+                        ${(d[0] - yNorm * arrowWidth) * plotSizePx},
+                        ${(1.0 - (d[1] - xNorm * (-1) * arrowWidth)) * plotSizePx}`;
+                  });
               });
-          });
-        }
 
-        gradDotsList.forEach((dots, k) => {
-          const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
-          const arrowSize = k === 0 ? 5.0 : 1.0;
-          const arrowWidth = k === 0 ? 0.002 : 0.001;
-          /*d3Transition.transition()//.duration(1000)
-            .select(gradDotsElementList[k])
-            .selectAll('.gradient-generated').selection().data(gradData)
-            .transition().duration(SLOW_INTERVAL_MS)*/
-          dots
-            .attr('points', (d: number[]) => {
-              const gradSize = Math.sqrt(
-                d[2] * d[2] + d[3] * d[3] + 0.00000001);
-              const xNorm = d[2] / gradSize;
-              const yNorm = d[3] / gradSize;
-              return `${d[0] * plotSizePx},
-                ${(1.0 - d[1]) * plotSizePx}
-                ${(d[0] - yNorm * (-1) * arrowWidth) * plotSizePx},
-                ${(1.0 - (d[1] - xNorm * arrowWidth)) * plotSizePx}
-                ${(d[0] - d[2] * arrowSize) * plotSizePx},
-                ${(1.0 - (d[1] - d[3] * arrowSize)) * plotSizePx}
-                ${(d[0] - yNorm * arrowWidth) * plotSizePx},
-                ${(1.0 - (d[1] - xNorm * (-1) * arrowWidth)) * plotSizePx}`;
-            });
-        });
-
-        if (this.slowMode) {
-          await this.sleep(SLOW_INTERVAL_MS);
-          this.dehighlightStep();
-          this.highlightStep(false,
-            'group-generator', 'tooltip-update-generator',
-            ['arrow-g-loss-g-3', 'arrow-g-loss-g-4']);
-          await this.sleep(SLOW_INTERVAL_MS);
-        }
-
-        // Visualize manifold for 1-D or 2-D noise.
-        interface ManifoldCell {
-          points: TypedArray[];
-          area?: number;
-        }
-
-        if (this.noiseSize <= 2) {
-          const manifoldData: TypedArray[] = [];
-          const numBatches = Math.ceil(Math.pow(
-            NUM_MANIFOLD_CELLS + 1, this.noiseSize) / BATCH_SIZE);
-          const remainingDummy = BATCH_SIZE * numBatches - Math.pow(
-            NUM_MANIFOLD_CELLS + 1, this.noiseSize) * 2;
-          for (let k = 0; k < numBatches; ++k) {
-            const result = this.session.eval(
-              this.generatedTensor,
-              [{ tensor: this.noiseTensor, data: this.uniformNoiseProvider }]);
-
-            const maniResult: TypedArray = await result.data() as TypedArray;
-
-            for (let i = 0; i < (k + 1 < numBatches ?
-              BATCH_SIZE : BATCH_SIZE - remainingDummy); ++i) {
-              manifoldData.push(maniResult.slice(i * 2, i * 2 + 2));
+            if (this.slowMode) {
+              await this.sleep(SLOW_INTERVAL_MS);
+              this.dehighlightStep();
+              this.highlightStep(false,
+                'group-generator', 'tooltip-update-generator',
+                ['arrow-g-loss-g-3', 'arrow-g-loss-g-4']);
+              await this.sleep(SLOW_INTERVAL_MS);
             }
-          }
 
-          // Create grid cells.
-          const gridData: ManifoldCell[] = [];
-          let areaSum = 0.0;
-          if (this.noiseSize === 1) {
-            gridData.push({ points: manifoldData });
-          } else if (this.noiseSize === 2) {
-            for (let i = 0; i < NUM_MANIFOLD_CELLS * NUM_MANIFOLD_CELLS; ++i) {
-              const x = i % NUM_MANIFOLD_CELLS;
-              const y = Math.floor(i / NUM_MANIFOLD_CELLS);
-              const index = x + y * (NUM_MANIFOLD_CELLS + 1);
+            // Visualize manifold for 1-D or 2-D noise.
+            interface ManifoldCell {
+              points: TypedArray[];
+              area?: number;
+            }
 
-              const gridCell = [];
-              gridCell.push(manifoldData[index]);
-              gridCell.push(manifoldData[index + 1]);
-              gridCell.push(manifoldData[index + 1 + (NUM_MANIFOLD_CELLS + 1)]);
-              gridCell.push(manifoldData[index + (NUM_MANIFOLD_CELLS + 1)]);
-              gridCell.push(manifoldData[index]);
+            if (this.noiseSize <= 2) {
+              const manifoldData: TypedArray[] = [];
+              const numBatches = Math.ceil(Math.pow(
+                NUM_MANIFOLD_CELLS + 1, this.noiseSize) / BATCH_SIZE);
+              const remainingDummy = BATCH_SIZE * numBatches - Math.pow(
+                NUM_MANIFOLD_CELLS + 1, this.noiseSize) * 2;
+              for (let k = 0; k < numBatches; ++k) {
+                const result = this.session.eval(
+                  this.generatedTensor,
+                  [{ tensor: this.noiseTensor, data: this.uniformNoiseProvider }]);
 
-              // Calculate area by using four points.
-              let area = 0.0;
-              for (let j = 0; j < 4; ++j) {
-                area += gridCell[j % 4][0] * gridCell[(j + 1) % 4][1] -
-                  gridCell[j % 4][1] * gridCell[(j + 1) % 4][0];
+                const maniResult: TypedArray = await result.data() as TypedArray;
+
+                for (let i = 0; i < (k + 1 < numBatches ?
+                  BATCH_SIZE : BATCH_SIZE - remainingDummy); ++i) {
+                  manifoldData.push(maniResult.slice(i * 2, i * 2 + 2));
+                }
               }
-              area = 0.5 * Math.abs(area);
-              areaSum += area;
 
-              gridData.push({ points: gridCell, area });
-            }
-            // Normalize area.
-            gridData.forEach(grid => {
-              if (grid.area) {
-                grid.area = grid.area / areaSum;
+              // Create grid cells.
+              const gridData: ManifoldCell[] = [];
+              let areaSum = 0.0;
+              if (this.noiseSize === 1) {
+                gridData.push({ points: manifoldData });
+              } else if (this.noiseSize === 2) {
+                for (let i = 0; i < NUM_MANIFOLD_CELLS * NUM_MANIFOLD_CELLS; ++i) {
+                  const x = i % NUM_MANIFOLD_CELLS;
+                  const y = Math.floor(i / NUM_MANIFOLD_CELLS);
+                  const index = x + y * (NUM_MANIFOLD_CELLS + 1);
+
+                  const gridCell = [];
+                  gridCell.push(manifoldData[index]);
+                  gridCell.push(manifoldData[index + 1]);
+                  gridCell.push(manifoldData[index + 1 + (NUM_MANIFOLD_CELLS + 1)]);
+                  gridCell.push(manifoldData[index + (NUM_MANIFOLD_CELLS + 1)]);
+                  gridCell.push(manifoldData[index]);
+
+                  // Calculate area by using four points.
+                  let area = 0.0;
+                  for (let j = 0; j < 4; ++j) {
+                    area += gridCell[j % 4][0] * gridCell[(j + 1) % 4][1] -
+                      gridCell[j % 4][1] * gridCell[(j + 1) % 4][0];
+                  }
+                  area = 0.5 * Math.abs(area);
+                  areaSum += area;
+
+                  gridData.push({ points: gridCell, area });
+                }
+                // Normalize area.
+                gridData.forEach(grid => {
+                  if (grid.area) {
+                    grid.area = grid.area / areaSum;
+                  }
+                });
               }
-            });
-          }
 
-          const gManifoldList = [
-            d3.select('#vis-manifold').selectAll('.grids').data(gridData),
-            d3.select('#svg-generator-manifold')
-              .selectAll('.grids').data(gridData)
-          ];
-          gManifoldList.forEach((grids, k) => {
-            const plotSizePx =
-              k === 0 ? this.plotSizePx : this.mediumPlotSizePx;
-            const manifoldCell =
-              line()
-                .x((d: number[]) => d[0] * plotSizePx)
-                .y((d: number[]) => (1.0 - d[1]) * plotSizePx);
+              const gManifoldList = [
+                d3.select('#vis-manifold').selectAll('.grids').data(gridData),
+                d3.select('#svg-generator-manifold')
+                  .selectAll('.grids').data(gridData)
+              ];
+              gManifoldList.forEach((grids, k) => {
+                const plotSizePx =
+                  k === 0 ? this.plotSizePx : this.mediumPlotSizePx;
+                const manifoldCell =
+                  line()
+                    .x((d: number[]) => d[0] * plotSizePx)
+                    .y((d: number[]) => (1.0 - d[1]) * plotSizePx);
 
-            if (this.iterationCount === 1) {
-              grids.enter()
-                .append('g')
-                .attr('class', 'grids gan-lab')
-                .append('path')
-                .attr('class', 'manifold-cell gan-lab');
-            }
-            grids.select('.manifold-cell')
-              .attr('d', (d: ManifoldCell) => manifoldCell(
-                d.points.map(point => {
-                  const p: [number, number] = [point[0], point[1]];
-                  return p;
-                })
-              ))
-              .style('fill', () => {
-                return this.noiseSize === 2 ? '#7b3294' : 'none';
-              })
-              .style('fill-opacity', (d: ManifoldCell) => {
-                return this.noiseSize === 2 ? Math.max(
-                  0.9 - d.area! * 0.4 * Math.pow(NUM_MANIFOLD_CELLS, 2), 0.1) :
-                  'none';
+                if (this.iterationCount === 1) {
+                  grids.enter()
+                    .append('g')
+                    .attr('class', 'grids gan-lab')
+                    .append('path')
+                    .attr('class', 'manifold-cell gan-lab');
+                }
+                grids.select('.manifold-cell')
+                  .attr('d', (d: ManifoldCell) => manifoldCell(
+                    d.points.map(point => {
+                      const p: [number, number] = [point[0], point[1]];
+                      return p;
+                    })
+                  ))
+                  .style('fill', () => {
+                    return this.noiseSize === 2 ? '#7b3294' : 'none';
+                  })
+                  .style('fill-opacity', (d: ManifoldCell) => {
+                    return this.noiseSize === 2 ? Math.max(
+                      0.9 - d.area! * 0.4 * Math.pow(NUM_MANIFOLD_CELLS, 2), 0.1) :
+                      'none';
+                  });
               });
-          });
 
-          if (this.noiseSize === 1) {
-            const manifoldDots =
-              d3.select('#vis-manifold').selectAll('.uniform-generated-dot')
-                .data(manifoldData);
-            if (this.iterationCount === 1) {
-              manifoldDots.enter()
-                .append('circle')
-                .attr('class', 'uniform-generated-dot gan-lab')
-                .attr('r', 1);
+              if (this.noiseSize === 1) {
+                const manifoldDots =
+                  d3.select('#vis-manifold').selectAll('.uniform-generated-dot')
+                    .data(manifoldData);
+                if (this.iterationCount === 1) {
+                  manifoldDots.enter()
+                    .append('circle')
+                    .attr('class', 'uniform-generated-dot gan-lab')
+                    .attr('r', 1);
+                }
+                manifoldDots.attr('cx', (d: TypedArray) => d[0] * this.plotSizePx)
+                  .attr('cy', (d: TypedArray) => (1.0 - d[1]) * this.plotSizePx);
+              }
             }
-            manifoldDots.attr('cx', (d: TypedArray) => d[0] * this.plotSizePx)
-              .attr('cy', (d: TypedArray) => (1.0 - d[1]) * this.plotSizePx);
-          }
-        }
 
-        if (this.slowMode) {
-          await this.sleep(SLOW_INTERVAL_MS);
-          this.dehighlightStep();
-          this.highlightStep(false,
-            'component-generated-samples', 'tooltip-generated-samples',
-            ['arrow-noise-g', 'arrow-g-g-samples']);
-          await this.sleep(SLOW_INTERVAL_MS);
-        }
-
+            if (this.slowMode) {
+              await this.sleep(SLOW_INTERVAL_MS);
+              this.dehighlightStep();
+              this.highlightStep(false,
+                'component-generated-samples', 'tooltip-generated-samples',
+                ['arrow-noise-g', 'arrow-g-g-samples']);
+              await this.sleep(SLOW_INTERVAL_MS);
+            }
+*/
         // Visualize generated samples.
         const gData: Array<[number, number]> = [];
-        const gResult = this.session.eval(
-          this.generatedTensor,
-          [{ tensor: this.noiseTensor, data: this.noiseProviderFixed }]);
-        const gResultData = await gResult.data();
+        const noiseBatch = this.noiseProviderFixed.getNextCopy() as dl.Tensor2D;
+        const gResult = this.modelGenerator(noiseBatch);
+        //const gResultData = await gResult.data();
+        const gResultData = gResult.dataSync();
         for (let j = 0; j < gResultData.length / 2; ++j) {
           gData.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
         }
-
-        this.evaluator.updateGridsForGenerated(gData);
-        this.updateChartData(this.evalChartData, this.iterationCount, [
-          this.evaluator.getKLDivergenceScore(),
-          this.evaluator.getJSDivergenceScore()
-        ]);
-        this.evalChart.update();
-
+        /*
+                    this.evaluator.updateGridsForGenerated(gData);
+                    this.updateChartData(this.evalChartData, this.iterationCount, [
+                      this.evaluator.getKLDivergenceScore(),
+                      this.evaluator.getJSDivergenceScore()
+                    ]);
+                    this.evalChart.update();
+        */
         const gDotsList = [
           d3.select('#vis-generated-samples')
             .selectAll('.generated-dot').data(gData),
@@ -1245,146 +1230,203 @@ class GANLab extends GANLabPolymer {
     }
   }
 
-  private buildNetwork() {
-    this.graph = new dl.Graph();
-    const g = this.graph;
-
-    // Noise.
-    const noise = g.placeholder('noise', [BATCH_SIZE, this.noiseSize]);
-    this.noiseTensor = noise;
+  private initializeVariables() {
+    if (this.dVariables) {
+      this.dVariables.forEach((v: dl.Tensor) => v.dispose());
+    }
+    if (this.gVariables) {
+      this.gVariables.forEach((v: dl.Tensor) => v.dispose());
+    }
+    // Filter variable nodes for optimizers.
+    this.dVariables = [];
+    this.gVariables = [];
 
     // Generator.
-    const gfc0W = g.variable(
-      'gfc0W',
+    const gfc0W: dl.Tensor2D = dl.variable(
       dl.Tensor2D.randNormal(
-        [this.noiseSize, this.numGeneratorNeurons], 0, 1.0 / Math.sqrt(2)));
-    const gfc0B =
-      g.variable('gfc0B', dl.Tensor1D.zeros([this.numGeneratorNeurons]));
+        [this.noiseSize, this.numGeneratorNeurons], 0, 1.0 / Math.sqrt(2)),
+      true);
+    const gfc0B: dl.Tensor1D = dl.variable(
+      dl.Tensor1D.zeros([this.numGeneratorNeurons]), true);
 
-    let network = g.matmul(this.noiseTensor, gfc0W);
-    network = g.add(network, gfc0B);
-    network = g.relu(network);
+    this.gVariables.push(gfc0W);
+    this.gVariables.push(gfc0B);
 
     for (let i = 0; i < this.numGeneratorLayers; ++i) {
-      const gfcW = g.variable(
-        `gfc${i + 1}W`,
+      const gfcW: dl.Tensor2D = dl.variable(
         dl.Tensor2D.randNormal(
           [this.numGeneratorNeurons, this.numGeneratorNeurons], 0,
-          1.0 / Math.sqrt(this.numGeneratorNeurons)));
-      const gfcB = g.variable(
-        `gfc${i + 1}B`, dl.Tensor1D.zeros([this.numGeneratorNeurons]));
+          1.0 / Math.sqrt(this.numGeneratorNeurons)),
+        true);
+      const gfcB: dl.Tensor1D = dl.variable(
+        dl.Tensor1D.zeros([this.numGeneratorNeurons]),
+        true);
 
-      network = g.matmul(network, gfcW);
-      network = g.add(network, gfcB);
-      network = g.relu(network);
+      this.gVariables.push(gfcW);
+      this.gVariables.push(gfcB);
     }
 
-    const gfcLastW = g.variable(
-      'gfcLastW',
+    const gfcLastW: dl.Tensor2D = dl.variable(
       dl.Tensor2D.randNormal(
         [this.numGeneratorNeurons, 2], 0,
-        1.0 / Math.sqrt(this.numGeneratorNeurons)));
-    const gfcLastB = g.variable('gfcLastB', dl.Tensor1D.zeros([2]));
+        1.0 / Math.sqrt(this.numGeneratorNeurons)),
+      true);
+    const gfcLastB: dl.Tensor1D = dl.variable(
+      dl.Tensor1D.zeros([2]), true);
 
-    network = g.matmul(network, gfcLastW);
-    network = g.add(network, gfcLastB);
-    this.generatedTensor = g.sigmoid(network);
-
-    // Real samples.
-    this.inputTensor = g.placeholder('input', [BATCH_SIZE, 2]);
+    this.gVariables.push(gfcLastW);
+    this.gVariables.push(gfcLastB);
 
     // Discriminator.
-    const dfc0W = g.variable(
-      'dfc0W',
+    const dfc0W: dl.Tensor2D = dl.variable(
       dl.Tensor2D.randNormal(
-        [2, this.numDiscriminatorNeurons], 0, 1.0 / Math.sqrt(2)));
-    const dfc0B =
-      g.variable('dfc0B',
-        dl.Tensor1D.randNormal(
-          [this.numDiscriminatorNeurons], 0,
-          1.0 / Math.sqrt(this.numDiscriminatorNeurons)));
+        [2, this.numDiscriminatorNeurons], 0, 1.0 / Math.sqrt(2)),
+      true);
+    const dfc0B: dl.Tensor1D = dl.variable(
+      dl.Tensor1D.randNormal(
+        [this.numDiscriminatorNeurons], 0,
+        1.0 / Math.sqrt(this.numDiscriminatorNeurons)),
+      true);
 
-    let network1 = g.matmul(this.inputTensor, dfc0W);
-    network1 = g.add(network1, dfc0B);
-    network1 = g.relu(network1);
-
-    let network2 = g.matmul(this.generatedTensor, dfc0W);
-    network2 = g.add(network2, dfc0B);
-    network2 = g.relu(network2);
+    this.dVariables.push(dfc0W);
+    this.dVariables.push(dfc0B);
 
     for (let i = 0; i < this.numDiscriminatorLayers; ++i) {
-      const dfcW = g.variable(
-        `dfc${i + 1}W`,
+      const dfcW: dl.Tensor2D = dl.variable(
         dl.Tensor2D.randNormal(
           [this.numDiscriminatorNeurons, this.numDiscriminatorNeurons], 0,
-          1.0 / Math.sqrt(this.numDiscriminatorNeurons)));
-      const dfcB = g.variable(
-        `dfc${i + 1}B`, dl.Tensor1D.zeros([this.numDiscriminatorNeurons]));
+          1.0 / Math.sqrt(this.numDiscriminatorNeurons)),
+        true);
+      const dfcB: dl.Tensor1D = dl.variable(
+        dl.Tensor1D.zeros([this.numDiscriminatorNeurons]),
+        true);
 
-      network1 = g.matmul(network1, dfcW);
-      network1 = g.add(network1, dfcB);
-      network1 = g.relu(network1);
-
-      network2 = g.matmul(network2, dfcW);
-      network2 = g.add(network2, dfcB);
-      network2 = g.relu(network2);
+      this.dVariables.push(dfcW);
+      this.dVariables.push(dfcB);
     }
 
-    const dfcLastW = g.variable(
-      'dfcLastW',
+    const dfcLastW: dl.Tensor2D = dl.variable(
       dl.Tensor2D.randNormal(
         [this.numDiscriminatorNeurons, 1], 0,
-        1.0 / Math.sqrt(this.numDiscriminatorNeurons)));
-    const dfcLastB = g.variable('dfcLastB', dl.Tensor1D.zeros([1]));
+        1.0 / Math.sqrt(this.numDiscriminatorNeurons)),
+      true);
+    const dfcLastB: dl.Tensor1D = dl.variable(
+      dl.Tensor1D.zeros([1]), true);
 
-    network1 = g.matmul(network1, dfcLastW);
-    network1 = g.add(network1, dfcLastB);
-    network1 = g.sigmoid(network1);
-    network1 = g.reshape(network1, [BATCH_SIZE]);
-    this.predictionTensor1 = network1;
+    this.dVariables.push(dfcLastW);
+    this.dVariables.push(dfcLastB);
+  }
 
-    network2 = g.matmul(network2, dfcLastW);
-    network2 = g.add(network2, dfcLastB);
-    network2 = g.sigmoid(network2);
-    network2 = g.reshape(network2, [BATCH_SIZE]);
-    this.predictionTensor2 = network2;
+  private modelGenerator(noiseTensor: dl.Tensor2D): dl.Tensor2D {
+    // Generator.
+    const gfc0W = this.gVariables[0];
+    const gfc0B = this.gVariables[1];
 
-    // Define losses.
-    if (this.lossType === 'LeastSq loss') {
-      const diffPred1AndOne = g.subtract(
-        this.predictionTensor1, g.constant(dl.Scalar.new(1)));
-      const dRealCostTensor = g.multiply(diffPred1AndOne, diffPred1AndOne);
-      const dFakeCostTensor = g.multiply(
-        this.predictionTensor2, this.predictionTensor2);
-      this.dCostTensor = g.add(dRealCostTensor, dFakeCostTensor);
-      const diffPred2AndOne = g.subtract(
-        this.predictionTensor2, g.constant(dl.Scalar.new(1)));
-      this.gCostTensor = g.multiply(diffPred2AndOne, diffPred2AndOne);
-    } else {
-      const dRealCostTensor = g.multiply(
-        g.constant(dl.Scalar.new(0.9)), g.log(this.predictionTensor1));
-      const dFakeCostTensor = g.log(
-        g.subtract(g.constant(dl.Scalar.new(1)), this.predictionTensor2));
-      this.dCostTensor = g.multiply(
-        g.add(dRealCostTensor, dFakeCostTensor), g.constant(dl.Scalar.new(-1)));
-      this.gCostTensor = g.multiply(
-        g.log(this.predictionTensor2), g.constant(dl.Scalar.new(-1)));
+    let network = noiseTensor.matMul(gfc0W)
+      .add(gfc0B)
+      .relu();
+
+    for (let i = 0; i < this.numGeneratorLayers; ++i) {
+      const gfcW = this.gVariables[2 + i * 2];
+      const gfcB = this.gVariables[3 + i * 2];
+
+      network = network.matMul(gfcW)
+        .add(gfcB)
+        .relu();
     }
 
-    this.dCostTensor = g.divide(g.reduceSum(this.dCostTensor),
-      g.constant(dl.Scalar.new(BATCH_SIZE)));
-    this.gCostTensor = g.divide(g.reduceSum(this.gCostTensor),
-      g.constant(dl.Scalar.new(BATCH_SIZE)));
+    const gfcLastW = this.gVariables[2 + this.numGeneratorLayers * 2];
+    const gfcLastB = this.gVariables[3 + this.numGeneratorLayers * 2];
 
-    // Filter variable nodes for optimizers.
-    this.dNodes = g.getNodes().filter(v => {
-      return v.name.slice(0, 3) === 'dfc';
-    });
-    this.gNodes = g.getNodes().filter(v => {
-      return v.name.slice(0, 3) === 'gfc';
-    });
+    const generatedTensor: dl.Tensor2D = network.matMul(gfcLastW)
+      .add(gfcLastB)
+      .sigmoid() as dl.Tensor2D;
 
-    this.updateOptimizers();
+    return generatedTensor;
+  }
+
+  private modelDiscriminator(
+    inputTensor: dl.Tensor2D, generatedTensor: dl.Tensor2D): {
+      truePred: dl.Tensor1D, generatedPred: dl.Tensor1D
+    } {
+    // Discriminator.
+    const dfc0W = this.dVariables[0];
+    const dfc0B = this.dVariables[1];
+
+    let network1;
+    if (inputTensor) {
+      network1 = inputTensor.matMul(dfc0W)
+        .add(dfc0B)
+        .relu();
+    }
+
+    let network2;
+    if (generatedTensor) {
+      network2 = generatedTensor.matMul(dfc0W)
+        .add(dfc0B)
+        .relu();
+    }
+
+    for (let i = 0; i < this.numDiscriminatorLayers; ++i) {
+      const dfcW = this.dVariables[2 + i * 2];
+      const dfcB = this.dVariables[3 + i * 2];
+
+      this.dVariables.push(dfcW);
+      this.dVariables.push(dfcB);
+
+      if (inputTensor) {
+        network1 = network1.matMul(dfcW)
+          .add(dfcB)
+          .relu();
+      }
+
+      if (generatedTensor) {
+        network2 = network2.matMul(dfcW)
+          .add(dfcB)
+          .relu();
+      }
+    }
+    const dfcLastW = this.dVariables[2 + this.numDiscriminatorLayers * 2];
+    const dfcLastB = this.dVariables[3 + this.numDiscriminatorLayers * 2];
+
+    const predictionTensor1: dl.Tensor1D = inputTensor ?
+      network1.matMul(dfcLastW)
+        .add(dfcLastB)
+        .sigmoid()
+        .reshape([BATCH_SIZE])
+      : null;
+
+    const predictionTensor2: dl.Tensor1D = generatedTensor ?
+      network2.matMul(dfcLastW)
+        .add(dfcLastB)
+        .sigmoid()
+        .reshape([BATCH_SIZE])
+      : null;
+
+    return { truePred: predictionTensor1, generatedPred: predictionTensor2 };
+  }
+
+  // Define losses.
+  private dLoss(truePred: dl.Tensor1D, generatedPred: dl.Tensor1D) {
+    if (this.lossType === 'LeastSq loss') {
+      return dl.add(
+        truePred.sub(dl.scalar(1)).square().mean(),
+        generatedPred.square().mean()
+      ) as dl.Scalar;
+    } else {
+      return dl.add(
+        truePred.log().mul(dl.scalar(0.9)).mean(),
+        dl.sub(dl.scalar(1), generatedPred).log().mean()
+      ).mul(dl.scalar(-1)) as dl.Scalar;
+    }
+  }
+
+  private gLoss(generatedPred: dl.Tensor1D) {
+    if (this.lossType === 'LeastSq loss') {
+      return generatedPred.sub(dl.scalar(1)).square().mean() as dl.Scalar;
+    } else {
+      return generatedPred.log().mean().mul(dl.scalar(-1)) as dl.Scalar;
+    }
   }
 
   private updateOptimizers(dOrG?: string) {
@@ -1401,10 +1443,10 @@ class GANLab extends GANLabPolymer {
       }
     } else {
       if (dOrG == null || dOrG === 'D') {
-        this.dOptimizer = new dl.SGDOptimizer(this.dLearningRate, this.dNodes);
+        this.dOptimizer = dl.train.sgd(this.dLearningRate);
       }
       if (dOrG == null || dOrG === 'G') {
-        this.gOptimizer = new dl.SGDOptimizer(this.gLearningRate, this.gNodes);
+        this.gOptimizer = dl.train.sgd(this.gLearningRate);
       }
     }
   }

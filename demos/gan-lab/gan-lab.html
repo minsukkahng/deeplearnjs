@@ -556,8 +556,8 @@
             <div id="component-true-prediction" class="model-component"
               style="top: 155px; left: 610px">
               <svg id="svg-true-prediction">
-                <g class="uniform-dots"></g>
-                <g class="true-dots"></g>
+                <g id="svg-true-prediction-uniform-dots"></g>
+                <g id="svg-true-prediction-true-dots"></g>
               </svg>
               <div class="component-label">prediction</div>
             </div>
@@ -655,7 +655,7 @@
               <div id="component-generator" class="model-component"
                 style="top: 5px; left: 5px">
                 <div id="manifold-toggle" class="checkbox-toggle">
-                  <paper-checkbox id="enable-manifold" checked></paper-checkbox>
+                  <paper-checkbox id="enable-manifold"></paper-checkbox>
                 </div>
                 <svg id="svg-generator-manifold"></svg>
                 <div class="component-label">generator</div>
@@ -841,7 +841,7 @@
                     <stop offset="100%" style="stop-color:rgba(231, 85, 178, 0.2);" />
                   </linearGradient>
                 </defs>
-                <g id="vis-manifold"></g>
+                <g id="vis-manifold" style="visibility: hidden;"></g>
                 <rect class="plot-border" width="400" height="400" x="0" y="0"></rect>
               </g>
             </g>

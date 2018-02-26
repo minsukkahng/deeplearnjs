@@ -17,7 +17,6 @@ export class GANLabNoiseProviderBuilder extends
   GANLabInputProviderBuilder {
 
   constructor(
-    //private math: dl.NDArrayMath,
     private noiseSize: number, private noiseType: string,
     private numSamplesVisualized: number, batchSize: number) {
     super(batchSize);

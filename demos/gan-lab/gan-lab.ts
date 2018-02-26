@@ -18,11 +18,12 @@ const BATCH_SIZE = 150;
 const ATLAS_SIZE = 12000;
 const NUM_GRID_CELLS = 30;
 const NUM_MANIFOLD_CELLS = 20;
-const GENERATED_SAMPLES_VISUALIZATION_INTERVAL = 10;
+const GENERATED_SAMPLES_VIS_INTERVAL = 10;
 const NUM_SAMPLES_VISUALIZED = 300;
 const NUM_TRUE_SAMPLES_VISUALIZED = 300;
 const SLOW_INTERVAL_MS = 600;
 
+// Hack to prevent error when using grads (doesn't allow this in model).
 let dVariables: dl.Variable[];
 let numDiscriminatorLayers: number;
 
@@ -413,9 +414,7 @@ class GANLab extends GANLabPolymer {
     this.finishDrawingButton.addEventListener(
       'click', () => this.onClickFinishDrawingButton());
 
-    // Math.
-    this.math = dl.ENV.math;
-
+    // Create a new experiment.
     this.createExperiment();
   }
 
@@ -432,7 +431,7 @@ class GANLab extends GANLabPolymer {
     const dataElements = [
       d3.select('#vis-true-samples').selectAll('.true-dot'),
       d3.select('#svg-real-samples').selectAll('.true-dot'),
-      d3.select('#svg-true-prediction').selectAll('.true-dot'),
+      d3.select('#svg-true-prediction-true-dots').selectAll('.true-dot'),
       d3.select('#vis-true-samples-contour').selectAll('path'),
       d3.select('#svg-noise').selectAll('.noise-dot'),
       d3.select('#vis-generated-samples').selectAll('.generated-dot'),
@@ -440,7 +439,8 @@ class GANLab extends GANLabPolymer {
       d3.select('#svg-generated-prediction').selectAll('.generated-dot'),
       d3.select('#vis-discriminator-output').selectAll('.uniform-dot'),
       d3.select('#svg-discriminator-output').selectAll('.uniform-dot'),
-      d3.select('#svg-prediction').selectAll('.uniform-dot'),
+      d3.select('#svg-true-prediction-uniform-dots').selectAll('.uniform-dot'),
+      d3.select('#svg-generated-prediction').selectAll('.uniform-dot'),
       d3.select('#vis-manifold').selectAll('.uniform-generated-dot'),
       d3.select('#vis-manifold').selectAll('.manifold-cells'),
       d3.select('#vis-manifold').selectAll('.grids'),
@@ -453,14 +453,6 @@ class GANLab extends GANLabPolymer {
     dataElements.forEach((element) => {
       element.data([]).exit().remove();
     });
-
-    // Create a new graph.
-    /*this.buildNetwork();
-
-    if (this.session != null) {
-      this.session.dispose();
-    }
-    this.session = new dl.Session(this.graph, this.math);*/
 
     // Input providers.
     const noiseProviderBuilder =
@@ -592,31 +584,27 @@ class GANLab extends GANLabPolymer {
       .bandwidth(15)
       .thresholds(5);
 
-    const trueContourList = [
-      d3.select('#vis-true-samples-contour')
-        .selectAll('path')
-        .data(contour(trueDistribution))
-    ];
-    trueContourList.forEach((contours) => {
-      contours.enter()
-        .append('path')
-        .attr('fill', (d: any) => color(d.value))
-        .attr('data-value', (d: any) => d.value)
-        .attr('d', geoPath());
-    });
+    d3.select('#vis-true-samples-contour')
+      .selectAll('path')
+      .data(contour(trueDistribution))
+      .enter()
+      .append('path')
+      .attr('fill', (d: any) => color(d.value))
+      .attr('data-value', (d: any) => d.value)
+      .attr('d', geoPath());
 
-    const trueDotsList = [
-      d3.select('#vis-true-samples')
-        .selectAll('.true-dot').data(trueDistribution),
-      d3.select('#svg-real-samples')
-        .selectAll('.true-dot').data(trueDistribution),
-      d3.select('#svg-true-prediction').select('.true-dots')
-        .selectAll('.true-dot').data(trueDistribution)
+    const trueDotsElementList = [
+      '#vis-true-samples',
+      '#svg-real-samples',
+      '#svg-true-prediction-true-dots'
     ];
-    trueDotsList.forEach((dots, k) => {
+    trueDotsElementList.forEach((dotsElement, k) => {
       const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
       const radius = k === 0 ? 2 : 1;
-      dots.enter()
+      d3.select(dotsElement)
+        .selectAll('.true-dot')
+        .data(trueDistribution)
+        .enter()
         .append('circle')
         .attr('class', 'true-dot gan-lab')
         .attr('r', radius)
@@ -715,7 +703,7 @@ class GANLab extends GANLabPolymer {
 
     this.iterationCount++;
 
-    await this.math.scope(async () => {
+    await dl.tidy(async () => {
       const kDSteps = type === "D" ? 1 : (type === "G" ? 0 : this.kDSteps);
       const kGSteps = type === "G" ? 1 : (type === "D" ? 0 : this.kGSteps);
 
@@ -739,7 +727,7 @@ class GANLab extends GANLabPolymer {
       this.iterCountElement.innerText = this.iterationCount;
 
       if (!keepIterating || this.iterationCount === 1 || this.slowMode ||
-        this.iterationCount % GENERATED_SAMPLES_VISUALIZATION_INTERVAL === 0) {
+        this.iterationCount % GENERATED_SAMPLES_VIS_INTERVAL === 0) {
 
         if (this.slowMode) {
           await this.sleep(SLOW_INTERVAL_MS);
@@ -781,33 +769,31 @@ class GANLab extends GANLabPolymer {
         }
 
         // Visualize discriminator's output.
-        const dData = [];
+        const dData: number[] = [];
         for (let i = 0; i < NUM_GRID_CELLS * NUM_GRID_CELLS / BATCH_SIZE; ++i) {
           const inputBatch =
             this.uniformInputProvider.getNextCopy() as dl.Tensor2D;
           const result = this.modelDiscriminator(inputBatch);
           const resultData = result.dataSync();
-          //const resultData = await result.data();
           for (let j = 0; j < resultData.length; ++j) {
             dData.push(resultData[j]);
           }
         }
 
-        const gridDotsList = [
-          d3.select('#vis-discriminator-output')
-            .selectAll('.uniform-dot').data(dData),
-          d3.select('#svg-discriminator-output')
-            .selectAll('.uniform-dot').data(dData),
-          d3.select('#svg-true-prediction').select('.uniform-dots')
-            .selectAll('.uniform-dot').data(dData),
-          d3.select('#svg-generated-prediction')
-            .selectAll('.uniform-dot').data(dData)
+        const gridDotsElementList = [
+          '#vis-discriminator-output',
+          '#svg-discriminator-output',
+          '#svg-true-prediction-uniform-dots',
+          '#svg-generated-prediction'
         ];
         if (this.iterationCount === 1) {
-          gridDotsList.forEach((dots, k) => {
+          gridDotsElementList.forEach((dotsElement, k) => {
             const plotSizePx = k === 0 ? this.plotSizePx :
               (k === 1 ? this.mediumPlotSizePx : this.smallPlotSizePx);
-            dots.enter()
+            d3.select(dotsElement)
+              .selectAll('.uniform-dot')
+              .data(dData)
+              .enter()
               .append('rect')
               .attr('class', 'uniform-dot gan-lab')
               .attr('width', plotSizePx / NUM_GRID_CELLS)
@@ -826,9 +812,12 @@ class GANLab extends GANLabPolymer {
               .text((d: number) => Number(d).toFixed(3));
           });
         }
-        gridDotsList.forEach((dots) => {
-          dots.style('fill', (d: number) => this.colorScale(d));
-          dots.select('title').text((d: number) => Number(d).toFixed(3));
+        gridDotsElementList.forEach((dotsElement) => {
+          d3.select(dotsElement)
+            .selectAll('.uniform-dot')
+            .data(dData)
+            .style('fill', (d: number) => this.colorScale(d))
+            .select('title').text((d: number) => Number(d).toFixed(3));
         });
 
         if (this.slowMode) {
@@ -848,21 +837,62 @@ class GANLab extends GANLabPolymer {
         }
       }
 
+      // Visualize generated samples before training.
+      const gDataBefore: Array<[number, number]> = [];
+      const noiseFixedBatch =
+        this.noiseProviderFixed.getNextCopy() as dl.Tensor2D;
+      const gResult = this.modelGenerator(noiseFixedBatch);
+      const gResultData = gResult.dataSync();
+      for (let j = 0; j < gResultData.length / 2; ++j) {
+        gDataBefore.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
+      }
+
+      const gDotsElementList = [
+        '#vis-generated-samples',
+        '#svg-generated-samples',
+        '#svg-generated-prediction'
+      ];
+      if (this.iterationCount === 1) {
+        gDotsElementList.forEach((dotsElement, k) => {
+          const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
+          const radius = k === 0 ? 2 : 1;
+          d3.select(dotsElement).selectAll('.generated-dot')
+            .data(gDataBefore)
+            .enter()
+            .append('circle')
+            .attr('class', 'generated-dot gan-lab')
+            .attr('r', radius)
+            .attr('cx', (d: number[]) => d[0] * plotSizePx)
+            .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx);
+        });
+      } else if (!keepIterating || this.slowMode ||
+        this.iterationCount % GENERATED_SAMPLES_VIS_INTERVAL === 0) {
+        gDotsElementList.forEach((dotsElement, k) => {
+          const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
+          d3Transition.transition()
+            .select(dotsElement)
+            .selectAll('.generated-dot')
+            .selection().data(gDataBefore)
+            .transition().duration(SLOW_INTERVAL_MS / 600)
+            .attr('cx', (d: number[]) => d[0] * plotSizePx)
+            .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx);
+        });
+      }
+
       // Compute and store gradients before training.
       const gradData: Array<[number, number, number, number]> = [];
       if (!keepIterating || this.iterationCount === 1 || this.slowMode ||
-        this.iterationCount % GENERATED_SAMPLES_VISUALIZATION_INTERVAL === 0) {
+        this.iterationCount % GENERATED_SAMPLES_VIS_INTERVAL === 0) {
         const gradFunction = dl.grad(this.modelDiscriminator);
         const noiseFixedBatchForGrad =
           this.noiseProviderFixed.getNextCopy() as dl.Tensor2D;
         const gSamples = this.modelGenerator(noiseFixedBatchForGrad);
         const grad = gradFunction(gSamples);
-        const gActivation = gSamples.dataSync();
         const gGradient = grad.dataSync();
 
-        for (let i = 0; i < gActivation.length / 2; ++i) {
+        for (let i = 0; i < gResultData.length / 2; ++i) {
           gradData.push([
-            gActivation[i * 2], gActivation[i * 2 + 1],
+            gResultData[i * 2], gResultData[i * 2 + 1],
             gGradient[i * 2], gGradient[i * 2 + 1]
           ]);
         }
@@ -882,7 +912,7 @@ class GANLab extends GANLabPolymer {
       }
 
       if (!keepIterating || this.iterationCount === 1 || this.slowMode ||
-        this.iterationCount % GENERATED_SAMPLES_VISUALIZATION_INTERVAL === 0) {
+        this.iterationCount % GENERATED_SAMPLES_VIS_INTERVAL === 0) {
         // Update generator loss.
         if (gCostVal) {
           document.getElementById('g-loss-value')!.innerText =
@@ -915,23 +945,20 @@ class GANLab extends GANLabPolymer {
 
         // Visualize gradients for generator.
         // Values already computed above.
-        const gradDotsList = [
-          d3.select('#vis-generator-gradients')
-            .selectAll('.gradient-generated').data(gradData),
-          d3.select('#svg-generator-gradients')
-            .selectAll('.gradient-generated').data(gradData)
+        const gradDotsElementList = [
+          '#vis-generator-gradients',
+          '#svg-generator-gradients'
         ];
-        //const gradDotsElementList = [
-        //  '#vis-generator-gradients',
-        //  '#svg-generator-gradients'
-        //];
         if (this.iterationCount === 1) {
-          gradDotsList.forEach((dots, k) => {
+          gradDotsElementList.forEach((dotsElement, k) => {
             const plotSizePx = k === 0 ?
               this.plotSizePx : this.smallPlotSizePx;
             const arrowSize = 0.25;
             const arrowWidth = k === 0 ? 0.002 : 0.001;
-            dots.enter()
+            d3.select(dotsElement)
+              .selectAll('.gradient-generated')
+              .data(gradData)
+              .enter()
               .append('polygon')
               .attr('class', 'gradient-generated gan-lab')
               .attr('points', (d: number[]) => {
@@ -951,15 +978,17 @@ class GANLab extends GANLabPolymer {
           });
         }
 
-        gradDotsList.forEach((dots, k) => {
+        gradDotsElementList.forEach((dotsElement, k) => {
           const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
           const arrowSize = 0.25;
           const arrowWidth = k === 0 ? 0.002 : 0.001;
-          //d3Transition.transition()//.duration(1000)
-          //  .select(gradDotsElementList[k])
-          //  .selectAll('.gradient-generated').selection().data(gradData)
-          //  .transition().duration(SLOW_INTERVAL_MS)
-          dots
+          d3Transition.transition()
+            .select(dotsElement)
+            .selectAll('.gradient-generated').selection().data(gradData)
+            .transition().duration(SLOW_INTERVAL_MS)
+            /*d3.select(dotsElement)
+              .selectAll('.gradient-generated')
+              .data(gradData)*/
             .attr('points', (d: number[]) => {
               const gradSize = Math.sqrt(
                 d[2] * d[2] + d[3] * d[3] + 0.00000001);
@@ -1002,7 +1031,6 @@ class GANLab extends GANLabPolymer {
               this.uniformNoiseProvider.getNextCopy() as dl.Tensor2D;
             const result = this.modelGenerator(noiseBatch);
             const maniResult: TypedArray = result.dataSync() as TypedArray;
-            //const maniResult: TypedArray = await result.data() as TypedArray;
             for (let i = 0; i < (k + 1 < numBatches ?
               BATCH_SIZE : BATCH_SIZE - remainingDummy); ++i) {
               manifoldData.push(maniResult.slice(i * 2, i * 2 + 2));
@@ -1112,41 +1140,15 @@ class GANLab extends GANLabPolymer {
         const noiseFixedBatch =
           this.noiseProviderFixed.getNextCopy() as dl.Tensor2D;
         const gResult = this.modelGenerator(noiseFixedBatch);
-        //const gResultData = await gResult.data();
         const gResultData = gResult.dataSync();
         for (let j = 0; j < gResultData.length / 2; ++j) {
           gData.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
         }
 
-        const gDotsList = [
-          d3.select('#vis-generated-samples')
-            .selectAll('.generated-dot').data(gData),
-          d3.select('#svg-generated-samples')
-            .selectAll('.generated-dot').data(gData),
-          d3.select('#svg-generated-prediction')
-            .selectAll('.generated-dot').data(gData)
-        ];
-        const gDotsElementList = [
-          '#vis-generated-samples',
-          '#svg-generated-samples',
-          '#svg-generated-prediction'
-        ];
-        if (this.iterationCount === 1) {
-          gDotsList.forEach((dots, k) => {
-            const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
-            const radius = k === 0 ? 2 : 1;
-            dots.enter()
-              .append('circle')
-              .attr('class', 'generated-dot gan-lab')
-              .attr('r', radius)
-              .attr('cx', (d: number[]) => d[0] * plotSizePx)
-              .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx);
-          });
-        }
-        gDotsList.forEach((dots, k) => {
+        gDotsElementList.forEach((dotsElement, k) => {
           const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
           d3Transition.transition()
-            .select(gDotsElementList[k])
+            .select(dotsElement)
             .selectAll('.generated-dot')
             .selection().data(gData)
             .transition().duration(SLOW_INTERVAL_MS)
@@ -1335,7 +1337,7 @@ class GANLab extends GANLabPolymer {
     this.dVariables.push(dfcLastW);
     this.dVariables.push(dfcLastB);
 
-    // Hack for preventing error when using gradients.
+    // Hack to prevent error when using grads (doesn't allow this in model).
     dVariables = this.dVariables;
     numDiscriminatorLayers = this.numDiscriminatorLayers;
   }
@@ -1365,8 +1367,7 @@ class GANLab extends GANLabPolymer {
 
     const generatedTensor: dl.Tensor2D = network.matMul(gfcLastW)
       .add(gfcLastB)
-      .sigmoid() as dl.Tensor2D;
-    //.tanh() as dl.Tensor2D;
+      .tanh() as dl.Tensor2D;
 
     return generatedTensor;
   }
@@ -1389,8 +1390,10 @@ class GANLab extends GANLabPolymer {
         .relu();
     }
     const dfcLastW =
-      /*this.*/dVariables[2 + /*this.*/numDiscriminatorLayers * 2] as dl.Tensor2D;
-    const dfcLastB = /*this.*/dVariables[3 + /*this.*/numDiscriminatorLayers * 2];
+      /*this.*/dVariables[2 + /*this.*/numDiscriminatorLayers * 2] as
+      dl.Tensor2D;
+    const dfcLastB =
+      /*this.*/dVariables[3 + /*this.*/numDiscriminatorLayers * 2];
 
     const predictionTensor: dl.Tensor1D =
       network.matMul(dfcLastW)

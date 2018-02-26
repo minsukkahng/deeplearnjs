@@ -110,7 +110,7 @@ export class GANLabUniformNoiseProviderBuilder extends
   GANLabInputProviderBuilder {
 
   constructor(
-    private math: dl.NDArrayMath, private noiseSize: number,
+    private noiseSize: number,
     private numManifoldCells: number, batchSize: number) {
     super(batchSize);
   }
@@ -146,15 +146,13 @@ export class GANLabUniformNoiseProviderBuilder extends
           Math.pow(provider.numManifoldCells + 1, provider.noiseSize)) {
           provider.providerCounter = 0;
         }
-        return provider.math.scope(() => {
-          const begin: [number, number] = [
+        return provider.atlas.slice(
+          [
             (provider.providerCounter * provider.batchSize) %
             Math.pow(provider.numManifoldCells + 1, provider.noiseSize),
             0
-          ];
-          return provider.math.slice2D(provider.atlas, begin,
-            [provider.batchSize, provider.noiseSize]);
-        });
+          ],
+          [provider.batchSize, provider.noiseSize]);
       },
       disposeCopy(copy: dl.Tensor) {
         copy.dispose();

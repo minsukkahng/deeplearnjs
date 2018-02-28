@@ -1264,75 +1264,60 @@ class GANLab extends GANLabPolymer {
 
     // Generator.
     const gfc0W = dl.variable(
-      dl.Tensor2D.randNormal(
-        [this.noiseSize, this.numGeneratorNeurons], 0, 1.0 / Math.sqrt(2)),
-      true);
+      dl.randomNormal(
+        [this.noiseSize, this.numGeneratorNeurons], 0, 1.0 / Math.sqrt(2)));
     const gfc0B = dl.variable(
-      dl.Tensor1D.zeros([this.numGeneratorNeurons]), true);
+      dl.zeros([this.numGeneratorNeurons]));
 
     this.gVariables.push(gfc0W);
     this.gVariables.push(gfc0B);
 
     for (let i = 0; i < this.numGeneratorLayers; ++i) {
       const gfcW = dl.variable(
-        dl.Tensor2D.randNormal(
+        dl.randomNormal(
           [this.numGeneratorNeurons, this.numGeneratorNeurons], 0,
-          1.0 / Math.sqrt(this.numGeneratorNeurons)),
-        true);
-      const gfcB = dl.variable(
-        dl.Tensor1D.zeros([this.numGeneratorNeurons]),
-        true);
+          1.0 / Math.sqrt(this.numGeneratorNeurons)));
+      const gfcB = dl.variable(dl.zeros([this.numGeneratorNeurons]));
 
       this.gVariables.push(gfcW);
       this.gVariables.push(gfcB);
     }
 
     const gfcLastW = dl.variable(
-      dl.Tensor2D.randNormal(
+      dl.randomNormal(
         [this.numGeneratorNeurons, 2], 0,
-        1.0 / Math.sqrt(this.numGeneratorNeurons)),
-      true);
-    const gfcLastB = dl.variable(
-      dl.Tensor1D.zeros([2]), true);
+        1.0 / Math.sqrt(this.numGeneratorNeurons)));
+    const gfcLastB = dl.variable(dl.zeros([2]));
 
     this.gVariables.push(gfcLastW);
     this.gVariables.push(gfcLastB);
 
     // Discriminator.
     const dfc0W = dl.variable(
-      dl.Tensor2D.randNormal(
+      dl.randomNormal(
         [2, this.numDiscriminatorNeurons], 0, 1.0 / Math.sqrt(2)),
       true);
-    const dfc0B = dl.variable(
-      dl.Tensor1D.randNormal(
-        [this.numDiscriminatorNeurons], 0,
-        1.0 / Math.sqrt(this.numDiscriminatorNeurons)),
-      true);
+    const dfc0B = dl.variable(dl.zeros([this.numDiscriminatorNeurons]));
 
     this.dVariables.push(dfc0W);
     this.dVariables.push(dfc0B);
 
     for (let i = 0; i < this.numDiscriminatorLayers; ++i) {
       const dfcW = dl.variable(
-        dl.Tensor2D.randNormal(
+        dl.randomNormal(
           [this.numDiscriminatorNeurons, this.numDiscriminatorNeurons], 0,
-          1.0 / Math.sqrt(this.numDiscriminatorNeurons)),
-        true);
-      const dfcB = dl.variable(
-        dl.Tensor1D.zeros([this.numDiscriminatorNeurons]),
-        true);
+          1.0 / Math.sqrt(this.numDiscriminatorNeurons)));
+      const dfcB = dl.variable(dl.zeros([this.numDiscriminatorNeurons]));
 
       this.dVariables.push(dfcW);
       this.dVariables.push(dfcB);
     }
 
     const dfcLastW = dl.variable(
-      dl.Tensor2D.randNormal(
+      dl.randomNormal(
         [this.numDiscriminatorNeurons, 1], 0,
-        1.0 / Math.sqrt(this.numDiscriminatorNeurons)),
-      true);
-    const dfcLastB = dl.variable(
-      dl.Tensor1D.zeros([1]), true);
+        1.0 / Math.sqrt(this.numDiscriminatorNeurons)));
+    const dfcLastB = dl.variable(dl.zeros([1]));
 
     this.dVariables.push(dfcLastW);
     this.dVariables.push(dfcLastB);

@@ -24,11 +24,11 @@ export class GANLabNoiseProviderBuilder extends
 
   generateAtlas() {
     if (this.noiseType === "Gaussian") {
-      this.atlas = dl.Tensor2D.randTruncatedNormal(
+      this.atlas = dl.truncatedNormal(
         [this.numSamplesVisualized * this.batchSize, this.noiseSize],
         0.5, 0.25);
     } else {
-      this.atlas = dl.Tensor2D.randUniform(
+      this.atlas = dl.randomUniform(
         [this.numSamplesVisualized * this.batchSize, this.noiseSize],
         0.0, 1.0);
     }

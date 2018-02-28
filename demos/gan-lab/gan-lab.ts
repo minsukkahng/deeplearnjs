@@ -16,12 +16,15 @@ import * as gan_lab_evaluators from './gan_lab_evaluators';
 
 const BATCH_SIZE = 150;
 const ATLAS_SIZE = 12000;
+
 const NUM_GRID_CELLS = 30;
 const NUM_MANIFOLD_CELLS = 20;
-const GENERATED_SAMPLES_VIS_INTERVAL = 10;
 const NUM_SAMPLES_VISUALIZED = 300;
 const NUM_TRUE_SAMPLES_VISUALIZED = 300;
-const SLOW_INTERVAL_MS = 600;
+
+const VIS_INTERVAL = 50;
+const EPOCH_INTERVAL = 10;
+const SLOW_INTERVAL_MS = 1000;
 
 // Hack to prevent error when using grads (doesn't allow this in model).
 let dVariables: dl.Variable[];
@@ -70,6 +73,8 @@ class GANLab extends GANLabPolymer {
   private kGSteps: number;
 
   private plotSizePx: number;
+
+  private gDotsElementList: string[];
 
   private evaluator: gan_lab_evaluators.GANLabEvaluatorGridDensities;
 
@@ -399,9 +404,15 @@ class GANLab extends GANLabPolymer {
     this.mediumPlotSizePx = 140;
     this.smallPlotSizePx = 80;
 
-    this.colorScale = scaleLinear<string>().domain([0.0, 0.5, 1.0]).range([
+    this.colorScale = scaleLinear<string>().domain([0.0, 0.4975, 0.95]).range([
       '#af8dc3', '#f5f5f5', '#7fbf7b'
     ]);
+
+    this.gDotsElementList = [
+      '#vis-generated-samples',
+      '#svg-generated-samples',
+      '#svg-generated-prediction'
+    ];
 
     // Drawing-related.
     this.canvas =
@@ -625,25 +636,21 @@ class GANLab extends GANLabPolymer {
       noiseSamples.push(values);
     }
 
-    if (this.noiseSize === 1) {
-      d3.select('#svg-noise')
-        .selectAll('.noise-dot').data(noiseSamples)
-        .enter()
-        .append('circle')
-        .attr('class', 'noise-dot gan-lab')
-        .attr('r', 1)
-        .attr('cx', (d: number[]) => d[0] * this.smallPlotSizePx)
-        .attr('cy', this.smallPlotSizePx / 2);
-    } else if (this.noiseSize >= 2) {
-      d3.select('#svg-noise')
-        .selectAll('.noise-dot').data(noiseSamples)
-        .enter()
-        .append('circle')
-        .attr('class', 'noise-dot gan-lab')
-        .attr('r', 1)
-        .attr('cx', (d: number[]) => d[0] * this.smallPlotSizePx)
-        .attr('cy', (d: number[]) => (1.0 - d[1]) * this.smallPlotSizePx);
-    }
+    d3.select('#svg-noise')
+      .selectAll('.noise-dot')
+      .data(noiseSamples)
+      .enter()
+      .append('circle')
+      .attr('class', 'noise-dot gan-lab')
+      .attr('r', 1)
+      .attr('cx', (d: number[]) => d[0] * this.smallPlotSizePx)
+      .attr('cy', (d: number[]) => this.noiseSize === 1
+        ? this.smallPlotSizePx / 2
+        : (1.0 - d[1]) * this.smallPlotSizePx)
+      .append('title')
+      .text((d: number[], i: number) => this.noiseSize === 1
+        ? `${Number(d[0]).toFixed(2)} (${i})`
+        : `${Number(d[0]).toFixed(2)},${Number(d[1]).toFixed(2)} (${i})`);
   }
 
   private onClickFinishDrawingButton() {
@@ -724,10 +731,13 @@ class GANLab extends GANLabPolymer {
         }
       }
 
-      this.iterCountElement.innerText = this.iterationCount;
+      if (!keepIterating || this.iterationCount === 1 || this.slowMode ||
+        this.iterationCount % EPOCH_INTERVAL === 0) {
+        this.iterCountElement.innerText = this.iterationCount;
+      }
 
       if (!keepIterating || this.iterationCount === 1 || this.slowMode ||
-        this.iterationCount % GENERATED_SAMPLES_VIS_INTERVAL === 0) {
+        this.iterationCount % VIS_INTERVAL === 0) {
 
         if (this.slowMode) {
           await this.sleep(SLOW_INTERVAL_MS);
@@ -838,51 +848,52 @@ class GANLab extends GANLabPolymer {
       }
 
       // Visualize generated samples before training.
-      const gDataBefore: Array<[number, number]> = [];
-      const noiseFixedBatch =
-        this.noiseProviderFixed.getNextCopy() as dl.Tensor2D;
-      const gResult = this.modelGenerator(noiseFixedBatch);
-      const gResultData = gResult.dataSync();
-      for (let j = 0; j < gResultData.length / 2; ++j) {
-        gDataBefore.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
-      }
+      let gResultData;
+      if (!keepIterating || this.iterationCount === 1 || this.slowMode ||
+        this.iterationCount % VIS_INTERVAL === 0) {
+        const gDataBefore: Array<[number, number]> = [];
+        const noiseFixedBatch =
+          this.noiseProviderFixed.getNextCopy() as dl.Tensor2D;
+        const gResult = this.modelGenerator(noiseFixedBatch);
+        gResultData = gResult.dataSync();
+        for (let j = 0; j < gResultData.length / 2; ++j) {
+          gDataBefore.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
+        }
 
-      const gDotsElementList = [
-        '#vis-generated-samples',
-        '#svg-generated-samples',
-        '#svg-generated-prediction'
-      ];
-      if (this.iterationCount === 1) {
-        gDotsElementList.forEach((dotsElement, k) => {
-          const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
-          const radius = k === 0 ? 2 : 1;
-          d3.select(dotsElement).selectAll('.generated-dot')
-            .data(gDataBefore)
-            .enter()
-            .append('circle')
-            .attr('class', 'generated-dot gan-lab')
-            .attr('r', radius)
-            .attr('cx', (d: number[]) => d[0] * plotSizePx)
-            .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx);
-        });
-      } else if (!keepIterating || this.slowMode ||
-        this.iterationCount % GENERATED_SAMPLES_VIS_INTERVAL === 0) {
-        gDotsElementList.forEach((dotsElement, k) => {
-          const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
-          d3Transition.transition()
-            .select(dotsElement)
-            .selectAll('.generated-dot')
-            .selection().data(gDataBefore)
-            .transition().duration(SLOW_INTERVAL_MS / 600)
-            .attr('cx', (d: number[]) => d[0] * plotSizePx)
-            .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx);
-        });
+        if (this.iterationCount === 1) {
+          this.gDotsElementList.forEach((dotsElement, k) => {
+            const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
+            const radius = k === 0 ? 2 : 1;
+            d3.select(dotsElement).selectAll('.generated-dot')
+              .data(gDataBefore)
+              .enter()
+              .append('circle')
+              .attr('class', 'generated-dot gan-lab')
+              .attr('r', radius)
+              .attr('cx', (d: number[]) => d[0] * plotSizePx)
+              .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx)
+              .append('title')
+              .text((d: number[]) =>
+                `${Number(d[0]).toFixed(2)},${Number(d[1]).toFixed(2)}`);
+          });
+        } else {
+          this.gDotsElementList.forEach((dotsElement, k) => {
+            const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
+            d3Transition.transition()
+              .select(dotsElement)
+              .selectAll('.generated-dot')
+              .selection().data(gDataBefore)
+              .transition().duration(SLOW_INTERVAL_MS / 600)
+              .attr('cx', (d: number[]) => d[0] * plotSizePx)
+              .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx);
+          });
+        }
       }
 
       // Compute and store gradients before training.
       const gradData: Array<[number, number, number, number]> = [];
       if (!keepIterating || this.iterationCount === 1 || this.slowMode ||
-        this.iterationCount % GENERATED_SAMPLES_VIS_INTERVAL === 0) {
+        this.iterationCount % VIS_INTERVAL === 0) {
         const gradFunction = dl.grad(this.modelDiscriminator);
         const noiseFixedBatchForGrad =
           this.noiseProviderFixed.getNextCopy() as dl.Tensor2D;
@@ -912,7 +923,7 @@ class GANLab extends GANLabPolymer {
       }
 
       if (!keepIterating || this.iterationCount === 1 || this.slowMode ||
-        this.iterationCount % GENERATED_SAMPLES_VIS_INTERVAL === 0) {
+        this.iterationCount % VIS_INTERVAL === 0) {
         // Update generator loss.
         if (gCostVal) {
           document.getElementById('g-loss-value')!.innerText =
@@ -1139,13 +1150,14 @@ class GANLab extends GANLabPolymer {
         const gData: Array<[number, number]> = [];
         const noiseFixedBatch =
           this.noiseProviderFixed.getNextCopy() as dl.Tensor2D;
+        //const noiseData = noiseFixedBatch.dataSync();
         const gResult = this.modelGenerator(noiseFixedBatch);
         const gResultData = gResult.dataSync();
         for (let j = 0; j < gResultData.length / 2; ++j) {
           gData.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
         }
 
-        gDotsElementList.forEach((dotsElement, k) => {
+        this.gDotsElementList.forEach((dotsElement, k) => {
           const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
           d3Transition.transition()
             .select(dotsElement)
@@ -1153,7 +1165,9 @@ class GANLab extends GANLabPolymer {
             .selection().data(gData)
             .transition().duration(SLOW_INTERVAL_MS)
             .attr('cx', (d: number[]) => d[0] * plotSizePx)
-            .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx);
+            .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx)
+            .select('title').text((d: number[], i: number) =>
+              `${Number(d[0]).toFixed(2)},${Number(d[1]).toFixed(2)} (${i})`);
         });
 
         // Simple grid-based evaluation.
@@ -1398,7 +1412,7 @@ class GANLab extends GANLabPolymer {
       ) as dl.Scalar;
     } else {
       return dl.add(
-        truePred.log().mul(dl.scalar(0.9)).mean(),
+        truePred.log().mul(dl.scalar(0.95)).mean(),
         dl.sub(dl.scalar(1), generatedPred).log().mean()
       ).mul(dl.scalar(-1)) as dl.Scalar;
     }
@@ -1459,8 +1473,8 @@ class GANLab extends GANLabPolymer {
       this.evalChart.destroy();
     }
     const evalChartSpecification = [
-      { label: 'KL Divergence (grid)', color: 'rgba(120, 220, 64, 0.5)' },
-      { label: 'JS Divergence (grid)', color: 'rgba(220, 120, 64, 0.5)' }
+      { label: 'KL Divergence (grid)', color: 'rgba(220, 80, 20, 0.5)' },
+      { label: 'JS Divergence (grid)', color: 'rgba(200, 150, 10, 0.5)' }
     ];
     this.evalChart = this.createChart(
       'eval-chart', this.evalChartData, evalChartSpecification, 0);

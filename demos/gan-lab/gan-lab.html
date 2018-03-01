@@ -12,7 +12,7 @@
 <dom-module id="gan-lab">
   <style>
     #gan-lab-container {
-      background-color: #fafafa;
+      background-color: #f7f7f7;
       width: 100%;
     }
 
@@ -88,7 +88,7 @@
       border: 1px solid rgba(0, 0, 0, 0.1);
       border-width: 0 0 0 1px;
       padding: 25px;
-      width: 240px;
+      width: 210px;
     }
 
     #model-visualization-container {
@@ -143,7 +143,8 @@
     }
 
     .model-component-group {
-      background-color: #666;
+      background-color: rgb(128, 128, 128);
+      border-radius: 3px;
       height: 165px;
       position: absolute;
       width: 150px;
@@ -158,33 +159,27 @@
     }
 
     .model-component {
-      padding-top: 3px;
+      padding-top: 4px;
       position: absolute;
       text-align: center;
-      width: 95px;
+      width: 90px;
     }
 
     .model-component svg {
       background-color: #fff;
       border: 1px solid #ddd;
+      border-radius: 2px;
       height: 75px;
       width: 75px;
     }
 
     .model-component-group .model-component {
-      color: #fff;
-      width: 140px;
+      width: 144px;
     }
 
     .model-component-group .model-component svg {
-      height: 135px;
-      width: 135px;
-    }
-
-    .component-label {
-      font-size: 13px;
-      font-weight: bold;
-      line-height: 16px;
+      height: 140px;
+      width: 140px;
     }
 
     .model-component-options {
@@ -193,9 +188,20 @@
       width: 100px;
     }
 
+    .component-label {
+      color: #000;
+      font-size: 13px;
+      line-height: 16px;
+    }
+
+    .model-component-group .component-label {
+      color: #fff;
+    }
+
     .config-item {
       line-height: 14px;
       margin: 0;
+      width: 70px;
     }
 
     .config-item label {
@@ -205,13 +211,15 @@
     }
 
     .checkbox-toggle {
-      right: 1px;
+      right: -2px;
       position: absolute;
+      top: -2px;
     }
 
     paper-checkbox {
       --paper-checkbox-checked-color: var(--paper-grey-400);
       --paper-checkbox-unchecked-color: var(--paper-grey-500);
+      --paper-checkbox-size: 10px;
     }
 
     #model-visualization-container .mdl-button--icon {
@@ -236,7 +244,9 @@
       --paper-input-container: {
         padding: 0;
       };
+      --paper-input-container-color: rgb(146, 146, 146);
       --paper-input-container-input: {
+        color: #666;
         font-size: 13px;
       };
       --paper-input-container-label: {
@@ -296,7 +306,7 @@
     }
 
     .gradient-generated {
-      fill: rgba(207, 28, 126, 0.8);
+      fill: rgba(196, 20, 219, 0.5);
       stroke-width: 0;
     }
 
@@ -434,24 +444,24 @@
 
             <div id="component-d-loss" class="model-component"
               style="top: 210px; left: 725px">
-              <div class="component-label">discriminator<br>loss</div>
+              <div class="component-label">discriminator<br />loss</div>
               <div class="component-value">
-                <span id="d-loss-value" title="log loss">-</span>
+                <span id="d-loss-value" title="log loss"></span>
                 (<span id="d-loss-value-simple" title="simple absolute loss"></span>)
               </div>
             </div>
 
             <div id="component-g-loss" class="model-component"
               style="top: 295px; left: 725px">
-              <div class="component-label">generator<br>loss</div>
+              <div class="component-label">generator<br />loss</div>
               <div class="component-value">
-                <span id="g-loss-value" title="log loss">-</span>
+                <span id="g-loss-value" title="log loss"></span>
                 (<span id="g-loss-value-simple" title="simple absolute loss"></span>)
               </div>
             </div>
 
             <div id="component-options-loss" class="model-component"
-            style="top: 130px; left: 710px">
+            style="top: 120px; left: 700px">
               <div class="config-item">
                 <paper-dropdown-menu no-animations no-label>
                   <paper-listbox attr-for-selected="value"
@@ -468,8 +478,8 @@
             </div>
 
             <div id="component-d-loop" class="model-component"
-              style="top: 32px; left: 620px; width: 150px">
-              <div class="config-item">
+              style="top: 31px; left: 620px">
+              <div class="config-item" style="width: 150px">
                 <button class="mdl-button mdl-js-button mdl-button--icon"
                   id="k-d-steps-add-button" title="Increase a step">
                   <i class="material-icons">add</i>
@@ -483,8 +493,8 @@
             </div>
 
             <div id="component-g-loop" class="model-component"
-              style="top: 458px; left: 620px; width: 150px">
-              <div class="config-item">
+              style="top: 457px; left: 620px">
+              <div class="config-item" style="width: 150px">
                 <button class="mdl-button mdl-js-button mdl-button--icon"
                   id="k-g-steps-add-button" title="Increase a step">
                   <i class="material-icons">add</i>
@@ -571,17 +581,19 @@
             <div id="group-discriminator" class="model-component-group"
               style="top: 160px; left: 435px">
               <div id="component-discriminator" class="model-component"
-                style="top: 5px; left: 5px">
-                <div id="overlap-toggle" class="checkbox-toggle">
-                  <paper-checkbox id="overlap-plots" checked></paper-checkbox>
-                </div>
+                style="top: 0px; left: 3px">
                 <svg id="svg-discriminator-output"></svg>
                 <div class="component-label">discriminator</div>
               </div>
 
+              <div id="overlap-toggle" class="checkbox-toggle">
+                <paper-checkbox id="overlap-plots" checked
+                  title="show/hide discriminator's prediction"></paper-checkbox>
+              </div>
+
               <div id="component-options-discriminator" class="model-component-options"
-                style="top: 10px; left: 5px; width: 125px">
-                <div class="config-item">
+                style="top: 10px; left: 8px">
+                <div class="config-item" style="width: 115px">
                   <button class="mdl-button mdl-js-button mdl-button--icon"
                     id="d-layers-add-button" title="Add a layer">
                     <i class="material-icons">add</i>
@@ -591,8 +603,7 @@
                     <i class="material-icons">remove</i>
                   </button>
                   <label><span id="num-d-layers">1</span> hidden layer(s)</label>
-                </div>
-                <div class="config-item">
+                  <br />
                   <button class="mdl-button mdl-js-button mdl-button--icon"
                     id="d-neurons-add-button" title="Add a neuron for each layer">
                     <i class="material-icons">add</i>
@@ -612,29 +623,30 @@
             </div>
 
             <div id="component-true-distribution" class="model-component"
-              style="top: 70px; left: 315px">
-              <div id="t-contour-toggle" class="checkbox-toggle">
-                <paper-checkbox class="tiny" id="show-t-contour"></paper-checkbox>
+              style="top: 70px; left: 305px">
+              <div class="config-item" style="width: 100px">
+                <paper-dropdown-menu no-animations label="True Distribution">
+                  <paper-listbox attr-for-selected="value" id="shape-dropdown" class="dropdown-content" selected="{{selectedShapeName}}">
+                    <template is="dom-repeat" items="[[shapeNames]]">
+                      <paper-item value="[[item]]" label="[[item]]">
+                        [[item]]
+                      </paper-item>
+                    </template>
+                  </paper-listbox>
+                </paper-dropdown-menu>
               </div>
-              <br>
-              <div class="config-item">
-                <div>
-                  <paper-dropdown-menu no-animations label="True Distribution">
-                    <paper-listbox attr-for-selected="value" id="shape-dropdown" class="dropdown-content" selected="{{selectedShapeName}}">
-                      <template is="dom-repeat" items="[[shapeNames]]">
-                        <paper-item value="[[item]]" label="[[item]]">
-                          [[item]]
-                        </paper-item>
-                      </template>
-                    </paper-listbox>
-                  </paper-dropdown-menu>
-                </div>
+              <br />
+              <div id="t-contour-toggle" class="checkbox-toggle"
+                title="show/hide true distribution's contour"
+                style="top: 6px; right: -10px">
+                <paper-checkbox class="tiny" id="show-t-contour"></paper-checkbox>
               </div>
             </div>
 
             <div id="component-real-samples" class="model-component"
               style="top: 155px; left: 315px">
-              <div id="t-samples-toggle" class="checkbox-toggle">
+              <div id="t-samples-toggle" class="checkbox-toggle"
+                title="show/hide true samples">
                 <paper-checkbox id="show-t-samples" checked></paper-checkbox>
               </div>
               <svg id="svg-real-samples"></svg>
@@ -643,7 +655,8 @@
 
             <div id="component-generated-samples" class="model-component"
               style="top: 250px; left: 315px">
-              <div id="g-samples-toggle" class="checkbox-toggle">
+              <div id="g-samples-toggle" class="checkbox-toggle"
+                title="show/hide generated samples">
                 <paper-checkbox id="show-g-samples" checked></paper-checkbox>
               </div>
               <svg id="svg-generated-samples"></svg>
@@ -653,17 +666,19 @@
             <div id="group-generator" class="model-component-group"
               style="top: 160px; left: 140px">
               <div id="component-generator" class="model-component"
-                style="top: 5px; left: 5px">
-                <div id="manifold-toggle" class="checkbox-toggle">
-                  <paper-checkbox id="enable-manifold"></paper-checkbox>
-                </div>
+                style="top: 0px; left: 3px">
                 <svg id="svg-generator-manifold"></svg>
                 <div class="component-label">generator</div>
               </div>
 
+              <div id="manifold-toggle" class="checkbox-toggle"
+                title="show/hide generator's manifold">
+                <paper-checkbox id="enable-manifold"></paper-checkbox>
+              </div>
+
               <div id="component-options-generator" class="model-component-options"
-                style="top: 10px; left: 5px; width: 125px">
-                <div class="config-item">
+                style="top: 10px; left: 8px">
+                <div class="config-item" style="width: 115px">
                   <button class="mdl-button mdl-js-button mdl-button--icon"
                     id="g-layers-add-button" title="Add a layer">
                     <i class="material-icons">add</i>
@@ -673,8 +688,7 @@
                     <i class="material-icons">remove</i>
                   </button>
                   <label><span id="num-g-layers">1</span> hidden layer(s)</label>
-                </div>
-                <div class="config-item">
+                  <br />
                   <button class="mdl-button mdl-js-button mdl-button--icon"
                     id="g-neurons-add-button" title="Add a neuron for each layer">
                     <i class="material-icons">add</i>
@@ -690,7 +704,8 @@
 
             <div id="component-generator-gradients" class="model-component"
               style="top: 400px; left: 315px">
-              <div id="g-gradients-toggle" class="checkbox-toggle">
+              <div id="g-gradients-toggle" class="checkbox-toggle"
+                title="show/hide gradients for generator">
                 <paper-checkbox id="show-g-gradients" checked></paper-checkbox>
               </div>
               <svg id="svg-generator-gradients"></svg>
@@ -701,6 +716,10 @@
               style="top: 250px; left: 25px">
               <svg id="svg-noise"></svg>
               <div class="component-label">noise</div>
+            </div>
+
+            <div id="component-options-noise" class="model-component-options"
+              style="top: 352px; left: 40px">
               <div class="config-item">
                 <button class="mdl-button mdl-js-button mdl-button--icon"
                   id="noise-size-add-button" title="Increase a dimension">
@@ -711,17 +730,15 @@
                   <i class="material-icons">remove</i>
                 </button>
                 <label><span id="noise-size">2</span>-D</label>
-                <div>
-                  <paper-dropdown-menu no-animations no-label-float>
-                    <paper-listbox attr-for-selected="value" id="noise-dropdown" class="dropdown-content" selected="{{selectedNoiseType}}">
-                      <template is="dom-repeat" items="[[noiseTypes]]">
-                        <paper-item value="[[item]]" label="[[item]]">
-                          [[item]]
-                        </paper-item>
-                      </template>
-                    </paper-listbox>
-                  </paper-dropdown-menu>
-                </div>
+                <paper-dropdown-menu no-animations no-label-float>
+                  <paper-listbox attr-for-selected="value" id="noise-dropdown" class="dropdown-content" selected="{{selectedNoiseType}}">
+                    <template is="dom-repeat" items="[[noiseTypes]]">
+                      <paper-item value="[[item]]" label="[[item]]">
+                        [[item]]
+                      </paper-item>
+                    </template>
+                  </paper-listbox>
+                </paper-dropdown-menu>
               </div>
             </div>
           </div>
@@ -813,7 +830,7 @@
               updates function based on gradients
             </div>
             <div id="tooltip-generated-samples" class="tooltip tooltip-for-g"
-              style="top: 245px; left: 310px; width: 110px;">
+              style="top: 245px; left: 310px; width: 110px">
               <div class="tooltip-number">G4</div>
               samples produced by generator from noise
             </div>
@@ -823,7 +840,7 @@
         <div id="drawing-disable-background"></div>
 
         <div id="visualization-container" class="ink-panel">
-          <div class="panel-title">Visualization</div>
+          <div class="panel-title">Distributions</div>
 
           <svg id="vis-svg" width="400" height="400">
             <g id="vis-area">
@@ -831,11 +848,11 @@
                 <rect class="plot-bg" width="400" height="400" x="0" y="0"></rect>
               </g>
               <g id="vis-samples" class="vis-panel">
-                <g id="vis-true-samples-contour" class="contour" style="visibility: hidden;"></g>
+                <g id="vis-true-samples-contour" class="contour" style="visibility: hidden"></g>
                 <g id="vis-true-samples"></g>
                 <g id="vis-generator-gradients"></g>
                 <g id="vis-generated-samples"></g>
-                <g id="vis-manifold" style="visibility: hidden;"></g>
+                <g id="vis-manifold" style="visibility: hidden"></g>
                 <rect class="plot-border" width="400" height="400" x="0" y="0"></rect>
               </g>
             </g>
@@ -876,7 +893,7 @@
               </text>
               <circle class="generated-dot" r="2" transform="translate(3,18)"></circle>
               <text transform="translate(15,19)">
-                This sample needs to move upper right to decrease loss.
+                This sample needs to move upper right to decrease generator's loss.
               </text>
               <polygon class="gradient-generated" transform="translate(3,18)"
                 points="0,0 1,1 10,-10 -1,-1"></polygon>
@@ -891,11 +908,11 @@
         </div>
 
         <div id="charts-panel" class="ink-panel">
-          <div class="panel-title">Charts</div>
+          <div class="panel-title">Metrics</div>
 
           <div id="chart-container">
-            <canvas id="cost-chart" width="240" height="200"></canvas>
-            <canvas id="eval-chart" width="240" height="200"></canvas>
+            <canvas id="cost-chart" width="210" height="200"></canvas>
+            <canvas id="eval-chart" width="210" height="200"></canvas>
           </div>
         </div>
       </div>

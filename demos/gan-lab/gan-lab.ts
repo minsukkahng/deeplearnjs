@@ -1,8 +1,8 @@
 import * as d3 from 'd3-selection';
 import { contourDensity } from 'd3-contour';
 import { geoPath } from 'd3-geo';
-import { scaleLinear, scaleSequential } from 'd3-scale';
-import { interpolateYlGnBu } from 'd3-scale-chromatic';
+import { scaleSequential } from 'd3-scale';
+import { interpolateGreens, interpolatePRGn } from 'd3-scale-chromatic';
 import { line } from 'd3-shape';
 import * as d3Transition from 'd3-transition';
 
@@ -19,11 +19,12 @@ const ATLAS_SIZE = 12000;
 
 const NUM_GRID_CELLS = 30;
 const NUM_MANIFOLD_CELLS = 20;
-const NUM_SAMPLES_VISUALIZED = 300;
-const NUM_TRUE_SAMPLES_VISUALIZED = 300;
+const GRAD_ARROW_UNIT_LEN = 0.2;
+const NUM_GENERATED_SAMPLES_VISUALIZED = 450;
+const NUM_TRUE_SAMPLES_VISUALIZED = 450;
 
 const VIS_INTERVAL = 50;
-const EPOCH_INTERVAL = 10;
+const EPOCH_INTERVAL = 5;
 const SLOW_INTERVAL_MS = 1000;
 
 // Hack to prevent error when using grads (doesn't allow this in model).
@@ -88,7 +89,7 @@ class GANLab extends GANLabPolymer {
     this.noiseSize = +noiseSizeElement.innerText;
     document.getElementById('noise-size-add-button')!.addEventListener(
       'click', () => {
-        if (this.noiseSize < 5) {
+        if (this.noiseSize < 10) {
           this.noiseSize += 1;
           noiseSizeElement.innerText = this.noiseSize.toString();
           this.createExperiment();
@@ -152,7 +153,7 @@ class GANLab extends GANLabPolymer {
     this.numGeneratorNeurons = +numGeneratorNeuronsElement.innerText;
     document.getElementById('g-neurons-add-button').addEventListener(
       'click', () => {
-        if (this.numGeneratorNeurons < 16) {
+        if (this.numGeneratorNeurons < 100) {
           this.numGeneratorNeurons += 1;
           numGeneratorNeuronsElement.innerText =
             this.numGeneratorNeurons.toString();
@@ -174,7 +175,7 @@ class GANLab extends GANLabPolymer {
     this.numDiscriminatorNeurons = +numDiscriminatorNeuronsElement.innerText;
     document.getElementById('d-neurons-add-button').addEventListener(
       'click', () => {
-        if (this.numDiscriminatorNeurons < 16) {
+        if (this.numDiscriminatorNeurons < 100) {
           this.numDiscriminatorNeurons += 1;
           numDiscriminatorNeuronsElement.innerText =
             this.numDiscriminatorNeurons.toString();
@@ -404,9 +405,7 @@ class GANLab extends GANLabPolymer {
     this.mediumPlotSizePx = 140;
     this.smallPlotSizePx = 80;
 
-    this.colorScale = scaleLinear<string>().domain([0.0, 0.4975, 0.95]).range([
-      '#af8dc3', '#f5f5f5', '#7fbf7b'
-    ]);
+    this.colorScale = interpolatePRGn;
 
     this.gDotsElementList = [
       '#vis-generated-samples',
@@ -437,6 +436,10 @@ class GANLab extends GANLabPolymer {
 
     this.isPausedOngoingIteration = false;
 
+    document.getElementById('d-loss-value').innerText = '-';
+    document.getElementById('d-loss-value-simple').innerText = '-';
+    document.getElementById('g-loss-value').innerText = '-';
+    document.getElementById('g-loss-value-simple').innerText = '-';
     this.recreateCharts();
 
     const dataElements = [
@@ -469,7 +472,7 @@ class GANLab extends GANLabPolymer {
     const noiseProviderBuilder =
       new gan_lab_input_providers.GANLabNoiseProviderBuilder(
         this.noiseSize, this.selectedNoiseType,
-        NUM_SAMPLES_VISUALIZED, BATCH_SIZE);
+        NUM_GENERATED_SAMPLES_VISUALIZED, BATCH_SIZE);
     noiseProviderBuilder.generateAtlas();
     this.noiseProvider = noiseProviderBuilder.getInputProvider();
     this.noiseProviderFixed = noiseProviderBuilder.getInputProvider(true);
@@ -579,7 +582,7 @@ class GANLab extends GANLabPolymer {
   }
 
   private visualizeTrueDistribution(inputAtlasList: number[]) {
-    const color = scaleSequential(interpolateYlGnBu)
+    const color = scaleSequential(interpolateGreens)
       .domain([0, 0.05]);
 
     const trueDistribution: Array<[number, number]> = [];
@@ -752,9 +755,9 @@ class GANLab extends GANLabPolymer {
 
         // Update discriminator loss.
         if (dCostVal) {
-          document.getElementById('d-loss-value')!.innerText =
+          document.getElementById('d-loss-value').innerText =
             dCostVal.toFixed(3);
-          document.getElementById('d-loss-value-simple')!.innerText =
+          document.getElementById('d-loss-value-simple').innerText =
             this.lossType === 'LeastSq loss'
               ? dCostVal.toFixed(2)
               : (Math.pow(dCostVal * 0.5, 2)).toFixed(2);
@@ -926,9 +929,9 @@ class GANLab extends GANLabPolymer {
         this.iterationCount % VIS_INTERVAL === 0) {
         // Update generator loss.
         if (gCostVal) {
-          document.getElementById('g-loss-value')!.innerText =
+          document.getElementById('g-loss-value').innerText =
             gCostVal.toFixed(3);
-          document.getElementById('g-loss-value-simple')!.innerText =
+          document.getElementById('g-loss-value-simple').innerText =
             this.lossType === 'LeastSq loss'
               ? (gCostVal * 2.0).toFixed(2)
               : Math.pow(gCostVal, 2).toFixed(2);
@@ -964,7 +967,6 @@ class GANLab extends GANLabPolymer {
           gradDotsElementList.forEach((dotsElement, k) => {
             const plotSizePx = k === 0 ?
               this.plotSizePx : this.smallPlotSizePx;
-            const arrowSize = 0.25;
             const arrowWidth = k === 0 ? 0.002 : 0.001;
             d3.select(dotsElement)
               .selectAll('.gradient-generated')
@@ -972,26 +974,13 @@ class GANLab extends GANLabPolymer {
               .enter()
               .append('polygon')
               .attr('class', 'gradient-generated gan-lab')
-              .attr('points', (d: number[]) => {
-                const gradSize = Math.sqrt(
-                  d[2] * d[2] + d[3] * d[3] + 0.00000001);
-                const xNorm = d[2] / gradSize;
-                const yNorm = d[3] / gradSize;
-                return `${d[0] * plotSizePx},
-                  ${(1.0 - d[1]) * plotSizePx}
-                  ${(d[0] - yNorm * (-1) * arrowWidth) * plotSizePx},
-                  ${(1.0 - (d[1] - xNorm * arrowWidth)) * plotSizePx}
-                  ${(d[0] + d[2] * arrowSize) * plotSizePx},
-                  ${(1.0 - (d[1] + d[3] * arrowSize)) * plotSizePx}
-                  ${(d[0] - yNorm * arrowWidth) * plotSizePx},
-                  ${(1.0 - (d[1] - xNorm * (-1) * arrowWidth)) * plotSizePx}`;
-              });
+              .attr('points', (d: number[]) =>
+                this.createArrowPolygon(d, plotSizePx, arrowWidth));
           });
         }
 
         gradDotsElementList.forEach((dotsElement, k) => {
           const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
-          const arrowSize = 0.25;
           const arrowWidth = k === 0 ? 0.002 : 0.001;
           d3Transition.transition()
             .select(dotsElement)
@@ -1000,20 +989,8 @@ class GANLab extends GANLabPolymer {
             /*d3.select(dotsElement)
               .selectAll('.gradient-generated')
               .data(gradData)*/
-            .attr('points', (d: number[]) => {
-              const gradSize = Math.sqrt(
-                d[2] * d[2] + d[3] * d[3] + 0.00000001);
-              const xNorm = d[2] / gradSize;
-              const yNorm = d[3] / gradSize;
-              return `${d[0] * plotSizePx},
-                ${(1.0 - d[1]) * plotSizePx}
-                ${(d[0] - yNorm * (-1) * arrowWidth) * plotSizePx},
-                ${(1.0 - (d[1] - xNorm * arrowWidth)) * plotSizePx}
-                ${(d[0] + d[2] * arrowSize) * plotSizePx},
-                ${(1.0 - (d[1] + d[3] * arrowSize)) * plotSizePx}
-                ${(d[0] - yNorm * arrowWidth) * plotSizePx},
-                ${(1.0 - (d[1] - xNorm * (-1) * arrowWidth)) * plotSizePx}`;
-            });
+            .attr('points', (d: number[]) =>
+              this.createArrowPolygon(d, plotSizePx, arrowWidth));
         });
 
         if (this.slowMode) {
@@ -1153,8 +1130,8 @@ class GANLab extends GANLabPolymer {
         //const noiseData = noiseFixedBatch.dataSync();
         const gResult = this.modelGenerator(noiseFixedBatch);
         const gResultData = gResult.dataSync();
-        for (let j = 0; j < gResultData.length / 2; ++j) {
-          gData.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
+        for (let i = 0; i < gResultData.length / 2; ++i) {
+          gData.push([gResultData[i * 2], gResultData[i * 2 + 1]]);
         }
 
         this.gDotsElementList.forEach((dotsElement, k) => {
@@ -1168,6 +1145,25 @@ class GANLab extends GANLabPolymer {
             .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx)
             .select('title').text((d: number[], i: number) =>
               `${Number(d[0]).toFixed(2)},${Number(d[1]).toFixed(2)} (${i})`);
+        });
+
+        // Move gradients also.
+        if (this.slowMode) {
+          await this.sleep(SLOW_INTERVAL_MS);
+        }
+        for (let i = 0; i < gData.length; ++i) {
+          gradData[i][0] = gData[i][0];
+          gradData[i][1] = gData[i][1];
+        }
+        gradDotsElementList.forEach((dotsElement, k) => {
+          const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
+          const arrowWidth = k === 0 ? 0.002 : 0.001;
+          d3Transition.transition()
+            .select(dotsElement)
+            .selectAll('.gradient-generated').selection().data(gradData)
+            .transition().duration(SLOW_INTERVAL_MS)
+            .attr('points', (d: number[]) =>
+              this.createArrowPolygon(d, plotSizePx, arrowWidth));
         });
 
         // Simple grid-based evaluation.
@@ -1218,6 +1214,22 @@ class GANLab extends GANLabPolymer {
     }
 
     requestAnimationFrame(() => this.iterateTraining(true));
+  }
+
+  private createArrowPolygon(d: number[],
+    plotSizePx: number, arrowWidth: number) {
+    const gradSize = Math.sqrt(
+      d[2] * d[2] + d[3] * d[3] + 0.00000001);
+    const xNorm = d[2] / gradSize;
+    const yNorm = d[3] / gradSize;
+    return `${d[0] * plotSizePx},
+      ${(1.0 - d[1]) * plotSizePx}
+      ${(d[0] - yNorm * (-1) * arrowWidth) * plotSizePx},
+      ${(1.0 - (d[1] - xNorm * arrowWidth)) * plotSizePx}
+      ${(d[0] + d[2] * GRAD_ARROW_UNIT_LEN) * plotSizePx},
+      ${(1.0 - (d[1] + d[3] * GRAD_ARROW_UNIT_LEN)) * plotSizePx}
+      ${(d[0] - yNorm * arrowWidth) * plotSizePx},
+      ${(1.0 - (d[1] - xNorm * (-1) * arrowWidth)) * plotSizePx}`;
   }
 
   private highlightStep(isForD: boolean,

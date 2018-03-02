@@ -19,7 +19,6 @@ const ATLAS_SIZE = 12000;
 const NUM_GRID_CELLS = 30;
 const NUM_MANIFOLD_CELLS = 20;
 const GRAD_ARROW_UNIT_LEN = 0.2;
-const NUM_GENERATED_SAMPLES_VISUALIZED = 450;
 const NUM_TRUE_SAMPLES_VISUALIZED = 450;
 
 const VIS_INTERVAL = 50;
@@ -233,7 +232,6 @@ class GANLab extends GANLabPolymer {
       // tslint:disable-next-line:no-any event has no type
       'iron-activate', (event: any) => {
         this.lossType = event.detail.selected;
-        this.createExperiment();
       });
 
     this.learningRateOptions = [0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0];
@@ -471,7 +469,7 @@ class GANLab extends GANLabPolymer {
     const noiseProviderBuilder =
       new gan_lab_input_providers.GANLabNoiseProviderBuilder(
         this.noiseSize, this.selectedNoiseType,
-        NUM_GENERATED_SAMPLES_VISUALIZED, BATCH_SIZE);
+        ATLAS_SIZE, BATCH_SIZE);
     noiseProviderBuilder.generateAtlas();
     this.noiseProvider = noiseProviderBuilder.getInputProvider();
     this.noiseProviderFixed = noiseProviderBuilder.getInputProvider(true);
@@ -925,9 +923,7 @@ class GANLab extends GANLabPolymer {
           const noiseBatch = this.noiseProvider.getNextCopy() as dl.Tensor2D;
           const pred = this.modelDiscriminator(this.modelGenerator(noiseBatch));
           return this.gLoss(pred);
-        }, (!keepIterating || this.iterationCount === 1 || this.slowMode ||
-          this.iterationCount % VIS_INTERVAL === 0)
-          && j + 1 === this.kGSteps, this.gVariables);
+        }, true, this.gVariables);
         if ((!keepIterating || this.iterationCount === 1 || this.slowMode ||
           this.iterationCount % VIS_INTERVAL === 0)
           && j + 1 === this.kGSteps) {
@@ -1143,7 +1139,6 @@ class GANLab extends GANLabPolymer {
       dl.tidy(() => {
         const noiseFixedBatch =
           this.noiseProviderFixed.getNextCopy() as dl.Tensor2D;
-        //const noiseData = noiseFixedBatch.dataSync();
         const gResult = this.modelGenerator(noiseFixedBatch);
         const gResultData = gResult.dataSync();
         for (let i = 0; i < gResultData.length / 2; ++i) {

@@ -402,8 +402,8 @@
   <template>
     <div id="gan-lab-container">
       <div id="top-panel" class="mdl-grid">
-        <div id="page-title" class="mdl-cell mdl-cell--3-col"><strong>GAN</strong> Lab</div>
-        <div id="control-panel" class="mdl-cell mdl-cell--4-col">
+        <div id="page-title" class="mdl-cell mdl-cell--2-col"><strong>GAN</strong> Lab</div>
+        <div id="control-panel" class="mdl-cell mdl-cell--5-col">
           <div class="timeline-controls">
             <button class="mdl-button mdl-js-button mdl-button--icon ui-resetButton" id="reset-button" title="Reset the network">
               <i class="material-icons">replay</i>
@@ -412,7 +412,7 @@
               <i class="material-icons">play_arrow</i>
               <i class="material-icons">pause</i>
             </button>
-            <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-button" title="Step">
+            <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-button" title="Step" style="margin-right: 10px">
               <i class="material-icons">skip_next</i>
             </button>
             <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-d-button" title="Step only discriminator">
@@ -421,10 +421,10 @@
             <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-g-button" title="Step only generator">
               <i>G</i>
             </button>
-            <button class="mdl-button mdl-js-button mdl-button--icon" id="slow-step" title="Slow mode">
+            <button class="mdl-button mdl-js-button mdl-button--icon" id="slow-step" title="Slow mode" style="margin-left: 10px">
               <i class="material-icons">slow_motion_video</i>
             </button>
-            <button class="mdl-button mdl-js-button mdl-button--icon" id="edit-model-button" title="Edit model">
+            <button class="mdl-button mdl-js-button mdl-button--icon" id="edit-model-button" title="Show/hide hyperparameter options">
               <i class="material-icons">mode_edit</i>
             </button>
           </div>
@@ -617,52 +617,6 @@
               </div>
             </div>
 
-            <div id="component-discriminator-gradients" class="model-component"
-              style="top: 13px; left: 500px">
-              <div class="component-label">gradients for discriminator</div>
-            </div>
-
-            <div id="component-true-distribution" class="model-component"
-              style="top: 70px; left: 305px">
-              <div class="config-item" style="width: 100px">
-                <paper-dropdown-menu no-animations label="True Distribution">
-                  <paper-listbox attr-for-selected="value" id="shape-dropdown" class="dropdown-content" selected="{{selectedShapeName}}">
-                    <template is="dom-repeat" items="[[shapeNames]]">
-                      <paper-item value="[[item]]" label="[[item]]">
-                        [[item]]
-                      </paper-item>
-                    </template>
-                  </paper-listbox>
-                </paper-dropdown-menu>
-              </div>
-              <br />
-              <div id="t-contour-toggle" class="checkbox-toggle"
-                title="show/hide true distribution's contour"
-                style="top: 6px; right: -10px">
-                <paper-checkbox class="tiny" id="show-t-contour"></paper-checkbox>
-              </div>
-            </div>
-
-            <div id="component-real-samples" class="model-component"
-              style="top: 155px; left: 315px">
-              <div id="t-samples-toggle" class="checkbox-toggle"
-                title="show/hide true samples">
-                <paper-checkbox id="show-t-samples" checked></paper-checkbox>
-              </div>
-              <svg id="svg-real-samples"></svg>
-              <div class="component-label">true samples</div>
-            </div>
-
-            <div id="component-generated-samples" class="model-component"
-              style="top: 250px; left: 315px">
-              <div id="g-samples-toggle" class="checkbox-toggle"
-                title="show/hide generated samples">
-                <paper-checkbox id="show-g-samples" checked></paper-checkbox>
-              </div>
-              <svg id="svg-generated-samples"></svg>
-              <div class="component-label">generated samples</div>
-            </div>
-
             <div id="group-generator" class="model-component-group"
               style="top: 160px; left: 140px">
               <div id="component-generator" class="model-component"
@@ -702,6 +656,11 @@
               </div>
             </div>
 
+            <div id="component-discriminator-gradients" class="model-component"
+              style="top: 13px; left: 500px">
+              <div class="component-label">gradients for discriminator</div>
+            </div>
+
             <div id="component-generator-gradients" class="model-component"
               style="top: 400px; left: 315px">
               <div id="g-gradients-toggle" class="checkbox-toggle"
@@ -710,6 +669,47 @@
               </div>
               <svg id="svg-generator-gradients"></svg>
               <div class="component-label">gradients for generator</div>
+            </div>
+
+            <div id="component-true-distribution" class="model-component"
+              style="top: 70px; left: 307px">
+              <div class="config-item" style="width: 100px">
+                <paper-dropdown-menu no-animations label="True Distribution">
+                  <paper-listbox attr-for-selected="value" id="shape-dropdown" class="dropdown-content" selected="{{selectedShapeName}}">
+                    <template is="dom-repeat" items="[[shapeNames]]">
+                      <paper-item value="[[item]]" label="[[item]]">
+                        [[item]]
+                      </paper-item>
+                    </template>
+                  </paper-listbox>
+                </paper-dropdown-menu>
+              </div>
+              <br />
+              <div id="t-contour-toggle" class="checkbox-toggle"
+                title="show/hide true distribution's contour"
+                style="top: 6px; right: -10px">
+                <paper-checkbox class="tiny" id="show-t-contour"></paper-checkbox>
+              </div>
+            </div>
+
+            <div id="component-real-samples" class="model-component"
+              style="top: 155px; left: 315px">
+              <div id="t-samples-toggle" class="checkbox-toggle"
+                title="show/hide true samples">
+                <paper-checkbox id="show-t-samples" checked></paper-checkbox>
+              </div>
+              <svg id="svg-real-samples"></svg>
+              <div class="component-label">true samples</div>
+            </div>
+
+            <div id="component-generated-samples" class="model-component"
+              style="top: 250px; left: 315px">
+              <div id="g-samples-toggle" class="checkbox-toggle"
+                title="show/hide generated samples">
+                <paper-checkbox id="show-g-samples" checked></paper-checkbox>
+              </div>
+              <svg id="svg-generated-samples"></svg>
+              <div class="component-label">generated samples</div>
             </div>
 
             <div id="component-noise" class="model-component"
@@ -869,7 +869,7 @@
             </g>
             <g transform="translate(0,80)">
               <text transform="translate(0,10)">
-                Background color of grids represents discriminator's thoughts:
+                Background colors of grids represent discriminator's predictions:
               </text>
               <rect class="true-dot" width="10" height="10" transform="translate(1,20)"
                 style="fill-opacity: 0.75"></rect>
@@ -889,7 +889,7 @@
             </g>
             <g transform="translate(0,180)">
               <text transform="translate(0,0)">
-                Pink line from generated samples represents gradients for generator:
+                Lines from generated samples represent gradients for generator:
               </text>
               <circle class="generated-dot" r="2" transform="translate(3,18)"></circle>
               <text transform="translate(15,19)">

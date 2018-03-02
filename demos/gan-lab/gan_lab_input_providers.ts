@@ -18,19 +18,17 @@ export class GANLabNoiseProviderBuilder extends
 
   constructor(
     private noiseSize: number, private noiseType: string,
-    private numSamplesVisualized: number, batchSize: number) {
+    private atlasSize: number, batchSize: number) {
     super(batchSize);
   }
 
   generateAtlas() {
     if (this.noiseType === "Gaussian") {
       this.atlas = dl.truncatedNormal(
-        [this.numSamplesVisualized * this.batchSize, this.noiseSize],
-        0.5, 0.25);
+        [this.atlasSize, this.noiseSize], 0.5, 0.25);
     } else {
       this.atlas = dl.randomUniform(
-        [this.numSamplesVisualized * this.batchSize, this.noiseSize],
-        0.0, 1.0);
+        [this.atlasSize, this.noiseSize], 0.0, 1.0);
     }
   }
 
@@ -42,7 +40,7 @@ export class GANLabNoiseProviderBuilder extends
         return provider.atlas.slice(
           [fixStarting ? 0 :
             (provider.providerCounter * provider.batchSize) %
-            provider.numSamplesVisualized, 0],
+            provider.atlasSize, 0],
           [provider.batchSize, provider.noiseSize]
         );
       },

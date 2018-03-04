@@ -373,9 +373,9 @@ class GANLab extends GANLabPolymer {
         } else {
           this.dehighlightStep();
           document.getElementById(
-            'group-discriminator').classList.remove('activated');
+            'component-discriminator').classList.remove('activated');
           document.getElementById(
-            'group-generator').classList.remove('activated');
+            'component-generator').classList.remove('activated');
           document.getElementById(
             'overlay-background')!.classList.remove('shown');
           document.getElementById('tooltips')!.classList.remove('shown');
@@ -399,8 +399,8 @@ class GANLab extends GANLabPolymer {
 
     // Visualization.
     this.plotSizePx = 400;
-    this.mediumPlotSizePx = 140;
-    this.smallPlotSizePx = 80;
+    this.mediumPlotSizePx = 150;
+    this.smallPlotSizePx = 60;
 
     this.colorScale = interpolatePRGn;
 
@@ -743,7 +743,7 @@ class GANLab extends GANLabPolymer {
       if (this.slowMode) {
         await this.sleep(SLOW_INTERVAL_MS);
         document.getElementById(
-          'group-discriminator').classList.add('activated');
+          'component-discriminator').classList.add('activated');
         this.highlightStep(true, 'component-d-loss', 'tooltip-d-loss',
           ['arrow-t-samples-d', 'arrow-d-t-prediction',
             'arrow-g-samples-d', 'arrow-d-g-prediction',
@@ -774,7 +774,7 @@ class GANLab extends GANLabPolymer {
         await this.sleep(SLOW_INTERVAL_MS);
         this.dehighlightStep();
         this.highlightStep(true,
-          'group-discriminator', 'tooltip-update-discriminator',
+          'component-discriminator', 'tooltip-update-discriminator',
           ['arrow-d-loss-d-3', 'arrow-d-loss-d-4']);
         await this.sleep(SLOW_INTERVAL_MS);
       }
@@ -837,11 +837,11 @@ class GANLab extends GANLabPolymer {
         await this.sleep(SLOW_INTERVAL_MS);
         this.dehighlightStep();
         document.getElementById(
-          'group-discriminator').classList.remove('activated');
+          'component-discriminator').classList.remove('activated');
         await this.sleep(SLOW_INTERVAL_MS);
         await this.sleep(SLOW_INTERVAL_MS);
         document.getElementById(
-          'group-generator').classList.add('activated');
+          'component-generator').classList.add('activated');
         this.highlightStep(false, 'component-g-loss', 'tooltip-g-loss',
           ['arrow-noise-g', 'arrow-g-g-samples',
             'arrow-g-samples-d', 'arrow-d-g-prediction',
@@ -1006,7 +1006,7 @@ class GANLab extends GANLabPolymer {
         await this.sleep(SLOW_INTERVAL_MS);
         this.dehighlightStep();
         this.highlightStep(false,
-          'group-generator', 'tooltip-update-generator',
+          'component-generator', 'tooltip-update-generator',
           ['arrow-g-loss-g-3', 'arrow-g-loss-g-4']);
         await this.sleep(SLOW_INTERVAL_MS);
       }
@@ -1190,7 +1190,7 @@ class GANLab extends GANLabPolymer {
         await this.sleep(SLOW_INTERVAL_MS);
         this.dehighlightStep();
         document.getElementById(
-          'group-generator').classList.remove('activated');
+          'component-generator').classList.remove('activated');
         await this.sleep(SLOW_INTERVAL_MS);
       }
 

@@ -142,44 +142,29 @@
       stroke: rgb(186, 99, 207);
     }
 
-    .model-component-group {
-      background-color: rgb(128, 128, 128);
-      border-radius: 3px;
-      height: 165px;
-      position: absolute;
-      width: 150px;
-    }
-
-    #group-discriminator.activated {
-      background-color: rgb(105, 158, 255);
-    }
-
-    #group-generator.activated {
-      background-color: rgb(186, 99, 207);
-    }
-
     .model-component {
       padding-top: 4px;
       position: absolute;
       text-align: center;
-      width: 90px;
+      width: 115px;
     }
 
     .model-component svg {
       background-color: #fff;
-      border: 1px solid #ddd;
-      border-radius: 2px;
-      height: 75px;
-      width: 75px;
+      border: 1px solid #eee;
+      border-radius: 3px;
+      height: 60px;
+      width: 60px;
     }
 
-    .model-component-group .model-component {
-      width: 144px;
+    .model-component-model {
+      width: 150px;
     }
 
-    .model-component-group .model-component svg {
-      height: 140px;
-      width: 140px;
+    .model-component-model svg {
+      border: 1px solid rgb(100, 100, 100);
+      height: 150px;
+      width: 150px;
     }
 
     .model-component-options {
@@ -192,10 +177,6 @@
       color: #000;
       font-size: 13px;
       line-height: 16px;
-    }
-
-    .model-component-group .component-label {
-      color: #fff;
     }
 
     .config-item {
@@ -211,22 +192,33 @@
     }
 
     .checkbox-toggle {
-      right: -2px;
+      right: 17px;
       position: absolute;
-      top: -2px;
+      top: -1px;
+    }
+
+    .model-component-model .checkbox-toggle {
+      right: -9px;
     }
 
     paper-checkbox {
       --paper-checkbox-checked-color: var(--paper-grey-400);
-      --paper-checkbox-unchecked-color: var(--paper-grey-500);
+      --paper-checkbox-unchecked-color: var(--paper-grey-400);
       --paper-checkbox-size: 10px;
     }
 
+    .up-down-buttons {
+      display: inline-block;
+      font-size: 6px;
+      line-height: 6px;
+      vertical-align: middle;
+    }
+
     #model-visualization-container .mdl-button--icon {
-      height: 16px;
-      min-height: 16px;
-      min-width: 12px;
-      width: 12px;
+      height: 10px;
+      min-height: 10px;
+      min-width: 8px;
+      width: 8px;
     }
 
     #model-visualization-container .material-icons {
@@ -247,10 +239,11 @@
       --paper-input-container-color: rgb(146, 146, 146);
       --paper-input-container-input: {
         color: #666;
-        font-size: 13px;
+        font-size: 12px;
       };
       --paper-input-container-label: {
-        font-size: 13px;
+        font-size: 12px;
+        line-height: 12px;
       };
       --paper-input-container-label-floating: {
         line-height: 16px;
@@ -331,19 +324,30 @@
       z-index: 99990;
     }
 
-    .model-component-group.d-highlighted,
-    .model-component-group.g-highlighted {
+    .model-component-model.d-highlighted,
+    .model-component-model.g-highlighted {
       z-index: 99997;
     }
 
-    .model-component.d-highlighted {
-      background-color: rgb(190, 209, 245);
+    .model-component-model.d-highlighted,
+    .model-component-model.g-highlighted {
       z-index: 99997;
     }
 
-    .model-component.g-highlighted {
-      background-color: rgb(211, 171, 231);
-      z-index: 99997;
+    .model-component-model.d-highlighted svg {
+      border-color: rgb(190, 209, 245);
+    }
+
+    .model-component-model.g-highlighted svg {
+      border-color: rgb(211, 171, 231);
+    }
+
+    #component-discriminator.activated svg {
+      border-color: rgb(105, 158, 255);
+    }
+
+    #component-generator.activated svg {
+      border-color: rgb(186, 99, 207);
     }
 
     #tooltips {
@@ -443,8 +447,8 @@
             <div class="panel-title">Model</div>
 
             <div id="component-d-loss" class="model-component"
-              style="top: 210px; left: 725px">
-              <div class="component-label">discriminator<br />loss</div>
+              style="top: 195px; left: 725px">
+              <div class="component-label">Discriminator loss</div>
               <div class="component-value">
                 <span id="d-loss-value" title="log loss"></span>
                 (<span id="d-loss-value-simple" title="simple absolute loss"></span>)
@@ -452,8 +456,8 @@
             </div>
 
             <div id="component-g-loss" class="model-component"
-              style="top: 295px; left: 725px">
-              <div class="component-label">generator<br />loss</div>
+              style="top: 290px; left: 725px">
+              <div class="component-label">Generator loss</div>
               <div class="component-value">
                 <span id="g-loss-value" title="log loss"></span>
                 (<span id="g-loss-value-simple" title="simple absolute loss"></span>)
@@ -478,179 +482,221 @@
             </div>
 
             <div id="component-d-loop" class="model-component"
-              style="top: 31px; left: 620px">
+              style="top: 20px; left: 640px">
               <div class="config-item" style="width: 150px">
-                <button class="mdl-button mdl-js-button mdl-button--icon"
-                  id="k-d-steps-add-button" title="Increase a step">
-                  <i class="material-icons">add</i>
-                </button>
-                <button class="mdl-button mdl-js-button mdl-button--icon"
-                  id="k-d-steps-remove-button" title="Decrease a step per iter">
-                  <i class="material-icons">remove</i>
-                </button>
-                <label><span id="k-d-steps">2</span> update(s) per epoch</label>
+                <div class="up-down-buttons">
+                  <button class="mdl-button mdl-js-button mdl-button--icon"
+                    id="k-d-steps-add-button" title="Increase a step">
+                    <i class="material-icons">keyboard_arrow_up</i>
+                  </button><br /><button class="mdl-button mdl-js-button mdl-button--icon"
+                    id="k-d-steps-remove-button" title="Decrease a step per iter">
+                    <i class="material-icons">keyboard_arrow_down</i>
+                  </button>
+                </div>
+                <div class="up-down-buttons">
+                  <label><span id="k-d-steps">2</span> update(s) per epoch</label>
+                </div>
               </div>
             </div>
 
             <div id="component-g-loop" class="model-component"
-              style="top: 457px; left: 620px">
+              style="top: 457px; left: 640px">
               <div class="config-item" style="width: 150px">
-                <button class="mdl-button mdl-js-button mdl-button--icon"
-                  id="k-g-steps-add-button" title="Increase a step">
-                  <i class="material-icons">add</i>
-                </button>
-                <button class="mdl-button mdl-js-button mdl-button--icon"
-                  id="k-g-steps-remove-button" title="Decrease a step per iter">
-                  <i class="material-icons">remove</i>
-                </button>
-                <label><span id="k-g-steps">1</span> update(s) per epoch</label>
+                <div class="up-down-buttons">
+                  <button class="mdl-button mdl-js-button mdl-button--icon"
+                    id="k-g-steps-add-button" title="Increase a step">
+                    <i class="material-icons">keyboard_arrow_up</i>
+                  </button><br /><button class="mdl-button mdl-js-button mdl-button--icon"
+                    id="k-g-steps-remove-button" title="Decrease a step per iter">
+                    <i class="material-icons">keyboard_arrow_down</i>
+                  </button>
+                </div>
+                <div class="up-down-buttons">
+                  <label><span id="k-g-steps">1</span> update(s) per epoch</label>
+                </div>
               </div>
             </div>
 
             <div id="component-discriminator-learning" class="model-component"
-              style="top: 50px; left: 495px">
-              <div class="config-item">
-                <paper-dropdown-menu no-animations label="Optimizer">
-                  <paper-listbox attr-for-selected="value"
-                    id="d-optimizer-type-dropdown" class="dropdown-content"
-                    selected="{{dOptimizerType}}">
-                    <template is="dom-repeat" items="[[optimizerTypeOptions]]">
-                      <paper-item value="[[item]]" label="[[item]]">
-                        [[item]]
-                      </paper-item>
-                    </template>
-                  </paper-listbox>
-                </paper-dropdown-menu>
-                <paper-dropdown-menu no-animations label="Learning Rate">
-                  <paper-listbox attr-for-selected="value"
-                    id="d-learning-rate-dropdown" class="dropdown-content"
-                    selected="{{dLearningRate}}">
-                    <template is="dom-repeat" items="[[learningRateOptions]]">
-                      <paper-item value="[[item]]" label="[[item]]">
-                        [[item]]
-                      </paper-item>
-                    </template>
-                  </paper-listbox>
-                </paper-dropdown-menu>
+              style="top: 75px; left: 485px">
+              <div class="config-item" style="width: 140px">
+                <div class="up-down-buttons">
+                  <label>Optimizer:</label>
+                </div>
+                <div class="up-down-buttons" style="width: 65px">
+                  <paper-dropdown-menu no-animations no-label-float>
+                    <paper-listbox attr-for-selected="value"
+                      id="d-optimizer-type-dropdown" class="dropdown-content"
+                      selected="{{dOptimizerType}}">
+                      <template is="dom-repeat" items="[[optimizerTypeOptions]]">
+                        <paper-item value="[[item]]" label="[[item]]">
+                          [[item]]
+                        </paper-item>
+                      </template>
+                    </paper-listbox>
+                  </paper-dropdown-menu>
+                </div>
+              </div>
+              <div class="config-item" style="width: 140px">
+                <div class="up-down-buttons">
+                  <label>Learning rate:</label>
+                </div>
+                <div class="up-down-buttons" style="width: 48px">
+                  <paper-dropdown-menu no-animations no-label-float>
+                    <paper-listbox attr-for-selected="value"
+                      id="d-learning-rate-dropdown" class="dropdown-content"
+                      selected="{{dLearningRate}}">
+                      <template is="dom-repeat" items="[[learningRateOptions]]">
+                        <paper-item value="[[item]]" label="[[item]]">
+                          [[item]]
+                        </paper-item>
+                      </template>
+                    </paper-listbox>
+                  </paper-dropdown-menu>
+                </div>
               </div>
             </div>
 
             <div id="component-generator-learning" class="model-component"
-              style="top: 330px; left: 215px">
-              <div class="config-item">
-                <paper-dropdown-menu no-animations label="Optimizer">
-                  <paper-listbox attr-for-selected="value"
-                    id="g-optimizer-type-dropdown" class="dropdown-content"
-                    selected="{{gOptimizerType}}">
-                    <template is="dom-repeat" items="[[optimizerTypeOptions]]">
-                      <paper-item value="[[item]]" label="[[item]]">
-                        [[item]]
-                      </paper-item>
-                    </template>
-                  </paper-listbox>
-                </paper-dropdown-menu>
-                <paper-dropdown-menu no-animations label="Learning Rate">
-                  <paper-listbox attr-for-selected="value"
-                    id="g-learning-rate-dropdown" class="dropdown-content"
-                    selected="{{gLearningRate}}">
-                    <template is="dom-repeat" items="[[learningRateOptions]]">
-                      <paper-item value="[[item]]" label="[[item]]">
-                        [[item]]
-                      </paper-item>
-                    </template>
-                  </paper-listbox>
-                </paper-dropdown-menu>
+              style="top: 365px; left: 205px">
+              <div class="config-item" style="width: 140px">
+                <div class="up-down-buttons">
+                  <label>Optimizer:</label>
+                </div>
+                <div class="up-down-buttons" style="width: 65px">
+                  <paper-dropdown-menu no-animations no-label-float>
+                    <paper-listbox attr-for-selected="value"
+                      id="g-optimizer-type-dropdown" class="dropdown-content"
+                      selected="{{gOptimizerType}}">
+                      <template is="dom-repeat" items="[[optimizerTypeOptions]]">
+                        <paper-item value="[[item]]" label="[[item]]">
+                          [[item]]
+                        </paper-item>
+                      </template>
+                    </paper-listbox>
+                  </paper-dropdown-menu>
+                </div>
+              </div>
+              <div class="config-item" style="width: 140px">
+                <div class="up-down-buttons">
+                  <label>Learning rate:</label>
+                </div>
+                <div class="up-down-buttons" style="width: 48px">
+                  <paper-dropdown-menu no-animations no-label-float>
+                    <paper-listbox attr-for-selected="value"
+                      id="g-learning-rate-dropdown" class="dropdown-content"
+                      selected="{{gLearningRate}}">
+                      <template is="dom-repeat" items="[[learningRateOptions]]">
+                        <paper-item value="[[item]]" label="[[item]]">
+                          [[item]]
+                        </paper-item>
+                      </template>
+                    </paper-listbox>
+                  </paper-dropdown-menu>
+                </div>
               </div>
             </div>
 
             <div id="component-true-prediction" class="model-component"
-              style="top: 155px; left: 610px">
+              style="top: 155px; left: 600px">
               <svg id="svg-true-prediction">
                 <g id="svg-true-prediction-uniform-dots"></g>
                 <g id="svg-true-prediction-true-dots"></g>
               </svg>
-              <div class="component-label">prediction</div>
+              <div class="component-label">Prediction</div>
             </div>
 
             <div id="component-generated-prediction" class="model-component"
-              style="top: 250px; left: 610px">
+              style="top: 250px; left: 600px">
               <svg id="svg-generated-prediction"></svg>
-              <div class="component-label">prediction</div>
+              <div class="component-label">Prediction</div>
             </div>
 
-            <div id="group-discriminator" class="model-component-group"
+            <div id="component-discriminator"
+              class="model-component model-component-model"
               style="top: 160px; left: 435px">
-              <div id="component-discriminator" class="model-component"
-                style="top: 0px; left: 3px">
-                <svg id="svg-discriminator-output"></svg>
-                <div class="component-label">discriminator</div>
-              </div>
-
               <div id="overlap-toggle" class="checkbox-toggle">
                 <paper-checkbox id="overlap-plots" checked
                   title="show/hide discriminator's prediction"></paper-checkbox>
               </div>
+              <svg id="svg-discriminator-output"></svg>
+              <div class="component-label">Discriminator</div>
+            </div>
 
-              <div id="component-options-discriminator" class="model-component-options"
-                style="top: 10px; left: 8px">
-                <div class="config-item" style="width: 115px">
+            <div id="component-options-discriminator" class="model-component-options"
+              style="top: 335px; left: 430px">
+              <div class="config-item" style="width: 175px">
+                <div class="up-down-buttons">
                   <button class="mdl-button mdl-js-button mdl-button--icon"
                     id="d-layers-add-button" title="Add a layer">
-                    <i class="material-icons">add</i>
+                    <i class="material-icons">keyboard_arrow_up</i>
                   </button>
-                  <button class="mdl-button mdl-js-button mdl-button--icon"
-                    id="d-layers-remove-button" title="Remove a layer">
-                    <i class="material-icons">remove</i>
-                  </button>
-                  <label><span id="num-d-layers">1</span> hidden layer(s)</label>
                   <br />
                   <button class="mdl-button mdl-js-button mdl-button--icon"
-                    id="d-neurons-add-button" title="Add a neuron for each layer">
-                    <i class="material-icons">add</i>
+                    id="d-layers-remove-button" title="Remove a layer">
+                    <i class="material-icons">keyboard_arrow_down</i>
                   </button>
+                </div>
+                <div class="up-down-buttons">
+                  <label><span id="num-d-layers">1</span> hidden layer(s)</label>
+                </div>
+                <div class="up-down-buttons">
+                  <button class="mdl-button mdl-js-button mdl-button--icon"
+                    id="d-neurons-add-button" title="Add a neuron for each layer">
+                    <i class="material-icons">keyboard_arrow_up</i>
+                  </button>
+                  <br />
                   <button class="mdl-button mdl-js-button mdl-button--icon"
                     id="d-neurons-remove-button" title="Remove a neuron for each layer">
-                    <i class="material-icons">remove</i>
+                    <i class="material-icons">keyboard_arrow_down</i>
                   </button>
+                </div>
+                <div class="up-down-buttons">
                   <label><span id="num-d-neurons">8</span> neuron(s)</label>
                 </div>
               </div>
             </div>
 
-            <div id="group-generator" class="model-component-group"
+            <div id="component-generator"
+              class="model-component model-component-model"
               style="top: 160px; left: 140px">
-              <div id="component-generator" class="model-component"
-                style="top: 0px; left: 3px">
+                <div id="manifold-toggle" class="checkbox-toggle"
+                  title="show/hide generator's manifold">
+                  <paper-checkbox id="enable-manifold"></paper-checkbox>
+                </div>
                 <svg id="svg-generator-manifold"></svg>
-                <div class="component-label">generator</div>
+                <div class="component-label">Generator</div>
               </div>
 
-              <div id="manifold-toggle" class="checkbox-toggle"
-                title="show/hide generator's manifold">
-                <paper-checkbox id="enable-manifold"></paper-checkbox>
-              </div>
-
-              <div id="component-options-generator" class="model-component-options"
-                style="top: 10px; left: 8px">
-                <div class="config-item" style="width: 115px">
+            <div id="component-options-generator" class="model-component-options"
+              style="top: 335px; left: 135px">
+              <div class="config-item" style="width: 175px">
+                <div class="up-down-buttons">
                   <button class="mdl-button mdl-js-button mdl-button--icon"
                     id="g-layers-add-button" title="Add a layer">
-                    <i class="material-icons">add</i>
+                    <i class="material-icons">keyboard_arrow_up</i>
                   </button>
-                  <button class="mdl-button mdl-js-button mdl-button--icon"
-                    id="g-layers-remove-button" title="Remove a layer">
-                    <i class="material-icons">remove</i>
-                  </button>
-                  <label><span id="num-g-layers">1</span> hidden layer(s)</label>
                   <br />
                   <button class="mdl-button mdl-js-button mdl-button--icon"
-                    id="g-neurons-add-button" title="Add a neuron for each layer">
-                    <i class="material-icons">add</i>
+                    id="g-layers-remove-button" title="Remove a layer">
+                    <i class="material-icons">keyboard_arrow_down</i>
                   </button>
+                </div>
+                <div class="up-down-buttons">
+                  <label><span id="num-g-layers">1</span> hidden layer(s)</label>
+                </div>
+                <div class="up-down-buttons">
+                  <button class="mdl-button mdl-js-button mdl-button--icon"
+                    id="g-neurons-add-button" title="Add a neuron for each layer">
+                    <i class="material-icons">keyboard_arrow_up</i>
+                  </button>
+                  <br />
                   <button class="mdl-button mdl-js-button mdl-button--icon"
                     id="g-neurons-remove-button" title="Remove a neuron for each layer">
-                    <i class="material-icons">remove</i>
+                    <i class="material-icons">keyboard_arrow_down</i>
                   </button>
+                </div>
+                <div class="up-down-buttons">
                   <label><span id="num-g-neurons">8</span> neuron(s)</label>
                 </div>
               </div>
@@ -658,21 +704,21 @@
 
             <div id="component-discriminator-gradients" class="model-component"
               style="top: 13px; left: 500px">
-              <div class="component-label">gradients for discriminator</div>
+              <div class="component-label">Discriminator's gradients</div>
             </div>
 
             <div id="component-generator-gradients" class="model-component"
-              style="top: 400px; left: 315px">
+              style="top: 400px; left: 305px">
               <div id="g-gradients-toggle" class="checkbox-toggle"
                 title="show/hide gradients for generator">
                 <paper-checkbox id="show-g-gradients" checked></paper-checkbox>
               </div>
               <svg id="svg-generator-gradients"></svg>
-              <div class="component-label">gradients for generator</div>
+              <div class="component-label">Generator's gradients</div>
             </div>
 
             <div id="component-true-distribution" class="model-component"
-              style="top: 70px; left: 307px">
+              style="top: 70px; left: 297px">
               <div class="config-item" style="width: 100px">
                 <paper-dropdown-menu no-animations label="True Distribution">
                   <paper-listbox attr-for-selected="value" id="shape-dropdown" class="dropdown-content" selected="{{selectedShapeName}}">
@@ -693,52 +739,59 @@
             </div>
 
             <div id="component-real-samples" class="model-component"
-              style="top: 155px; left: 315px">
+              style="top: 155px; left: 305px">
               <div id="t-samples-toggle" class="checkbox-toggle"
                 title="show/hide true samples">
                 <paper-checkbox id="show-t-samples" checked></paper-checkbox>
               </div>
               <svg id="svg-real-samples"></svg>
-              <div class="component-label">true samples</div>
+              <div class="component-label">True samples</div>
             </div>
 
             <div id="component-generated-samples" class="model-component"
-              style="top: 250px; left: 315px">
+              style="top: 250px; left: 305px">
               <div id="g-samples-toggle" class="checkbox-toggle"
                 title="show/hide generated samples">
                 <paper-checkbox id="show-g-samples" checked></paper-checkbox>
               </div>
               <svg id="svg-generated-samples"></svg>
-              <div class="component-label">generated samples</div>
+              <div class="component-label">Generated samples</div>
             </div>
 
             <div id="component-noise" class="model-component"
-              style="top: 250px; left: 25px">
+              style="top: 250px; left: 10px">
               <svg id="svg-noise"></svg>
-              <div class="component-label">noise</div>
+              <div class="component-label">Noise</div>
             </div>
 
             <div id="component-options-noise" class="model-component-options"
-              style="top: 352px; left: 40px">
-              <div class="config-item">
-                <button class="mdl-button mdl-js-button mdl-button--icon"
-                  id="noise-size-add-button" title="Increase a dimension">
-                  <i class="material-icons">add</i>
-                </button>
-                <button class="mdl-button mdl-js-button mdl-button--icon"
-                  id="noise-size-remove-button" title="Decrease a dimension">
-                  <i class="material-icons">remove</i>
-                </button>
-                <label><span id="noise-size">2</span>-D</label>
-                <paper-dropdown-menu no-animations no-label-float>
-                  <paper-listbox attr-for-selected="value" id="noise-dropdown" class="dropdown-content" selected="{{selectedNoiseType}}">
-                    <template is="dom-repeat" items="[[noiseTypes]]">
-                      <paper-item value="[[item]]" label="[[item]]">
-                        [[item]]
-                      </paper-item>
-                    </template>
-                  </paper-listbox>
-                </paper-dropdown-menu>
+              style="top: 330px; left: 20px">
+              <div class="config-item" style="width: 120px">
+                <div class="up-down-buttons">
+                  <button class="mdl-button mdl-js-button mdl-button--icon"
+                    id="noise-size-add-button" title="Increase a dimension">
+                    <i class="material-icons">keyboard_arrow_up</i>
+                  </button>
+                  <br />
+                  <button class="mdl-button mdl-js-button mdl-button--icon"
+                    id="noise-size-remove-button" title="Decrease a dimension">
+                    <i class="material-icons">keyboard_arrow_down</i>
+                  </button>
+                </div>
+                <div class="up-down-buttons">
+                  <label><span id="noise-size">2</span>D</label>
+                </div>
+                <div class="up-down-buttons" style="width: 65px">
+                  <paper-dropdown-menu no-animations no-label-float>
+                    <paper-listbox attr-for-selected="value" id="noise-dropdown" class="dropdown-content" selected="{{selectedNoiseType}}">
+                      <template is="dom-repeat" items="[[noiseTypes]]">
+                        <paper-item value="[[item]]" label="[[item]]">
+                          [[item]]
+                        </paper-item>
+                      </template>
+                    </paper-listbox>
+                  </paper-dropdown-menu>
+                </div>
               </div>
             </div>
           </div>
@@ -781,19 +834,21 @@
 
               <path marker-end="url(#arrow-head)" d="M695,195 L725,235"
                 id="arrow-t-prediction-d-loss" />
-              <path marker-end="url(#arrow-head)" d="M695,285 L725,245"
+              <path marker-end="url(#arrow-head)" d="M695,280 L725,240"
                 id="arrow-g-prediction-d-loss" />
               <path marker-end="url(#arrow-head)" d="M695,285 L725,325"
                 id="arrow-g-prediction-g-loss" />
-              <path d="M775,210 L775,50" id="arrow-d-loss-d-1" />
-              <path d="M775,50 L550,50" id="arrow-d-loss-d-2" />
+              <path d="M725,235 L795,235" id="arrow-d-loss-d-0" />
+              <path d="M795,235 L795,50" id="arrow-d-loss-d-1" />
+              <path d="M795,50 L550,50" id="arrow-d-loss-d-2" />
               <path d="M550,50 L490,50" id="arrow-d-loss-d-3" />
               <path marker-end="url(#arrow-head)" d="M490,50 L490,152"
                 id="arrow-d-loss-d-4" />
-              <path d="M775,350 L775,460" id="arrow-g-loss-g-1" />
-              <path d="M775,460 L395,460" id="arrow-g-loss-g-2" />
+              <path d="M725,330 L795,330" id="arrow-g-loss-g-0" />
+              <path d="M795,330 L795,460" id="arrow-g-loss-g-1" />
+              <path d="M795,460 L395,460" id="arrow-g-loss-g-2" />
               <path d="M325,460 L210,460" id="arrow-g-loss-g-3" />
-              <path marker-end="url(#arrow-head)" d="M210,460 L210,333"
+              <path marker-end="url(#arrow-head)" d="M210,460 L210,360"
                 id="arrow-g-loss-g-4" />
             </g>
           </svg>

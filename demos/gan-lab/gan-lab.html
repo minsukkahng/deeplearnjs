@@ -12,147 +12,46 @@
 <dom-module id="gan-lab">
   <style>
     #gan-lab-container {
+      background-color: #f7f7f7;
       width: 100%;
     }
 
     .ink-panel {
       display: flex;
       flex-direction: column;
-      font-size: 14px;
-    }
-
-    .side-panel {
-      background: #fafafa;
-      border: 1px solid rgba(0, 0, 0, 0.1);
-      border-width: 0 1px 0 0;
-      padding: 20px;
+      font-size: 13px;
     }
 
     #main-panel {
-      background: #fafafa;
       display: flex;
     }
 
-    #training-menu {
-      width: 165px;
-    }
-
-    #model-visualization-container {
-      border: 1px solid rgba(0, 0, 0, 0.1);
-      border-width: 0 1px 0 0;
-      flex-grow: 2;
-      min-height: 800px;
-      min-width: 625px;
-      padding: 20px;
-      position: relative;
-    }
-
-    #visualization-container {
-      flex-grow: 2;
-      padding: 20px;
-      position: relative;
-    }
-
-    #right-menu {
-      border-width: 0 0 0 1px;
-      width: 240px;
-    }
-
-    #model-vis-svg,
-    #model-vis-div {
-      height: 800px;
-      position: absolute;
-      width: 600px;
-    }
-
-    #model-vis-svg path {
-      fill: none;
-      stroke: rgb(156, 156, 156);
-      stroke-width: 2;
-    }
-
-    .model-component-group {
-      background-color: #444;
-      height: 110px;
-      color: #fff;
-      position: absolute;
-      width: 230px;
-    }
-
-    .model-component {
-      height: 90px;
-      position: absolute;
-      text-align: center;
-      width: 80px;
-    }
-
-    .model-component svg {
-      background-color: #fff;
-      border: 1px solid #ddd;
-      height: 80px;
-      width: 80px;
-    }
-
-    .model-component .component-label {
-      font-size: 14px;
-      font-weight: bold;
-      line-height: 16px;
-    }
-
-    .model-component-options {
-      height: 90px;
-      position: absolute;
-      width: 140px;
-    }
-
-    .config-item {
-      line-height: 14px;
-      margin: 0;
-    }
-
-    .config-item label {
-      color: rgb(82, 82, 82);
-      font-size: 11px;
-      margin: 0;
-    }
-
-    .model-component-group .config-item label {
-      color: rgb(238, 238, 238);
-    }
-
-    #model-visualization-container .mdl-button--icon {
-      height: 16px;
-      min-height: 16px;
-      min-width: 16px;
-      width: 16px;
-    }
-
-    #model-visualization-container .material-icons {
-      font-size: 16px;
-    }
-
-    #model-visualization-container .paper-input-container input.paper-input,
-    #model-visualization-container paper-item {
-      font-size: 12px;
-    }
-
     .panel-title {
-      color: #999;
+      color: #777;
+      margin-bottom: 10px;
       font-size: 12px;
       text-transform: uppercase;
     }
 
-    #control-panel {
-      border-bottom: 2px solid #ccc;
+    #top-panel {
+      background-color: #eee;
+      border-bottom: 2px solid #ddd;
       height: 70px;
-      padding: 7px 30px;
-      width: 100%;
+    }
+
+    #page-title {
+      color: #444;
+      font-size: 24px;
+      padding: 15px 6px;
+    }
+
+    #control-panel {
+      text-align: right;
     }
 
     .timeline-controls {
       align-items: center;
       display: inline-flex;
-      width: 200px;
     }
 
     #play-pause-button .material-icons {
@@ -173,25 +72,189 @@
       display: inherit;
     }
 
-    .checkbox-toggle {
-      left: 63px;
+    #iteration {
+      color: #737373;
+      margin-top: 10px;
+    }
+
+    #iteration-count {
+      bottom: -5px;
+      font-size: 32px;
+      margin-left: 5px;
+      position: relative;
+    }
+
+    #charts-panel {
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-width: 0 0 0 1px;
+      padding: 25px;
+      width: 210px;
+    }
+
+    #model-visualization-container {
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-width: 0 1px 0 0;
+      flex-grow: 2;
+      min-height: 600px;
+      min-width: 815px;
+      padding: 25px;
+      position: relative;
+    }
+
+    #visualization-container {
+      flex-grow: 2;
+      padding: 25px;
+      position: relative;
+    }
+
+    #model-vis-svg,
+    #model-vis-div {
+      height: 600px;
       position: absolute;
+      width: 800px;
+    }
+
+    #model-vis-svg {
+      pointer-events: none;
+    }
+
+    #model-vis-svg path {
+      fill: none;
+      stroke: rgb(156, 156, 156);
+      stroke-width: 2;
+    }
+
+    #model-vis-svg path.d-highlighted {
+      stroke: rgb(105, 158, 255);
+      stroke-width: 3;
+    }
+
+    #model-vis-svg path.g-highlighted {
+      stroke: rgb(186, 99, 207);
+      stroke-width: 3;
+    }
+
+    marker#arrow-head-d-highlighted path {
+      stroke: rgb(105, 158, 255);
+    }
+
+    marker#arrow-head-g-highlighted path {
+      stroke: rgb(186, 99, 207);
+    }
+
+    .model-component-group {
+      background-color: rgb(128, 128, 128);
+      border-radius: 3px;
+      height: 165px;
+      position: absolute;
+      width: 150px;
+    }
+
+    #group-discriminator.activated {
+      background-color: rgb(105, 158, 255);
+    }
+
+    #group-generator.activated {
+      background-color: rgb(186, 99, 207);
+    }
+
+    .model-component {
+      padding-top: 4px;
+      position: absolute;
+      text-align: center;
+      width: 90px;
+    }
+
+    .model-component svg {
+      background-color: #fff;
+      border: 1px solid #ddd;
+      border-radius: 2px;
+      height: 75px;
+      width: 75px;
+    }
+
+    .model-component-group .model-component {
+      width: 144px;
+    }
+
+    .model-component-group .model-component svg {
+      height: 140px;
+      width: 140px;
+    }
+
+    .model-component-options {
+      height: 30px;
+      position: absolute;
+      width: 100px;
+    }
+
+    .component-label {
+      color: #000;
+      font-size: 13px;
+      line-height: 16px;
+    }
+
+    .model-component-group .component-label {
+      color: #fff;
+    }
+
+    .config-item {
+      line-height: 14px;
+      margin: 0;
+      width: 70px;
+    }
+
+    .config-item label {
+      color: rgb(82, 82, 82);
+      font-size: 11px;
+      margin: 0;
+    }
+
+    .checkbox-toggle {
+      right: -2px;
+      position: absolute;
+      top: -2px;
     }
 
     paper-checkbox {
       --paper-checkbox-checked-color: var(--paper-grey-400);
       --paper-checkbox-unchecked-color: var(--paper-grey-500);
+      --paper-checkbox-size: 10px;
     }
 
-    #iteration {
-      color: #737373;
-      display: inline-flex;
-      margin: 25px 0 0 20px;
+    #model-visualization-container .mdl-button--icon {
+      height: 16px;
+      min-height: 16px;
+      min-width: 12px;
+      width: 12px;
     }
 
-    #iteration-count {
-      margin-left: 5px;
-      font-size: 32px;
+    #model-visualization-container .material-icons {
+      font-size: 11px;
+    }
+
+    #model-visualization-container paper-item {
+      --paper-item: {
+        font-size: 12px;
+      };
+      --paper-item-min-height: 16px;
+    }
+
+    #model-visualization-container paper-dropdown-menu {
+      --paper-input-container: {
+        padding: 0;
+      };
+      --paper-input-container-color: rgb(146, 146, 146);
+      --paper-input-container-input: {
+        color: #666;
+        font-size: 13px;
+      };
+      --paper-input-container-label: {
+        font-size: 13px;
+      };
+      --paper-input-container-label-floating: {
+        line-height: 16px;
+      };
     }
 
     #drawing-container {
@@ -243,7 +306,8 @@
     }
 
     .gradient-generated {
-      fill: none;
+      fill: rgba(196, 20, 219, 0.5);
+      stroke-width: 0;
     }
 
     .contour {
@@ -253,77 +317,169 @@
       stroke-width: 0.5;
       stroke-linejoin: round;
     }
+
+    #overlay-background {
+      background-color: #fff;
+      display: none;
+      height: 100%;
+      opacity: 0.5;
+      width: 100%;
+    }
+
+    #overlay-background.shown {
+      display: block;
+      z-index: 99990;
+    }
+
+    .model-component-group.d-highlighted,
+    .model-component-group.g-highlighted {
+      z-index: 99997;
+    }
+
+    .model-component.d-highlighted {
+      background-color: rgb(190, 209, 245);
+      z-index: 99997;
+    }
+
+    .model-component.g-highlighted {
+      background-color: rgb(211, 171, 231);
+      z-index: 99997;
+    }
+
+    #tooltips {
+      display: none;
+    }
+
+    .tooltip-number {
+      border-radius: 10px;
+      color: white;
+      font-size: 11px;
+      height: 10px;
+      left: -9px;
+      padding: 4px;
+      position: absolute;
+      text-align: center;
+      top: -7px;
+      width: 12px;
+    }
+
+    .tooltip {
+      background-color: rgba(241, 241, 241, 0.85);
+      border-radius: 4px;
+      color: #000;
+      font-size: 11px;
+      line-height: 13px;
+      padding: 4px 6px 4px 9px;
+      position: absolute;
+      width: 135px;
+    }
+
+    .tooltip-for-d .tooltip-number {
+      background-color: rgba(92, 115, 216, 0.9)
+    }
+
+    .tooltip-for-g .tooltip-number {
+      background-color: rgba(167, 111, 212, 0.9);
+    }
+
+    #tooltips.shown {
+      display: block;
+      z-index: 99995;
+    }
+
+    .tooltip.highlighted {
+      z-index: 99999;
+    }
+
+    .tooltip-for-d.highlighted {
+      background-color: rgba(219, 223, 243, 0.95);
+    }
+
+    .tooltip-for-g.highlighted {
+      background-color: rgba(240, 224, 255, 0.95);
+    }
   </style>
   <template>
     <div id="gan-lab-container">
-      <div id="control-panel">
-        <div class="timeline-controls">
-          <button class="mdl-button mdl-js-button mdl-button--icon ui-resetButton" id="reset-button" title="Reset the network">
-            <i class="material-icons">replay</i>
-          </button>
-          <button class="mdl-button mdl-js-button mdl-button--fab mdl-button--colored ui-playButton" id="play-pause-button" title="Run/Pause">
-            <i class="material-icons">play_arrow</i>
-            <i class="material-icons">pause</i>
-          </button>
-          <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-button" title="Step">
-            <i class="material-icons">skip_next</i>
-          </button>
-          <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-d-button" title="Step only discriminator">
-            <i>D</i>
-          </button>
-          <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-g-button" title="Step only generator">
-            <i>G</i>
-          </button>
+      <div id="top-panel" class="mdl-grid">
+        <div id="page-title" class="mdl-cell mdl-cell--2-col"><strong>GAN</strong> Lab</div>
+        <div id="control-panel" class="mdl-cell mdl-cell--5-col">
+          <div class="timeline-controls">
+            <button class="mdl-button mdl-js-button mdl-button--icon ui-resetButton" id="reset-button" title="Reset the network">
+              <i class="material-icons">replay</i>
+            </button>
+            <button class="mdl-button mdl-js-button mdl-button--fab mdl-button--colored ui-playButton" id="play-pause-button" title="Run/Pause">
+              <i class="material-icons">play_arrow</i>
+              <i class="material-icons">pause</i>
+            </button>
+            <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-button" title="Step" style="margin-right: 10px">
+              <i class="material-icons">skip_next</i>
+            </button>
+            <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-d-button" title="Step only discriminator">
+              <i>D</i>
+            </button>
+            <button class="mdl-button mdl-js-button mdl-button--icon ui-stepButton" id="next-step-g-button" title="Step only generator">
+              <i>G</i>
+            </button>
+            <button class="mdl-button mdl-js-button mdl-button--icon" id="slow-step" title="Slow mode" style="margin-left: 10px">
+              <i class="material-icons">slow_motion_video</i>
+            </button>
+            <button class="mdl-button mdl-js-button mdl-button--icon" id="edit-model-button" title="Show/hide hyperparameter options">
+              <i class="material-icons">mode_edit</i>
+            </button>
+          </div>
         </div>
-
-        <div id="iteration">
-          Epoch: <span id="iteration-count">0</span>
+        <div class="mdl-cell mdl-cell--5-col">
+          <div id="iteration">
+            Epoch:
+            <span id="iteration-count">0</span>
+          </div>
         </div>
       </div>
 
       <div id="main-panel">
         <div id="model-visualization-container" class="ink-panel">
-          <svg id="model-vis-svg">
-            <g id="lines">
-              <defs>
-                <marker id="arrow-head" orient="auto" markerWidth="4" markerHeight="4"
-                  refX="0.3" refY="2">
-                  <path d="M0,0 V4 L2,2 Z" />
-                </marker>
-              </defs>
-
-              <path marker-end="url(#arrow-head)" d="M275,160 L275,130" />
-              <path marker-end="url(#arrow-head)" d="M210,315 L265,285" />
-              <path marker-end="url(#arrow-head)" d="M350,315 L295,285" />
-              <path marker-end="url(#arrow-head)" d="M110,360 L160,360" />
-              <path marker-end="url(#arrow-head)" d="M350,460 L350,440" />
-              <path marker-end="url(#arrow-head)" d="M350,615 L350,585" />
-
-              <path marker-end="url(#arrow-head)" d="M320,60 L390,60" />
-              <path marker-end="url(#arrow-head)" d="M440,110 L440,180" />
-              <path d="M570,110 L570,510" />
-              <path marker-end="url(#arrow-head)" d="M570,510 L550,510" />
-              <path marker-end="url(#arrow-head)" d="M370,210 L335,210" />
-              <path marker-end="url(#arrow-head)" d="M450,510 L410,510" />
-            </g>
-          </svg>
-
           <div id="model-vis-div">
             <div class="panel-title">Model</div>
 
-            <div id="component-prediction" class="model-component"
-              style="top: 20px; left: 235px">
-              <svg id="svg-prediction"></svg>
-              <div class="component-label">prediction</div>
+            <div id="component-d-loss" class="model-component"
+              style="top: 210px; left: 725px">
+              <div class="component-label">discriminator<br />loss</div>
+              <div class="component-value">
+                <span id="d-loss-value" title="log loss"></span>
+                (<span id="d-loss-value-simple" title="simple absolute loss"></span>)
+              </div>
             </div>
 
-            <div id="component-d-loss" class="model-component"
-              style="top: 20px; left: 400px; width: 110px">
-              <div class="component-label">D loss</div>
-              <div id="d-loss-value" class="component-value" title="log loss">-</div>
-              <div class="component-value">(<span
-                id="d-loss-value-simple" title="simple absolute loss"></span>)</div>
+            <div id="component-g-loss" class="model-component"
+              style="top: 295px; left: 725px">
+              <div class="component-label">generator<br />loss</div>
+              <div class="component-value">
+                <span id="g-loss-value" title="log loss"></span>
+                (<span id="g-loss-value-simple" title="simple absolute loss"></span>)
+              </div>
+            </div>
+
+            <div id="component-options-loss" class="model-component"
+            style="top: 120px; left: 700px">
               <div class="config-item">
+                <paper-dropdown-menu no-animations no-label>
+                  <paper-listbox attr-for-selected="value"
+                    id="loss-type-dropdown" class="dropdown-content"
+                    selected="{{lossType}}">
+                    <template is="dom-repeat" items="[[lossTypeOptions]]">
+                      <paper-item value="[[item]]" label="[[item]]">
+                        [[item]]
+                      </paper-item>
+                    </template>
+                  </paper-listbox>
+                </paper-dropdown-menu>
+              </div>
+            </div>
+
+            <div id="component-d-loop" class="model-component"
+              style="top: 31px; left: 620px">
+              <div class="config-item" style="width: 150px">
                 <button class="mdl-button mdl-js-button mdl-button--icon"
                   id="k-d-steps-add-button" title="Increase a step">
                   <i class="material-icons">add</i>
@@ -332,18 +488,13 @@
                   id="k-d-steps-remove-button" title="Decrease a step per iter">
                   <i class="material-icons">remove</i>
                 </button>
-                <br />
                 <label><span id="k-d-steps">2</span> update(s) per epoch</label>
               </div>
             </div>
 
-            <div id="component-g-loss" class="model-component"
-              style="top: 20px; left: 515px; width: 110px">
-              <div class="component-label">G loss</div>
-              <div id="g-loss-value" class="component-value" title="log loss">-</div>
-              <div class="component-value">(<span
-                id="g-loss-value-simple" title="simple absolute loss"></span>)</div>
-              <div class="config-item">
+            <div id="component-g-loop" class="model-component"
+              style="top: 457px; left: 620px">
+              <div class="config-item" style="width: 150px">
                 <button class="mdl-button mdl-js-button mdl-button--icon"
                   id="k-g-steps-add-button" title="Increase a step">
                   <i class="material-icons">add</i>
@@ -352,16 +503,28 @@
                   id="k-g-steps-remove-button" title="Decrease a step per iter">
                   <i class="material-icons">remove</i>
                 </button>
-                <br />
                 <label><span id="k-g-steps">1</span> update(s) per epoch</label>
               </div>
             </div>
 
-            <div id="component-learning-rate" class="model-component"
-              style="top: 210px; left: 470px">
-              <div class="config-item" style="background-color: white;">
+            <div id="component-discriminator-learning" class="model-component"
+              style="top: 50px; left: 495px">
+              <div class="config-item">
+                <paper-dropdown-menu no-animations label="Optimizer">
+                  <paper-listbox attr-for-selected="value"
+                    id="d-optimizer-type-dropdown" class="dropdown-content"
+                    selected="{{dOptimizerType}}">
+                    <template is="dom-repeat" items="[[optimizerTypeOptions]]">
+                      <paper-item value="[[item]]" label="[[item]]">
+                        [[item]]
+                      </paper-item>
+                    </template>
+                  </paper-listbox>
+                </paper-dropdown-menu>
                 <paper-dropdown-menu no-animations label="Learning Rate">
-                  <paper-listbox attr-for-selected="value" id="learning-rate-dropdown" class="dropdown-content" selected="{{learningRate}}">
+                  <paper-listbox attr-for-selected="value"
+                    id="d-learning-rate-dropdown" class="dropdown-content"
+                    selected="{{dLearningRate}}">
                     <template is="dom-repeat" items="[[learningRateOptions]]">
                       <paper-item value="[[item]]" label="[[item]]">
                         [[item]]
@@ -372,20 +535,65 @@
               </div>
             </div>
 
+            <div id="component-generator-learning" class="model-component"
+              style="top: 330px; left: 215px">
+              <div class="config-item">
+                <paper-dropdown-menu no-animations label="Optimizer">
+                  <paper-listbox attr-for-selected="value"
+                    id="g-optimizer-type-dropdown" class="dropdown-content"
+                    selected="{{gOptimizerType}}">
+                    <template is="dom-repeat" items="[[optimizerTypeOptions]]">
+                      <paper-item value="[[item]]" label="[[item]]">
+                        [[item]]
+                      </paper-item>
+                    </template>
+                  </paper-listbox>
+                </paper-dropdown-menu>
+                <paper-dropdown-menu no-animations label="Learning Rate">
+                  <paper-listbox attr-for-selected="value"
+                    id="g-learning-rate-dropdown" class="dropdown-content"
+                    selected="{{gLearningRate}}">
+                    <template is="dom-repeat" items="[[learningRateOptions]]">
+                      <paper-item value="[[item]]" label="[[item]]">
+                        [[item]]
+                      </paper-item>
+                    </template>
+                  </paper-listbox>
+                </paper-dropdown-menu>
+              </div>
+            </div>
+
+            <div id="component-true-prediction" class="model-component"
+              style="top: 155px; left: 610px">
+              <svg id="svg-true-prediction">
+                <g id="svg-true-prediction-uniform-dots"></g>
+                <g id="svg-true-prediction-true-dots"></g>
+              </svg>
+              <div class="component-label">prediction</div>
+            </div>
+
+            <div id="component-generated-prediction" class="model-component"
+              style="top: 250px; left: 610px">
+              <svg id="svg-generated-prediction"></svg>
+              <div class="component-label">prediction</div>
+            </div>
+
             <div id="group-discriminator" class="model-component-group"
-              style="top: 165px; left: 95px">
+              style="top: 160px; left: 435px">
               <div id="component-discriminator" class="model-component"
-                style="top: 5px; left: 140px">
-                <div id="overlap-toggle" class="checkbox-toggle">
-                  <paper-checkbox id="overlap-plots" checked></paper-checkbox>
-                </div>
+                style="top: 0px; left: 3px">
                 <svg id="svg-discriminator-output"></svg>
                 <div class="component-label">discriminator</div>
               </div>
 
+              <div id="overlap-toggle" class="checkbox-toggle">
+                <paper-checkbox id="overlap-plots" checked
+                  title="show/hide discriminator's prediction"></paper-checkbox>
+              </div>
+
               <div id="component-options-discriminator" class="model-component-options"
-                style="top: 35px; left: 5px">
-                <div class="config-item">
+                style="top: 10px; left: 8px">
+                <div class="config-item" style="width: 115px">
                   <button class="mdl-button mdl-js-button mdl-button--icon"
                     id="d-layers-add-button" title="Add a layer">
                     <i class="material-icons">add</i>
@@ -395,8 +603,7 @@
                     <i class="material-icons">remove</i>
                   </button>
                   <label><span id="num-d-layers">1</span> hidden layer(s)</label>
-                </div>
-                <div class="config-item">
+                  <br />
                   <button class="mdl-button mdl-js-button mdl-button--icon"
                     id="d-neurons-add-button" title="Add a neuron for each layer">
                     <i class="material-icons">add</i>
@@ -410,63 +617,22 @@
               </div>
             </div>
 
-            <div id="component-discriminator-gradients" class="model-component"
-              style="top: 195px; left: 380px">
-              <div class="component-label">gradients for discriminator</div>
-            </div>
-
-            <div id="component-true-distribution" class="model-component"
-              style="top: 320px; left: 25px">
-              <div id="t-contour-toggle" class="checkbox-toggle">
-                <paper-checkbox class="tiny" id="show-t-contour" checked></paper-checkbox>
-              </div>
-              <svg id="svg-true-distribution"></svg>
-              <div class="component-label">true distribution</div>
-              <div>
-                <paper-dropdown-menu no-animations label="Choose one">
-                  <paper-listbox attr-for-selected="value" id="shape-dropdown" class="dropdown-content" selected="{{selectedShapeName}}">
-                    <template is="dom-repeat" items="[[shapeNames]]">
-                      <paper-item value="[[item]]" label="[[item]]">
-                        [[item]]
-                      </paper-item>
-                    </template>
-                  </paper-listbox>
-                </paper-dropdown-menu>
-              </div>
-            </div>
-
-            <div id="component-real-samples" class="model-component"
-              style="top: 320px; left: 170px">
-              <div id="t-samples-toggle" class="checkbox-toggle">
-                <paper-checkbox id="show-t-samples" checked></paper-checkbox>
-              </div>
-              <svg id="svg-real-samples"></svg>
-              <div class="component-label">real samples</div>
-            </div>
-
-            <div id="component-generated-samples" class="model-component"
-              style="top: 320px; left: 310px">
-              <div id="g-samples-toggle" class="checkbox-toggle">
-                <paper-checkbox id="show-g-samples" checked></paper-checkbox>
-              </div>
-              <svg id="svg-generated-samples"></svg>
-              <div class="component-label">generated samples</div>
-            </div>
-
             <div id="group-generator" class="model-component-group"
-              style="top: 465px; left: 170px">
+              style="top: 160px; left: 140px">
               <div id="component-generator" class="model-component"
-                style="top: 5px; left: 140px">
-                <div id="manifold-toggle" class="checkbox-toggle">
-                  <paper-checkbox id="enable-manifold" checked></paper-checkbox>
-                </div>
+                style="top: 0px; left: 3px">
                 <svg id="svg-generator-manifold"></svg>
                 <div class="component-label">generator</div>
               </div>
 
+              <div id="manifold-toggle" class="checkbox-toggle"
+                title="show/hide generator's manifold">
+                <paper-checkbox id="enable-manifold"></paper-checkbox>
+              </div>
+
               <div id="component-options-generator" class="model-component-options"
-                style="top: 35px; left: 5px">
-                <div class="config-item">
+                style="top: 10px; left: 8px">
+                <div class="config-item" style="width: 115px">
                   <button class="mdl-button mdl-js-button mdl-button--icon"
                     id="g-layers-add-button" title="Add a layer">
                     <i class="material-icons">add</i>
@@ -476,8 +642,7 @@
                     <i class="material-icons">remove</i>
                   </button>
                   <label><span id="num-g-layers">1</span> hidden layer(s)</label>
-                </div>
-                <div class="config-item">
+                  <br />
                   <button class="mdl-button mdl-js-button mdl-button--icon"
                     id="g-neurons-add-button" title="Add a neuron for each layer">
                     <i class="material-icons">add</i>
@@ -491,21 +656,72 @@
               </div>
             </div>
 
+            <div id="component-discriminator-gradients" class="model-component"
+              style="top: 13px; left: 500px">
+              <div class="component-label">gradients for discriminator</div>
+            </div>
+
             <div id="component-generator-gradients" class="model-component"
-              style="top: 470px; left: 455px">
-              <div id="g-gradients-toggle" class="checkbox-toggle">
+              style="top: 400px; left: 315px">
+              <div id="g-gradients-toggle" class="checkbox-toggle"
+                title="show/hide gradients for generator">
                 <paper-checkbox id="show-g-gradients" checked></paper-checkbox>
               </div>
               <svg id="svg-generator-gradients"></svg>
               <div class="component-label">gradients for generator</div>
             </div>
 
+            <div id="component-true-distribution" class="model-component"
+              style="top: 70px; left: 307px">
+              <div class="config-item" style="width: 100px">
+                <paper-dropdown-menu no-animations label="True Distribution">
+                  <paper-listbox attr-for-selected="value" id="shape-dropdown" class="dropdown-content" selected="{{selectedShapeName}}">
+                    <template is="dom-repeat" items="[[shapeNames]]">
+                      <paper-item value="[[item]]" label="[[item]]">
+                        [[item]]
+                      </paper-item>
+                    </template>
+                  </paper-listbox>
+                </paper-dropdown-menu>
+              </div>
+              <br />
+              <div id="t-contour-toggle" class="checkbox-toggle"
+                title="show/hide true distribution's contour"
+                style="top: 6px; right: -10px">
+                <paper-checkbox class="tiny" id="show-t-contour"></paper-checkbox>
+              </div>
+            </div>
+
+            <div id="component-real-samples" class="model-component"
+              style="top: 155px; left: 315px">
+              <div id="t-samples-toggle" class="checkbox-toggle"
+                title="show/hide true samples">
+                <paper-checkbox id="show-t-samples" checked></paper-checkbox>
+              </div>
+              <svg id="svg-real-samples"></svg>
+              <div class="component-label">true samples</div>
+            </div>
+
+            <div id="component-generated-samples" class="model-component"
+              style="top: 250px; left: 315px">
+              <div id="g-samples-toggle" class="checkbox-toggle"
+                title="show/hide generated samples">
+                <paper-checkbox id="show-g-samples" checked></paper-checkbox>
+              </div>
+              <svg id="svg-generated-samples"></svg>
+              <div class="component-label">generated samples</div>
+            </div>
+
             <div id="component-noise" class="model-component"
-              style="top: 620px; left: 310px">
+              style="top: 250px; left: 25px">
               <svg id="svg-noise"></svg>
               <div class="component-label">noise</div>
+            </div>
+
+            <div id="component-options-noise" class="model-component-options"
+              style="top: 352px; left: 40px">
               <div class="config-item">
-                  <button class="mdl-button mdl-js-button mdl-button--icon"
+                <button class="mdl-button mdl-js-button mdl-button--icon"
                   id="noise-size-add-button" title="Increase a dimension">
                   <i class="material-icons">add</i>
                 </button>
@@ -513,53 +729,174 @@
                   id="noise-size-remove-button" title="Decrease a dimension">
                   <i class="material-icons">remove</i>
                 </button>
-                <br />
-                <label><span id="noise-size">2</span>-D vectors</label>
+                <label><span id="noise-size">2</span>-D</label>
+                <paper-dropdown-menu no-animations no-label-float>
+                  <paper-listbox attr-for-selected="value" id="noise-dropdown" class="dropdown-content" selected="{{selectedNoiseType}}">
+                    <template is="dom-repeat" items="[[noiseTypes]]">
+                      <paper-item value="[[item]]" label="[[item]]">
+                        [[item]]
+                      </paper-item>
+                    </template>
+                  </paper-listbox>
+                </paper-dropdown-menu>
               </div>
             </div>
+          </div>
 
+          <div id="overlay-background"></div>
+
+          <svg id="model-vis-svg">
+            <g id="lines">
+              <defs>
+                <marker id="arrow-head" orient="auto"
+                  markerWidth="4" markerHeight="4" refX="0.3" refY="2">
+                  <path d="M0,0 V4 L2,2 Z" />
+                </marker>
+              </defs>
+              <defs>
+                <marker id="arrow-head-d-highlighted" orient="auto"
+                  markerWidth="4" markerHeight="4" refX="0.3" refY="2">
+                  <path d="M0,0 V4 L2,2 Z" />
+                </marker>
+              </defs>
+              <defs>
+                <marker id="arrow-head-g-highlighted" orient="auto"
+                  markerWidth="4" markerHeight="4" refX="0.3" refY="2">
+                  <path d="M0,0 V4 L2,2 Z" />
+                </marker>
+              </defs>
+
+              <path marker-end="url(#arrow-head)" d="M105,285 L135,285"
+                id="arrow-noise-g" />
+              <path marker-end="url(#arrow-head)" d="M290,285 L320,285"
+                id="arrow-g-g-samples" />
+              <path marker-end="url(#arrow-head)" d="M400,195 L430,195"
+                id="arrow-t-samples-d" />
+              <path marker-end="url(#arrow-head)" d="M400,285 L430,285"
+                id="arrow-g-samples-d" />
+              <path marker-end="url(#arrow-head)" d="M585,195 L615,195"
+                id="arrow-d-t-prediction" />
+              <path marker-end="url(#arrow-head)" d="M585,285 L615,285"
+                id="arrow-d-g-prediction" />
+
+              <path marker-end="url(#arrow-head)" d="M695,195 L725,235"
+                id="arrow-t-prediction-d-loss" />
+              <path marker-end="url(#arrow-head)" d="M695,285 L725,245"
+                id="arrow-g-prediction-d-loss" />
+              <path marker-end="url(#arrow-head)" d="M695,285 L725,325"
+                id="arrow-g-prediction-g-loss" />
+              <path d="M775,210 L775,50" id="arrow-d-loss-d-1" />
+              <path d="M775,50 L550,50" id="arrow-d-loss-d-2" />
+              <path d="M550,50 L490,50" id="arrow-d-loss-d-3" />
+              <path marker-end="url(#arrow-head)" d="M490,50 L490,152"
+                id="arrow-d-loss-d-4" />
+              <path d="M775,350 L775,460" id="arrow-g-loss-g-1" />
+              <path d="M775,460 L395,460" id="arrow-g-loss-g-2" />
+              <path d="M325,460 L210,460" id="arrow-g-loss-g-3" />
+              <path marker-end="url(#arrow-head)" d="M210,460 L210,333"
+                id="arrow-g-loss-g-4" />
+            </g>
+          </svg>
+
+          <div id="tooltips">
+            <div id="tooltip-d-loss" class="tooltip tooltip-for-d"
+              style="top: 150px; left: 630px">
+              <div class="tooltip-number">D1</div>
+              computes discriminator's loss
+            </div>
+            <div id="tooltip-d-gradients" class="tooltip tooltip-for-d"
+              style="top: 80px; left: 570px">
+              <div class="tooltip-number">D2</div>
+              computed to determine how boundary should change to decrease loss
+            </div>
+            <div id="tooltip-update-discriminator" class="tooltip tooltip-for-d"
+              style="top: 140px; left: 450px">
+              <div class="tooltip-number">D3</div>
+              updates decision boundary based on gradients
+            </div>
+            <div id="tooltip-g-loss" class="tooltip tooltip-for-g"
+              style="top: 370px; left: 630px">
+              <div class="tooltip-number">G1</div>
+              computes generator's loss
+            </div>
+            <div id="tooltip-g-gradients" class="tooltip tooltip-for-g"
+              style="top: 490px; left: 440px">
+              <div class="tooltip-number">G2</div>
+              computed to determine which direction each point should move to decrease loss
+            </div>
+            <div id="tooltip-update-generator" class="tooltip tooltip-for-g"
+              style="top: 360px; left: 170px">
+              <div class="tooltip-number">G3</div>
+              updates function based on gradients
+            </div>
+            <div id="tooltip-generated-samples" class="tooltip tooltip-for-g"
+              style="top: 245px; left: 310px; width: 110px">
+              <div class="tooltip-number">G4</div>
+              samples produced by generator from noise
+            </div>
           </div>
         </div>
 
         <div id="drawing-disable-background"></div>
 
         <div id="visualization-container" class="ink-panel">
-          <div class="panel-title">Visualization</div>
+          <div class="panel-title">Distributions</div>
 
-          <svg id="vis-svg" width="420" height="530">
-            <g id="vis-area" transform="translate(10,10)">
+          <svg id="vis-svg" width="400" height="400">
+            <g id="vis-area">
               <g id="vis-discriminator-output" class="vis-panel">
                 <rect class="plot-bg" width="400" height="400" x="0" y="0"></rect>
               </g>
               <g id="vis-samples" class="vis-panel">
-                <g id="vis-true-samples-contour" class="contour"></g>
+                <g id="vis-true-samples-contour" class="contour" style="visibility: hidden"></g>
                 <g id="vis-true-samples"></g>
-                <g id="vis-generated-samples"></g>
-                <defs>
-                  <linearGradient id="arrow-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style="stop-color:rgba(235, 0, 145, 0.8);" />
-                    <stop offset="100%" style="stop-color:rgba(231, 85, 178, 0.2);" />
-                  </linearGradient>
-                </defs>
                 <g id="vis-generator-gradients"></g>
-                <g id="vis-manifold"></g>
+                <g id="vis-generated-samples"></g>
+                <g id="vis-manifold" style="visibility: hidden"></g>
                 <rect class="plot-border" width="400" height="400" x="0" y="0"></rect>
               </g>
             </g>
-            <g id="vis-descriptions" transform="translate(10,420)">
-              <circle class="true-dot" r="2" transform="translate(5,5)"></circle>
-              <text transform="translate(15,9)">Samples from true distribution</text>
-              <circle class="generated-dot" r="2" transform="translate(5,25)"></circle>
-              <text transform="translate(15,29)">Samples generated by the generator</text>
-
-              <rect class="true-dot" width="10" height="10" transform="translate(1,50)"></rect>
-              <text transform="translate(16,59)">
-                Discriminator thinks samples in this region are from true distribution (real).
+          </svg>
+          <svg id="vis-descriptions" width="400" height="300">
+            <g transform="translate(0,20)">
+              <text transform="translate(0,0)">
+                Each dot represents a sample:
               </text>
-              <rect class="generated-dot" width="10" height="10" transform="translate(1,70)"></rect>
-              <text transform="translate(16,79)">
-                Discriminator thinks samples in this region are from generators (fake).
+              <circle class="true-dot" r="2" transform="translate(5,15)"></circle>
+              <text transform="translate(15,19)">Samples from true distribution</text>
+              <circle class="generated-dot" r="2" transform="translate(5,35)"></circle>
+              <text transform="translate(15,39)">Samples generated by the generator</text>
+            </g>
+            <g transform="translate(0,80)">
+              <text transform="translate(0,10)">
+                Background colors of grids represent discriminator's predictions:
               </text>
+              <rect class="true-dot" width="10" height="10" transform="translate(1,20)"
+                style="fill-opacity: 0.75"></rect>
+              <text transform="translate(16,29)">
+                Samples in this region might be from true distribution.
+              </text>
+              <rect width="10" height="10" transform="translate(1,40)"
+              style="fill: #e2e2e2"></rect>
+              <text transform="translate(16,49)">
+                Difficult to determine whether samples are from true distribution or not.
+              </text>
+              <rect class="generated-dot" width="10" height="10" transform="translate(1,60)"
+                style="fill-opacity: 0.75"></rect>
+              <text transform="translate(16,69)">
+                Samples in this region might be from generators.
+              </text>
+            </g>
+            <g transform="translate(0,180)">
+              <text transform="translate(0,0)">
+                Lines from generated samples represent gradients for generator:
+              </text>
+              <circle class="generated-dot" r="2" transform="translate(3,18)"></circle>
+              <text transform="translate(15,19)">
+                This sample needs to move upper right to decrease generator's loss.
+              </text>
+              <polygon class="gradient-generated" transform="translate(3,18)"
+                points="0,0 1,1 10,-10 -1,-1"></polygon>
             </g>
           </svg>
 
@@ -570,12 +907,12 @@
           </div>
         </div>
 
-        <div id="right-menu" class="ink-panel side-panel">
-          <div class="panel-title">Charts</div>
+        <div id="charts-panel" class="ink-panel">
+          <div class="panel-title">Metrics</div>
 
           <div id="chart-container">
-            <canvas id="cost-chart" width="240" height="200"></canvas>
-            <canvas id="eval-chart" width="240" height="200"></canvas>
+            <canvas id="cost-chart" width="210" height="200"></canvas>
+            <canvas id="eval-chart" width="210" height="200"></canvas>
           </div>
         </div>
       </div>

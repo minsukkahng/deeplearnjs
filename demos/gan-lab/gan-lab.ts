@@ -407,7 +407,7 @@ class GANLab extends GANLabPolymer {
     this.gDotsElementList = [
       '#vis-generated-samples',
       '#svg-generated-samples',
-      '#svg-generated-prediction'
+      '#svg-g-prediction-generated-dots'
     ];
 
     // Drawing-related.
@@ -442,16 +442,16 @@ class GANLab extends GANLabPolymer {
     const dataElements = [
       d3.select('#vis-true-samples').selectAll('.true-dot'),
       d3.select('#svg-real-samples').selectAll('.true-dot'),
-      d3.select('#svg-true-prediction-true-dots').selectAll('.true-dot'),
+      d3.select('#svg-t-prediction-true-dots').selectAll('.true-dot'),
       d3.select('#vis-true-samples-contour').selectAll('path'),
       d3.select('#svg-noise').selectAll('.noise-dot'),
       d3.select('#vis-generated-samples').selectAll('.generated-dot'),
       d3.select('#svg-generated-samples').selectAll('.generated-dot'),
-      d3.select('#svg-generated-prediction').selectAll('.generated-dot'),
+      d3.select('#svg-g-prediction-generated-dots').selectAll('.generated-dot'),
       d3.select('#vis-discriminator-output').selectAll('.uniform-dot'),
       d3.select('#svg-discriminator-output').selectAll('.uniform-dot'),
-      d3.select('#svg-true-prediction-uniform-dots').selectAll('.uniform-dot'),
-      d3.select('#svg-generated-prediction').selectAll('.uniform-dot'),
+      //d3.select('#svg-t-prediction-uniform-dots').selectAll('.uniform-dot'),
+      //d3.select('#svg-g-prediction-uniform-dots').selectAll('.uniform-dot'),
       d3.select('#vis-manifold').selectAll('.uniform-generated-dot'),
       d3.select('#vis-manifold').selectAll('.manifold-cells'),
       d3.select('#vis-manifold').selectAll('.grids'),
@@ -542,16 +542,17 @@ class GANLab extends GANLabPolymer {
         ];
       }
       case 'Two Gaussian Hills': {
-        if (rand < 0.5)
+        if (rand < 0.5) {
           return [
             0.3 + 0.1 * gan_lab_input_providers.randNormal(),
             0.7 + 0.1 * gan_lab_input_providers.randNormal()
           ];
-        else
+        } else {
           return [
             0.7 + 0.05 * gan_lab_input_providers.randNormal(),
             0.4 + 0.2 * gan_lab_input_providers.randNormal()
           ];
+        }
       }
       case 'Three Dots': {
         const stdev = 0.03;
@@ -607,7 +608,7 @@ class GANLab extends GANLabPolymer {
     const trueDotsElementList = [
       '#vis-true-samples',
       '#svg-real-samples',
-      '#svg-true-prediction-true-dots'
+      //'#svg-t-prediction-true-dots'
     ];
     trueDotsElementList.forEach((dotsElement, k) => {
       const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
@@ -751,6 +752,63 @@ class GANLab extends GANLabPolymer {
         await this.sleep(SLOW_INTERVAL_MS);
       }
 
+      dl.tidy(() => {
+        const noiseBatch =
+          this.noiseProviderFixed.getNextCopy() as dl.Tensor2D;
+        const trueSampleBatch =
+          this.trueSampleProviderFixed.getNextCopy() as dl.Tensor2D;
+        const truePred = this.modelDiscriminator(trueSampleBatch);
+        const generatedPred =
+          this.modelDiscriminator(this.modelGenerator(noiseBatch));
+
+        const inputData1 = trueSampleBatch.dataSync();
+        const resultData1 = truePred.dataSync();
+        const resultData2 = generatedPred.dataSync();
+        const pInputData1: number[][] = [];
+        const pData1: number[] = [];
+        const pData2: number[] = [];
+        for (let i = 0; i < inputData1.length / 2; ++i) {
+          pInputData1.push([inputData1[i * 2], inputData1[i * 2 + 1]]);
+        }
+        for (let i = 0; i < resultData1.length; ++i) {
+          pData1.push(resultData1[i]);
+        }
+        for (let i = 0; i < resultData2.length; ++i) {
+          pData2.push(resultData2[i]);
+        }
+
+        if (this.iterationCount === 1) {
+          d3.select('#svg-t-prediction-true-dots')
+            .selectAll('.true-dot')
+            .data(pInputData1)
+            .enter()
+            .append('circle')
+            .attr('class', 'true-dot gan-lab')
+            .attr('r', 1)
+            .attr('cx', (d: number[]) => d[0] * this.smallPlotSizePx)
+            .attr('cy', (d: number[]) => (1.0 - d[1]) * this.smallPlotSizePx);
+        }
+        const sqrtAbs = (d: number) => {
+          if (d > 0.5) {
+            return Math.pow(d * 2.0 - 1.0, 0.5) * 0.5 + 0.5;
+          } else if (d > 0.5) {
+            return Math.pow((d * 2.0 - 1.0) * (-1), 0.5) * (-0.5) + 0.5;
+          } else {
+            return 0.5;
+          }
+        };
+        d3.select('#svg-t-prediction-true-dots')
+          .selectAll('.true-dot')
+          .data(pData1)
+          .style('fill', (d: number) => this.colorScale(sqrtAbs(d)));
+        if (this.iterationCount > 1) {
+          d3.select('#svg-g-prediction-generated-dots')
+            .selectAll('.generated-dot')
+            .data(pData2)
+            .style('fill', (d: number) => this.colorScale(sqrtAbs(d)));
+        }
+      });
+
       // Update discriminator loss.
       if (dCostVal) {
         document.getElementById('d-loss-value').innerText =
@@ -795,8 +853,8 @@ class GANLab extends GANLabPolymer {
         const gridDotsElementList = [
           '#vis-discriminator-output',
           '#svg-discriminator-output',
-          '#svg-true-prediction-uniform-dots',
-          '#svg-generated-prediction'
+          //'#svg-t-prediction-uniform-dots',
+          //'#svg-g-prediction-uniform-dots'
         ];
         if (this.iterationCount === 1) {
           gridDotsElementList.forEach((dotsElement, k) => {

@@ -120,7 +120,8 @@
 
     #model-vis-svg path {
       fill: none;
-      stroke: rgb(156, 156, 156);
+      stroke: rgb(160, 160, 160);
+      stroke-dasharray: 10,2;
       stroke-width: 2;
     }
 
@@ -835,12 +836,10 @@
               <path marker-end="url(#arrow-head)" d="M585,285 L615,285"
                 id="arrow-d-g-prediction" />
 
-              <path marker-end="url(#arrow-head)" d="M695,195 L725,235"
-                id="arrow-t-prediction-d-loss" />
-              <path marker-end="url(#arrow-head)" d="M695,280 L725,240"
-                id="arrow-g-prediction-d-loss" />
-              <path marker-end="url(#arrow-head)" d="M695,285 L725,325"
-                id="arrow-g-prediction-g-loss" />
+              <path d="M695,195 L725,235" id="arrow-t-prediction-d-loss" />
+              <path d="M695,280 L725,240" id="arrow-g-prediction-d-loss" />
+              <path d="M695,290 L725,330" id="arrow-g-prediction-g-loss" />
+
               <path d="M725,235 L795,235" id="arrow-d-loss-d-0" />
               <path d="M795,235 L795,50" id="arrow-d-loss-d-1" />
               <path d="M795,50 L550,50" id="arrow-d-loss-d-2" />

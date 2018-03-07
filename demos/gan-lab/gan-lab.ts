@@ -22,7 +22,7 @@ const GRAD_ARROW_UNIT_LEN = 0.2;
 const NUM_TRUE_SAMPLES_VISUALIZED = 450;
 
 const VIS_INTERVAL = 50;
-const EPOCH_INTERVAL = 5;
+const EPOCH_INTERVAL = 2;
 const SLOW_INTERVAL_MS = 750;
 
 // Hack to prevent error when using grads (doesn't allow this in model).
@@ -714,6 +714,10 @@ class GANLab extends GANLabPolymer {
     if (!keepIterating || this.iterationCount === 1 || this.slowMode ||
       this.iterationCount % EPOCH_INTERVAL === 0) {
       this.iterCountElement.innerText = this.iterationCount;
+
+      d3.select('#model-vis-svg')
+        .selectAll('path')
+        .style('stroke-dashoffset', () => this.iterationCount * (-1));
     }
 
     // Train Discriminator.

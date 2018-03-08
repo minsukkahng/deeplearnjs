@@ -29,6 +29,11 @@ const SLOW_INTERVAL_MS = 750;
 let dVariables: dl.Variable[];
 let numDiscriminatorLayers: number;
 
+interface ManifoldCell {
+  points: Float32Array[];
+  area?: number;
+}
+
 // tslint:disable-next-line:variable-name
 const GANLabPolymer: new () => PolymerHTMLElement = PolymerElement({
   is: 'gan-lab',
@@ -409,6 +414,11 @@ class GANLab extends GANLabPolymer {
       '#svg-generated-samples',
       '#svg-g-prediction-generated-dots'
     ];
+
+    document.getElementById('svg-generator-manifold')!.addEventListener(
+      'mouseenter', () => {
+        this.playGeneratorAnimation();
+      });
 
     // Drawing-related.
     this.canvas =
@@ -1074,18 +1084,13 @@ class GANLab extends GANLabPolymer {
       }
 
       // Visualize manifold for 1-D or 2-D noise.
-      interface ManifoldCell {
-        points: Float32Array[];
-        area?: number;
-      }
-
       dl.tidy(() => {
         if (this.noiseSize <= 2) {
           const manifoldData: Float32Array[] = [];
           const numBatches = Math.ceil(Math.pow(
             NUM_MANIFOLD_CELLS + 1, this.noiseSize) / BATCH_SIZE);
           const remainingDummy = BATCH_SIZE * numBatches - Math.pow(
-            NUM_MANIFOLD_CELLS + 1, this.noiseSize) * 2;
+            NUM_MANIFOLD_CELLS + 1, this.noiseSize) * this.noiseSize;
           for (let k = 0; k < numBatches; ++k) {
             const noiseBatch =
               this.uniformNoiseProvider.getNextCopy() as dl.Tensor2D;
@@ -1098,48 +1103,15 @@ class GANLab extends GANLabPolymer {
           }
 
           // Create grid cells.
-          const gridData: ManifoldCell[] = [];
-          let areaSum = 0.0;
-          if (this.noiseSize === 1) {
-            gridData.push({ points: manifoldData });
-          } else if (this.noiseSize === 2) {
-            for (let i = 0; i < NUM_MANIFOLD_CELLS * NUM_MANIFOLD_CELLS; ++i) {
-              const x = i % NUM_MANIFOLD_CELLS;
-              const y = Math.floor(i / NUM_MANIFOLD_CELLS);
-              const index = x + y * (NUM_MANIFOLD_CELLS + 1);
+          const gridData: ManifoldCell[] = this.noiseSize === 1
+            ? [{ points: manifoldData }]
+            : this.createGridCellsFromManifoldData(manifoldData);
 
-              const gridCell = [];
-              gridCell.push(manifoldData[index]);
-              gridCell.push(manifoldData[index + 1]);
-              gridCell.push(manifoldData[index + 1 + (NUM_MANIFOLD_CELLS + 1)]);
-              gridCell.push(manifoldData[index + (NUM_MANIFOLD_CELLS + 1)]);
-              gridCell.push(manifoldData[index]);
-
-              // Calculate area by using four points.
-              let area = 0.0;
-              for (let j = 0; j < 4; ++j) {
-                area += gridCell[j % 4][0] * gridCell[(j + 1) % 4][1] -
-                  gridCell[j % 4][1] * gridCell[(j + 1) % 4][0];
-              }
-              area = 0.5 * Math.abs(area);
-              areaSum += area;
-
-              gridData.push({ points: gridCell, area });
-            }
-            // Normalize area.
-            gridData.forEach(grid => {
-              if (grid.area) {
-                grid.area = grid.area / areaSum;
-              }
-            });
-          }
-
-          const gManifoldList = [
-            d3.select('#vis-manifold').selectAll('.grids').data(gridData),
-            d3.select('#svg-generator-manifold')
-              .selectAll('.grids').data(gridData)
+          const gManifoldElementList = [
+            '#vis-manifold',
+            '#svg-generator-manifold'
           ];
-          gManifoldList.forEach((grids, k) => {
+          gManifoldElementList.forEach((gManifoldElement, k) => {
             const plotSizePx =
               k === 0 ? this.plotSizePx : this.mediumPlotSizePx;
             const manifoldCell =
@@ -1148,42 +1120,47 @@ class GANLab extends GANLabPolymer {
                 .y((d: number[]) => (1.0 - d[1]) * plotSizePx);
 
             if (this.iterationCount === 1) {
-              grids.enter()
+              d3.select(gManifoldElement)
+                .selectAll('.grids')
+                .data(gridData)
+                .enter()
                 .append('g')
                 .attr('class', 'grids gan-lab')
                 .append('path')
-                .attr('class', 'manifold-cell gan-lab');
+                .attr('class', 'manifold-cell gan-lab')
+                .style('fill', () => {
+                  return this.noiseSize === 2 ? '#7b3294' : 'none';
+                });
             }
-            grids.select('.manifold-cell')
+            d3.select(gManifoldElement)
+              .selectAll('.grids')
+              .data(gridData)
+              .select('.manifold-cell')
               .attr('d', (d: ManifoldCell) => manifoldCell(
-                d.points.map(point => {
-                  const p: [number, number] = [point[0], point[1]];
-                  return p;
-                })
+                d.points.map(point => [point[0], point[1]] as [number, number])
               ))
-              .style('fill', () => {
-                return this.noiseSize === 2 ? '#7b3294' : 'none';
-              })
               .style('fill-opacity', (d: ManifoldCell) => {
                 return this.noiseSize === 2 ? Math.max(
                   0.9 - d.area! * 0.4 * Math.pow(NUM_MANIFOLD_CELLS, 2), 0.1) :
                   'none';
               });
-          });
 
-          if (this.noiseSize === 1) {
-            const manifoldDots =
-              d3.select('#vis-manifold').selectAll('.uniform-generated-dot')
-                .data(manifoldData);
-            if (this.iterationCount === 1) {
-              manifoldDots.enter()
-                .append('circle')
-                .attr('class', 'uniform-generated-dot gan-lab')
-                .attr('r', 1);
+            if (this.noiseSize === 1) {
+              const manifoldDots =
+                d3.select(gManifoldElement)
+                  .selectAll('.uniform-generated-dot')
+                  .data(manifoldData);
+              if (this.iterationCount === 1) {
+                manifoldDots.enter()
+                  .append('circle')
+                  .attr('class', 'uniform-generated-dot gan-lab')
+                  .attr('r', 1);
+              }
+              manifoldDots
+                .attr('cx', (d: Float32Array) => d[0] * plotSizePx)
+                .attr('cy', (d: Float32Array) => (1.0 - d[1]) * plotSizePx);
             }
-            manifoldDots.attr('cx', (d: Float32Array) => d[0] * this.plotSizePx)
-              .attr('cy', (d: Float32Array) => (1.0 - d[1]) * this.plotSizePx);
-          }
+          });
         }
       });
 
@@ -1212,7 +1189,8 @@ class GANLab extends GANLabPolymer {
           d3Transition.transition()
             .select(dotsElement)
             .selectAll('.generated-dot')
-            .selection().data(gData)
+            .selection()
+            .data(gData)
             .transition().duration(SLOW_INTERVAL_MS)
             .attr('cx', (d: number[]) => d[0] * plotSizePx)
             .attr('cy', (d: number[]) => (1.0 - d[1]) * plotSizePx)
@@ -1303,6 +1281,132 @@ class GANLab extends GANLabPolymer {
       ${(1.0 - (d[1] + d[3] * GRAD_ARROW_UNIT_LEN)) * plotSizePx}
       ${(d[0] - yNorm * arrowWidth) * plotSizePx},
       ${(1.0 - (d[1] - xNorm * (-1) * arrowWidth)) * plotSizePx}`;
+  }
+
+  private createGridCellsFromManifoldData(manifoldData: Float32Array[]) {
+    const gridData: ManifoldCell[] = [];
+    let areaSum = 0.0;
+    for (let i = 0; i < NUM_MANIFOLD_CELLS * NUM_MANIFOLD_CELLS; ++i) {
+      const x = i % NUM_MANIFOLD_CELLS;
+      const y = Math.floor(i / NUM_MANIFOLD_CELLS);
+      const index = x + y * (NUM_MANIFOLD_CELLS + 1);
+
+      const gridCell = [];
+      gridCell.push(manifoldData[index]);
+      gridCell.push(manifoldData[index + 1]);
+      gridCell.push(manifoldData[index + 1 + (NUM_MANIFOLD_CELLS + 1)]);
+      gridCell.push(manifoldData[index + (NUM_MANIFOLD_CELLS + 1)]);
+      gridCell.push(manifoldData[index]);
+
+      // Calculate area by using four points.
+      let area = 0.0;
+      for (let j = 0; j < 4; ++j) {
+        area += gridCell[j % 4][0] * gridCell[(j + 1) % 4][1] -
+          gridCell[j % 4][1] * gridCell[(j + 1) % 4][0];
+      }
+      area = 0.5 * Math.abs(area);
+      areaSum += area;
+
+      gridData.push({ points: gridCell, area });
+    }
+    // Normalize area.
+    gridData.forEach(grid => {
+      if (grid.area) {
+        grid.area = grid.area / areaSum;
+      }
+    });
+
+    return gridData;
+  }
+
+  private playGeneratorAnimation() {
+    if (this.noiseSize <= 2) {
+      const manifoldData: Float32Array[] = [];
+      const numBatches = Math.ceil(Math.pow(
+        NUM_MANIFOLD_CELLS + 1, this.noiseSize) / BATCH_SIZE);
+      const remainingDummy = BATCH_SIZE * numBatches - Math.pow(
+        NUM_MANIFOLD_CELLS + 1, this.noiseSize) * 2;
+      for (let k = 0; k < numBatches; ++k) {
+        const maniArray: Float32Array =
+          this.uniformNoiseProvider.getNextCopy().dataSync() as Float32Array;
+        for (let i = 0; i < (k + 1 < numBatches ?
+          BATCH_SIZE : BATCH_SIZE - remainingDummy); ++i) {
+          if (this.noiseSize >= 2) {
+            manifoldData.push(maniArray.slice(i * 2, i * 2 + 2));
+          } else {
+            manifoldData.push(new Float32Array([maniArray[i], 0.5]));
+          }
+        }
+      }
+
+      // Create grid cells.
+      const noiseData = this.noiseSize === 1
+        ? [{ points: manifoldData }]
+        : this.createGridCellsFromManifoldData(manifoldData);
+
+      const gridData = d3.select('#svg-generator-manifold')
+        .selectAll('.grids').data();
+
+      const uniformDotsData = d3.select('#svg-generator-manifold')
+        .selectAll('.uniform-generated-dot').data();
+
+      const manifoldCell =
+        line()
+          .x((d: number[]) => d[0] * this.mediumPlotSizePx)
+          .y((d: number[]) => (1.0 - d[1]) * this.mediumPlotSizePx);
+
+      // Visualize noise.
+      d3.select('#svg-generator-manifold')
+        .selectAll('.grids')
+        .data(noiseData)
+        .select('.manifold-cell')
+        .attr('d', (d: ManifoldCell) => manifoldCell(
+          d.points.map(point => [point[0], point[1]] as [number, number])
+        ))
+        .style('fill-opacity', (d: ManifoldCell) => {
+          return this.noiseSize === 2 ? Math.max(
+            0.9 - d.area! * 0.4 * Math.pow(NUM_MANIFOLD_CELLS, 2), 0.1) :
+            'none';
+        });
+
+      if (this.noiseSize === 1) {
+        d3.select('#svg-generator-manifold')
+          .selectAll('.uniform-generated-dot')
+          .data(manifoldData)
+          .attr('cx', (d: Float32Array) => d[0] * this.mediumPlotSizePx)
+          .attr('cy', (d: Float32Array) =>
+            (1.0 - d[1]) * this.mediumPlotSizePx);
+      }
+
+      // Transition to current manifold.
+      d3Transition.transition()
+        .select('#svg-generator-manifold')
+        .selectAll('.grids')
+        .selection()
+        .data(gridData)
+        .transition().duration(2000)
+        .select('.manifold-cell')
+        .attr('d', (d: ManifoldCell) => manifoldCell(
+          d.points.map(point => [point[0], point[1]] as [number, number])
+        ))
+        .style('fill-opacity', (d: ManifoldCell) => {
+          return this.noiseSize === 2 ? Math.max(
+            0.9 - d.area! * 0.4 * Math.pow(NUM_MANIFOLD_CELLS, 2), 0.1) :
+            'none';
+        });
+
+      if (this.noiseSize === 1) {
+        d3Transition.transition()
+          .select('#svg-generator-manifold')
+          .selectAll('.uniform-generated-dot')
+          .selection()
+          .data(uniformDotsData)
+          .transition().duration(2000)
+          .attr('cx', (d: Float32Array) => d[0] * this.mediumPlotSizePx)
+          .attr('cy', (d: Float32Array) =>
+            (1.0 - d[1]) * this.mediumPlotSizePx);
+      }
+    }
   }
 
   private highlightStep(isForD: boolean,

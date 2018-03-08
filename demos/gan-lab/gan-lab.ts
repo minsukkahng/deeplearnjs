@@ -18,7 +18,7 @@ const ATLAS_SIZE = 12000;
 
 const NUM_GRID_CELLS = 30;
 const NUM_MANIFOLD_CELLS = 20;
-const GRAD_ARROW_UNIT_LEN = 0.2;
+const GRAD_ARROW_UNIT_LEN = 0.25;
 const NUM_TRUE_SAMPLES_VISUALIZED = 450;
 
 const VIS_INTERVAL = 50;
@@ -1042,36 +1042,31 @@ class GANLab extends GANLabPolymer {
         '#vis-generator-gradients',
         '#svg-generator-gradients'
       ];
-      dl.tidy(() => {
-        if (this.iterationCount === 1) {
-          gradDotsElementList.forEach((dotsElement, k) => {
-            const plotSizePx = k === 0 ?
-              this.plotSizePx : this.smallPlotSizePx;
-            const arrowWidth = k === 0 ? 0.002 : 0.001;
-            d3.select(dotsElement)
-              .selectAll('.gradient-generated')
-              .data(gradData)
-              .enter()
-              .append('polygon')
-              .attr('class', 'gradient-generated gan-lab')
-              .attr('points', (d: number[]) =>
-                this.createArrowPolygon(d, plotSizePx, arrowWidth));
-          });
-        }
-
+      if (this.iterationCount === 1) {
         gradDotsElementList.forEach((dotsElement, k) => {
-          const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
+          const plotSizePx = k === 0 ?
+            this.plotSizePx : this.smallPlotSizePx;
           const arrowWidth = k === 0 ? 0.002 : 0.001;
-          d3Transition.transition()
-            .select(dotsElement)
-            .selectAll('.gradient-generated').selection().data(gradData)
-            .transition().duration(SLOW_INTERVAL_MS)
-            /*d3.select(dotsElement)
-              .selectAll('.gradient-generated')
-              .data(gradData)*/
+          d3.select(dotsElement)
+            .selectAll('.gradient-generated')
+            .data(gradData)
+            .enter()
+            .append('polygon')
+            .attr('class', 'gradient-generated gan-lab')
             .attr('points', (d: number[]) =>
               this.createArrowPolygon(d, plotSizePx, arrowWidth));
         });
+      }
+
+      gradDotsElementList.forEach((dotsElement, k) => {
+        const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
+        const arrowWidth = k === 0 ? 0.002 : 0.001;
+        d3Transition.transition()
+          .select(dotsElement)
+          .selectAll('.gradient-generated').selection().data(gradData)
+          .transition().duration(SLOW_INTERVAL_MS)
+          .attr('points', (d: number[]) =>
+            this.createArrowPolygon(d, plotSizePx, arrowWidth));
       });
 
       if (this.slowMode) {

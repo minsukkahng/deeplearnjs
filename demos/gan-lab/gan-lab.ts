@@ -286,8 +286,8 @@ class GANLab extends GANLabPolymer {
         }
       });
 
-    this.noiseTypes = ['Random', 'Gaussian'];
-    this.selectedNoiseType = 'Random';
+    this.noiseTypes = ['Uniform', 'Gaussian'];
+    this.selectedNoiseType = 'Uniform';
     this.querySelector('#noise-dropdown')!.addEventListener(
       // tslint:disable-next-line:no-any event has no type
       'iron-activate', (event: any) => {
@@ -368,36 +368,11 @@ class GANLab extends GANLabPolymer {
 
     this.slowMode = false;
     this.querySelector('#slow-step')!.addEventListener(
-      'click', (event: Event) => {
-        // tslint:disable-next-line:no-any
-        this.slowMode = !this.slowMode;
-
-        if (this.slowMode === true) {
-          document.getElementById('overlay-background')!.classList.add('shown');
-          document.getElementById('tooltips')!.classList.add('shown');
-        } else {
-          this.dehighlightStep();
-          document.getElementById(
-            'component-discriminator').classList.remove('activated');
-          document.getElementById(
-            'component-generator').classList.remove('activated');
-          document.getElementById(
-            'overlay-background')!.classList.remove('shown');
-          document.getElementById('tooltips')!.classList.remove('shown');
-        }
-      });
+      'click', () => this.onClickSlowModeButton());
 
     this.editMode = true;
     document.getElementById('edit-model-button')!.addEventListener(
-      'click', () => {
-        const elements: NodeListOf<HTMLDivElement> =
-          this.querySelectorAll('.config-item');
-        for (let i = 0; i < elements.length; ++i) {
-          elements[i].style.visibility =
-            this.editMode ? 'hidden' : 'visible';
-        }
-        this.editMode = !this.editMode;
-      });
+      'click', () => this.onClickEditModeButton());
 
     this.iterCountElement =
       document.getElementById('iteration-count') as HTMLElement;
@@ -414,7 +389,12 @@ class GANLab extends GANLabPolymer {
       '#svg-generated-samples',
       '#svg-g-prediction-generated-dots'
     ];
+    this.dFlowElements =
+      this.querySelectorAll('.d-update-flow') as NodeListOf<SVGPathElement>;
+    this.gFlowElements =
+      this.querySelectorAll('.g-update-flow') as NodeListOf<SVGPathElement>;
 
+    // Generator animation.
     document.getElementById('svg-generator-manifold')!.addEventListener(
       'mouseenter', () => {
         this.playGeneratorAnimation();
@@ -680,6 +660,7 @@ class GANLab extends GANLabPolymer {
     if (!this.isPausedOngoingIteration) {
       this.iterateTraining(true);
     }
+    document.getElementById('model-vis-svg').classList.add('playing');
   }
 
   private pause() {
@@ -688,6 +669,7 @@ class GANLab extends GANLabPolymer {
     if (button.classList.contains('playing')) {
       button.classList.remove('playing');
     }
+    document.getElementById('model-vis-svg').classList.remove('playing');
   }
 
   private onClickPlayPauseButton() {
@@ -712,6 +694,45 @@ class GANLab extends GANLabPolymer {
       this.pause();
     }
     this.createExperiment();
+  }
+
+  private onClickSlowModeButton() {
+    if (this.editMode) {
+      this.onClickEditModeButton();
+    }
+    this.slowMode = !this.slowMode;
+
+    if (this.slowMode === true) {
+      document.getElementById('tooltips')!.classList.add('shown');
+    } else {
+      this.dehighlightStep();
+      const container =
+        document.getElementById('model-visualization-container');
+      if (container.classList.contains('any-highlighted')) {
+        container.classList.remove('any-highlighted');
+      }
+      document.getElementById(
+        'component-discriminator').classList.remove('activated');
+      document.getElementById(
+        'component-generator').classList.remove('activated');
+      for (let i = 0; i < this.dFlowElements.length; ++i) {
+        this.dFlowElements[i].classList.remove('d-activated');
+      }
+      for (let i = 0; i < this.gFlowElements.length; ++i) {
+        this.gFlowElements[i].classList.remove('g-activated');
+      }
+      document.getElementById('tooltips')!.classList.remove('shown');
+    }
+  }
+
+  private onClickEditModeButton() {
+    const elements: NodeListOf<HTMLDivElement> =
+      this.querySelectorAll('.config-item');
+    for (let i = 0; i < elements.length; ++i) {
+      elements[i].style.visibility =
+        this.editMode ? 'hidden' : 'visible';
+    }
+    this.editMode = !this.editMode;
   }
 
   private async iterateTraining(keepIterating: boolean, type?: string) {
@@ -757,12 +778,17 @@ class GANLab extends GANLabPolymer {
 
       if (this.slowMode) {
         await this.sleep(SLOW_INTERVAL_MS);
+        const container =
+          document.getElementById('model-visualization-container');
+        if (!container.classList.contains('any-highlighted')) {
+          container.classList.add('any-highlighted');
+        }
         document.getElementById(
           'component-discriminator').classList.add('activated');
-        this.highlightStep(true, 'component-d-loss', 'tooltip-d-loss',
-          ['arrow-t-samples-d', 'arrow-d-t-prediction',
-            'arrow-g-samples-d', 'arrow-d-g-prediction',
-            'arrow-t-prediction-d-loss', 'arrow-g-prediction-d-loss']);
+        for (let i = 0; i < this.dFlowElements.length; ++i) {
+          this.dFlowElements[i].classList.add('d-activated');
+        }
+        this.highlightStep(true, 'component-d-loss', 'tooltip-d-loss');
         await this.sleep(SLOW_INTERVAL_MS);
       }
 
@@ -837,8 +863,7 @@ class GANLab extends GANLabPolymer {
         await this.sleep(SLOW_INTERVAL_MS);
         this.dehighlightStep();
         this.highlightStep(true,
-          'component-discriminator-gradients', 'tooltip-d-gradients',
-          ['arrow-d-loss-d-1', 'arrow-d-loss-d-2']);
+          'component-discriminator-gradients', 'tooltip-d-gradients');
         await this.sleep(SLOW_INTERVAL_MS);
       }
 
@@ -846,8 +871,7 @@ class GANLab extends GANLabPolymer {
         await this.sleep(SLOW_INTERVAL_MS);
         this.dehighlightStep();
         this.highlightStep(true,
-          'component-discriminator', 'tooltip-update-discriminator',
-          ['arrow-d-loss-d-3', 'arrow-d-loss-d-4']);
+          'component-discriminator', 'tooltip-update-discriminator');
         await this.sleep(SLOW_INTERVAL_MS);
       }
 
@@ -908,16 +932,27 @@ class GANLab extends GANLabPolymer {
       if (this.slowMode) {
         await this.sleep(SLOW_INTERVAL_MS);
         this.dehighlightStep();
+        const container =
+          document.getElementById('model-visualization-container');
+        if (container.classList.contains('any-highlighted')) {
+          container.classList.remove('any-highlighted');
+        }
         document.getElementById(
           'component-discriminator').classList.remove('activated');
+        for (let i = 0; i < this.dFlowElements.length; ++i) {
+          this.dFlowElements[i].classList.remove('d-activated');
+        }
         await this.sleep(SLOW_INTERVAL_MS);
         await this.sleep(SLOW_INTERVAL_MS);
+        if (!container.classList.contains('any-highlighted')) {
+          container.classList.add('any-highlighted');
+        }
         document.getElementById(
           'component-generator').classList.add('activated');
-        this.highlightStep(false, 'component-g-loss', 'tooltip-g-loss',
-          ['arrow-noise-g', 'arrow-g-g-samples',
-            'arrow-g-samples-d', 'arrow-d-g-prediction',
-            'arrow-g-prediction-g-loss']);
+        for (let i = 0; i < this.gFlowElements.length; ++i) {
+          this.gFlowElements[i].classList.add('g-activated');
+        }
+        this.highlightStep(false, 'component-g-loss', 'tooltip-g-loss');
         await this.sleep(SLOW_INTERVAL_MS);
       }
     }
@@ -1031,8 +1066,7 @@ class GANLab extends GANLabPolymer {
         await this.sleep(SLOW_INTERVAL_MS);
         this.dehighlightStep();
         this.highlightStep(false,
-          'component-generator-gradients', 'tooltip-g-gradients',
-          ['arrow-g-loss-g-1', 'arrow-g-loss-g-2']);
+          'component-generator-gradients', 'tooltip-g-gradients');
         await this.sleep(SLOW_INTERVAL_MS);
       }
 
@@ -1073,8 +1107,7 @@ class GANLab extends GANLabPolymer {
         await this.sleep(SLOW_INTERVAL_MS);
         this.dehighlightStep();
         this.highlightStep(false,
-          'component-generator', 'tooltip-update-generator',
-          ['arrow-g-loss-g-3', 'arrow-g-loss-g-4']);
+          'component-generator', 'tooltip-update-generator');
         await this.sleep(SLOW_INTERVAL_MS);
       }
 
@@ -1163,8 +1196,7 @@ class GANLab extends GANLabPolymer {
         await this.sleep(SLOW_INTERVAL_MS);
         this.dehighlightStep();
         this.highlightStep(false,
-          'component-generated-samples', 'tooltip-generated-samples',
-          ['arrow-noise-g', 'arrow-g-g-samples']);
+          'component-generated-samples', 'tooltip-generated-samples');
         await this.sleep(SLOW_INTERVAL_MS);
       }
 
@@ -1224,8 +1256,16 @@ class GANLab extends GANLabPolymer {
       if (this.slowMode) {
         await this.sleep(SLOW_INTERVAL_MS);
         this.dehighlightStep();
+        const container =
+          document.getElementById('model-visualization-container');
+        if (container.classList.contains('any-highlighted')) {
+          container.classList.remove('any-highlighted');
+        }
         document.getElementById(
           'component-generator').classList.remove('activated');
+        for (let i = 0; i < this.gFlowElements.length; ++i) {
+          this.gFlowElements[i].classList.remove('g-activated');
+        }
         await this.sleep(SLOW_INTERVAL_MS);
       }
 
@@ -1405,28 +1445,16 @@ class GANLab extends GANLabPolymer {
   }
 
   private highlightStep(isForD: boolean,
-    componentElementName: string, tooltipElementName: string,
-    arrowElementList: string[]) {
+    componentElementName: string, tooltipElementName: string) {
     this.highlightedComponent =
       document.getElementById(componentElementName);
     this.highlightedTooltip =
       document.getElementById(tooltipElementName);
-    this.highlightedArrowList = arrowElementList.map(
-      elementName => document.getElementById(elementName));
 
     this.highlightedComponent.classList.add(
       isForD ? 'd-highlighted' : 'g-highlighted');
     this.highlightedTooltip.classList.add('shown');
     this.highlightedTooltip.classList.add('highlighted');
-    this.highlightedArrowList.forEach((arrowElement: SVGElement) => {
-      arrowElement.classList.add(
-        isForD ? 'd-highlighted' : 'g-highlighted');
-      if (arrowElement.hasAttribute('marker-end')) {
-        arrowElement.setAttribute('marker-end',
-          isForD ? 'url(#arrow-head-d-highlighted)'
-            : 'url(#arrow-head-g-highlighted)');
-      }
-    });
   }
 
   private dehighlightStep() {
@@ -1437,15 +1465,6 @@ class GANLab extends GANLabPolymer {
     if (this.highlightedTooltip) {
       this.highlightedTooltip.classList.remove('shown');
       this.highlightedTooltip.classList.remove('highlighted');
-    }
-    if (this.highlightedArrowList) {
-      this.highlightedArrowList.forEach((arrowElement: SVGElement) => {
-        arrowElement.classList.remove('d-highlighted');
-        arrowElement.classList.remove('g-highlighted');
-        if (arrowElement.hasAttribute('marker-end')) {
-          arrowElement.setAttribute('marker-end', 'url(#arrow-head)');
-        }
-      });
     }
   }
 

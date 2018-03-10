@@ -120,34 +120,40 @@
 
     #model-vis-svg path {
       fill: none;
-      stroke: rgb(160, 160, 160);
+      stroke: rgb(175, 175, 175);
       stroke-dasharray: 10,2;
       stroke-width: 2;
     }
 
-    #model-vis-svg path.d-highlighted {
+    #model-vis-svg path.d-update-flow.d-activated {
       stroke: rgb(105, 158, 255);
-      stroke-width: 3;
+      stroke-width: 4;
     }
 
-    #model-vis-svg path.g-highlighted {
+    #model-vis-svg path.g-update-flow.g-activated {
       stroke: rgb(186, 99, 207);
-      stroke-width: 3;
+      stroke-width: 4;
     }
 
-    marker#arrow-head-d-highlighted path {
-      stroke: rgb(105, 158, 255);
+    #model-vis-svg.playing path.d-activated,
+    #model-vis-svg.playing path.g-activated {
+      animation: dash 3600s linear forwards;
     }
 
-    marker#arrow-head-g-highlighted path {
-      stroke: rgb(186, 99, 207);
+    @keyframes dash {
+      from {
+        stroke-dashoffset: 36000px;
+      }
+      to {
+        stroke-dashoffset: 0;
+      }
     }
 
     .model-component {
-      padding-top: 4px;
+      padding-top: 5px;
       position: absolute;
       text-align: center;
-      width: 115px;
+      width: 120px;
     }
 
     .model-component svg {
@@ -163,7 +169,7 @@
     }
 
     .model-component-model svg {
-      border: 1px solid rgb(100, 100, 100);
+      border: 3px solid rgb(170, 170, 170);
       height: 150px;
       width: 150px;
     }
@@ -180,9 +186,15 @@
       line-height: 16px;
     }
 
+    .model-component-model .component-label {
+      background-color: #f7f7f7;
+    }
+
     .config-item {
+      background-color: #f7f7f7;
       line-height: 14px;
       margin: 0;
+      padding: 0;
       width: 70px;
     }
 
@@ -193,13 +205,13 @@
     }
 
     .checkbox-toggle {
-      right: 17px;
+      right: 20px;
       position: absolute;
       top: -1px;
     }
 
     .model-component-model .checkbox-toggle {
-      right: -9px;
+      right: -13px;
     }
 
     paper-checkbox {
@@ -317,27 +329,24 @@
       stroke-linejoin: round;
     }
 
-    #overlay-background {
-      background-color: #fff;
-      display: none;
-      height: 100%;
-      opacity: 0.5;
-      width: 100%;
+    #model-visualization-container.any-highlighted .model-component svg,
+    #model-visualization-container.any-highlighted .component-label {
+      opacity: 0.4;
+    }
+    #model-visualization-container.any-highlighted .tooltip {
+      opacity: 0.7;
     }
 
-    #overlay-background.shown {
-      display: block;
-      z-index: 99990;
+    #model-visualization-container.any-highlighted .model-component.d-highlighted svg,
+    #model-visualization-container.any-highlighted .model-component.d-highlighted .component-label,
+    #model-visualization-container.any-highlighted .model-component.g-highlighted svg,
+    #model-visualization-container.any-highlighted .model-component.g-highlighted .component-label {
+      opacity: 1.0;
     }
 
-    .model-component-model.d-highlighted,
-    .model-component-model.g-highlighted {
-      z-index: 99997;
-    }
-
-    .model-component-model.d-highlighted,
-    .model-component-model.g-highlighted {
-      z-index: 99997;
+    .d-highlighted .component-label,
+    .g-highlighted .component-label {
+      font-weight: bold;
     }
 
     .model-component-model.d-highlighted svg {
@@ -401,6 +410,11 @@
       z-index: 99999;
     }
 
+    #model-visualization-container.any-highlighted .tooltip-for-d.highlighted,
+    #model-visualization-container.any-highlighted .tooltip-for-g.highlighted {
+      opacity: 1.0;
+    }
+
     .tooltip-for-d.highlighted {
       background-color: rgba(219, 223, 243, 0.95);
     }
@@ -449,11 +463,43 @@
 
       <div id="main-panel">
         <div id="model-visualization-container" class="ink-panel">
-          <div id="model-vis-div">
-            <div class="panel-title">Model</div>
+          <div class="panel-title">Model</div>
 
+          <svg id="model-vis-svg" class="">
+            <path d="M86,285 L122,285"
+              id="arrow-g-forward-i" class="g-update-flow" />
+            <path d="M278,285 L314,285"
+              id="arrow-g-forward-o" class="g-update-flow" />
+            <path d="M376,195 L412,195"
+              id="arrow-t-d-forward-i" class="d-update-flow" />
+            <path d="M568,195 L604,195"
+              id="arrow-t-d-forward-o" class="d-update-flow" />
+            <path d="M376,285 L412,285"
+              id="arrow-g-d-forward-i" class="d-update-flow g-update-flow" />
+            <path d="M568,285 L604,285"
+              id="arrow-g-d-forward-o" class="d-update-flow g-update-flow" />
+
+            <path d="M665,195 C690,195 675,240 700,240"
+              id="arrow-t-prediction-d-loss" class="d-update-flow" />
+            <path d="M665,285 C690,285 675,240 700,240"
+              id="arrow-g-prediction-d-loss" class="d-update-flow" />
+            <path d="M665,285 C690,285 675,330 700,330"
+              id="arrow-g-prediction-g-loss" class="g-update-flow" />
+
+            <path d="M700,240 L778,240 a20,20 0 0 0 20,-20
+              L798,70 a20,20 0 0 0 -20,-20
+              L510,50 a20,20 0 0 0 -20,20 L490,161"
+              id="arrow-d-loss-d" class="d-update-flow" />
+            <path d="M700,330 L778,330 a20,20 0 0 1 20,20
+              L798,440 a20,20 0 0 1 -20,20 L376,460"
+              id="arrow-g-loss-g-1" class="g-update-flow" />
+            <path d="M314,460 L230,460 a20,20 0 0 1 -20,-20 L210,333"
+              id="arrow-g-loss-g-2" class="g-update-flow" />
+          </svg>
+
+          <div id="model-vis-div">
             <div id="component-d-loss" class="model-component"
-              style="top: 195px; left: 725px">
+              style="top: 198px; left: 680px">
               <div class="component-label">Discriminator loss</div>
               <div class="component-value">
                 <span id="d-loss-value" title="log loss"></span>
@@ -462,7 +508,7 @@
             </div>
 
             <div id="component-g-loss" class="model-component"
-              style="top: 290px; left: 725px">
+              style="top: 289px; left: 680px">
               <div class="component-label">Generator loss</div>
               <div class="component-value">
                 <span id="g-loss-value" title="log loss"></span>
@@ -471,9 +517,9 @@
             </div>
 
             <div id="component-options-loss" class="model-component"
-            style="top: 120px; left: 700px">
+            style="top: 247px; left: 700px">
               <div class="config-item">
-                <paper-dropdown-menu no-animations no-label>
+                <paper-dropdown-menu no-animations no-label-float>
                   <paper-listbox attr-for-selected="value"
                     id="loss-type-dropdown" class="dropdown-content"
                     selected="{{lossType}}">
@@ -488,7 +534,7 @@
             </div>
 
             <div id="component-d-loop" class="model-component"
-              style="top: 20px; left: 640px">
+              style="top: 24px; left: 640px">
               <div class="config-item" style="width: 150px">
                 <div class="up-down-buttons">
                   <button class="mdl-button mdl-js-button mdl-button--icon"
@@ -524,8 +570,8 @@
             </div>
 
             <div id="component-discriminator-learning" class="model-component"
-              style="top: 75px; left: 485px">
-              <div class="config-item" style="width: 140px">
+              style="top: 75px; left: 495px">
+              <div class="config-item" style="width: 120px">
                 <div class="up-down-buttons">
                   <label>Optimizer:</label>
                 </div>
@@ -543,7 +589,7 @@
                   </paper-dropdown-menu>
                 </div>
               </div>
-              <div class="config-item" style="width: 140px">
+              <div class="config-item" style="width: 120px">
                 <div class="up-down-buttons">
                   <label>Learning rate:</label>
                 </div>
@@ -564,8 +610,8 @@
             </div>
 
             <div id="component-generator-learning" class="model-component"
-              style="top: 365px; left: 205px">
-              <div class="config-item" style="width: 140px">
+              style="top: 370px; left: 215px">
+              <div class="config-item" style="width: 120px">
                 <div class="up-down-buttons">
                   <label>Optimizer:</label>
                 </div>
@@ -583,7 +629,7 @@
                   </paper-dropdown-menu>
                 </div>
               </div>
-              <div class="config-item" style="width: 140px">
+              <div class="config-item" style="width: 120px">
                 <div class="up-down-buttons">
                   <label>Learning rate:</label>
                 </div>
@@ -604,7 +650,7 @@
             </div>
 
             <div id="component-true-prediction" class="model-component"
-              style="top: 155px; left: 600px">
+              style="top: 156px; left: 575px">
               <svg id="svg-true-prediction">
                 <g id="svg-t-prediction-uniform-dots"></g>
                 <g id="svg-t-prediction-true-dots"></g>
@@ -613,7 +659,7 @@
             </div>
 
             <div id="component-generated-prediction" class="model-component"
-              style="top: 250px; left: 600px">
+              style="top: 250px; left: 575px">
               <svg id="svg-generated-prediction">
                 <g id="svg-g-prediction-uniform-dots"></g>
                 <g id="svg-g-prediction-generated-dots"></g>
@@ -623,7 +669,7 @@
 
             <div id="component-discriminator"
               class="model-component model-component-model"
-              style="top: 160px; left: 435px">
+              style="top: 156px; left: 412px">
               <div id="overlap-toggle" class="checkbox-toggle">
                 <paper-checkbox id="overlap-plots" checked
                   title="show/hide discriminator's prediction"></paper-checkbox>
@@ -633,7 +679,7 @@
             </div>
 
             <div id="component-options-discriminator" class="model-component-options"
-              style="top: 335px; left: 430px">
+              style="top: 335px; left: 410px">
               <div class="config-item" style="width: 175px">
                 <div class="up-down-buttons">
                   <button class="mdl-button mdl-js-button mdl-button--icon"
@@ -668,7 +714,7 @@
 
             <div id="component-generator"
               class="model-component model-component-model"
-              style="top: 160px; left: 140px">
+              style="top: 156px; left: 122px">
                 <div id="manifold-toggle" class="checkbox-toggle"
                   title="show/hide generator's manifold">
                   <paper-checkbox id="enable-manifold"></paper-checkbox>
@@ -678,7 +724,7 @@
               </div>
 
             <div id="component-options-generator" class="model-component-options"
-              style="top: 335px; left: 135px">
+              style="top: 335px; left: 120px">
               <div class="config-item" style="width: 175px">
                 <div class="up-down-buttons">
                   <button class="mdl-button mdl-js-button mdl-button--icon"
@@ -712,12 +758,12 @@
             </div>
 
             <div id="component-discriminator-gradients" class="model-component"
-              style="top: 13px; left: 500px">
+              style="top: 11px; left: 500px">
               <div class="component-label">Discriminator's gradients</div>
             </div>
 
             <div id="component-generator-gradients" class="model-component"
-              style="top: 400px; left: 305px">
+              style="top: 425px; left: 285px">
               <div id="g-gradients-toggle" class="checkbox-toggle"
                 title="show/hide gradients for generator">
                 <paper-checkbox id="show-g-gradients" checked></paper-checkbox>
@@ -727,7 +773,7 @@
             </div>
 
             <div id="component-true-distribution" class="model-component"
-              style="top: 70px; left: 297px">
+              style="top: 85px; left: 275px; width: 100px">
               <div class="config-item" style="width: 100px">
                 <paper-dropdown-menu no-animations label="True Distribution">
                   <paper-listbox attr-for-selected="value" id="shape-dropdown" class="dropdown-content" selected="{{selectedShapeName}}">
@@ -738,17 +784,17 @@
                     </template>
                   </paper-listbox>
                 </paper-dropdown-menu>
-              </div>
-              <br />
-              <div id="t-contour-toggle" class="checkbox-toggle"
-                title="show/hide true distribution's contour"
-                style="top: 6px; right: -10px">
-                <paper-checkbox class="tiny" id="show-t-contour"></paper-checkbox>
+                <br />
+                <div id="t-contour-toggle" class="checkbox-toggle"
+                  title="show/hide true distribution's contour"
+                  style="top: 10px; right: -10px">
+                  <paper-checkbox class="tiny" id="show-t-contour"></paper-checkbox>
+                </div>
               </div>
             </div>
 
             <div id="component-real-samples" class="model-component"
-              style="top: 155px; left: 305px">
+              style="top: 156px; left: 285px">
               <div id="t-samples-toggle" class="checkbox-toggle"
                 title="show/hide true samples">
                 <paper-checkbox id="show-t-samples" checked></paper-checkbox>
@@ -758,7 +804,7 @@
             </div>
 
             <div id="component-generated-samples" class="model-component"
-              style="top: 250px; left: 305px">
+              style="top: 250px; left: 285px">
               <div id="g-samples-toggle" class="checkbox-toggle"
                 title="show/hide generated samples">
                 <paper-checkbox id="show-g-samples" checked></paper-checkbox>
@@ -768,14 +814,14 @@
             </div>
 
             <div id="component-noise" class="model-component"
-              style="top: 250px; left: 10px">
+              style="top: 250px; left: -5px">
               <svg id="svg-noise"></svg>
               <div class="component-label">Noise</div>
             </div>
 
             <div id="component-options-noise" class="model-component-options"
-              style="top: 330px; left: 20px">
-              <div class="config-item" style="width: 120px">
+              style="top: 330px; left: 5px">
+              <div class="config-item" style="width: 110px">
                 <div class="up-down-buttons">
                   <button class="mdl-button mdl-js-button mdl-button--icon"
                     id="noise-size-add-button" title="Increase a dimension">
@@ -805,61 +851,6 @@
             </div>
           </div>
 
-          <div id="overlay-background"></div>
-
-          <svg id="model-vis-svg">
-            <g id="lines">
-              <defs>
-                <marker id="arrow-head" orient="auto"
-                  markerWidth="4" markerHeight="4" refX="0.3" refY="2">
-                  <path d="M0,0 V4 L2,2 Z" />
-                </marker>
-              </defs>
-              <defs>
-                <marker id="arrow-head-d-highlighted" orient="auto"
-                  markerWidth="4" markerHeight="4" refX="0.3" refY="2">
-                  <path d="M0,0 V4 L2,2 Z" />
-                </marker>
-              </defs>
-              <defs>
-                <marker id="arrow-head-g-highlighted" orient="auto"
-                  markerWidth="4" markerHeight="4" refX="0.3" refY="2">
-                  <path d="M0,0 V4 L2,2 Z" />
-                </marker>
-              </defs>
-
-              <path marker-end="url(#arrow-head)" d="M105,285 L135,285"
-                id="arrow-noise-g" />
-              <path marker-end="url(#arrow-head)" d="M290,285 L320,285"
-                id="arrow-g-g-samples" />
-              <path marker-end="url(#arrow-head)" d="M400,195 L430,195"
-                id="arrow-t-samples-d" />
-              <path marker-end="url(#arrow-head)" d="M400,285 L430,285"
-                id="arrow-g-samples-d" />
-              <path marker-end="url(#arrow-head)" d="M585,195 L615,195"
-                id="arrow-d-t-prediction" />
-              <path marker-end="url(#arrow-head)" d="M585,285 L615,285"
-                id="arrow-d-g-prediction" />
-
-              <path d="M695,195 L725,235" id="arrow-t-prediction-d-loss" />
-              <path d="M695,280 L725,240" id="arrow-g-prediction-d-loss" />
-              <path d="M695,290 L725,330" id="arrow-g-prediction-g-loss" />
-
-              <path d="M725,235 L795,235" id="arrow-d-loss-d-0" />
-              <path d="M795,235 L795,50" id="arrow-d-loss-d-1" />
-              <path d="M795,50 L550,50" id="arrow-d-loss-d-2" />
-              <path d="M550,50 L490,50" id="arrow-d-loss-d-3" />
-              <path marker-end="url(#arrow-head)" d="M490,50 L490,152"
-                id="arrow-d-loss-d-4" />
-              <path d="M725,330 L795,330" id="arrow-g-loss-g-0" />
-              <path d="M795,330 L795,460" id="arrow-g-loss-g-1" />
-              <path d="M795,460 L395,460" id="arrow-g-loss-g-2" />
-              <path d="M325,460 L210,460" id="arrow-g-loss-g-3" />
-              <path marker-end="url(#arrow-head)" d="M210,460 L210,360"
-                id="arrow-g-loss-g-4" />
-            </g>
-          </svg>
-
           <div id="tooltips">
             <div id="tooltip-d-loss" class="tooltip tooltip-for-d"
               style="top: 150px; left: 630px">
@@ -867,7 +858,7 @@
               computes discriminator's loss
             </div>
             <div id="tooltip-d-gradients" class="tooltip tooltip-for-d"
-              style="top: 80px; left: 570px">
+              style="top: 25px; left: 635px">
               <div class="tooltip-number">D2</div>
               computed to determine how boundary should change to decrease loss
             </div>
@@ -887,7 +878,7 @@
               computed to determine which direction each point should move to decrease loss
             </div>
             <div id="tooltip-update-generator" class="tooltip tooltip-for-g"
-              style="top: 360px; left: 170px">
+              style="top: 370px; left: 170px">
               <div class="tooltip-number">G3</div>
               updates function based on gradients
             </div>

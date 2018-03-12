@@ -23,7 +23,7 @@ const NUM_TRUE_SAMPLES_VISUALIZED = 450;
 
 const VIS_INTERVAL = 50;
 const EPOCH_INTERVAL = 2;
-const SLOW_INTERVAL_MS = 750;
+const SLOW_INTERVAL_MS = 1000;
 
 // Hack to prevent error when using grads (doesn't allow this in model).
 let dVariables: dl.Variable[];
@@ -87,26 +87,6 @@ class GANLab extends GANLabPolymer {
 
   ready() {
     // HTML elements.
-    const noiseSizeElement =
-      document.getElementById('noise-size') as HTMLElement;
-    this.noiseSize = +noiseSizeElement.innerText;
-    document.getElementById('noise-size-add-button')!.addEventListener(
-      'click', () => {
-        if (this.noiseSize < 10) {
-          this.noiseSize += 1;
-          noiseSizeElement.innerText = this.noiseSize.toString();
-          this.createExperiment();
-        }
-      });
-    document.getElementById('noise-size-remove-button')!.addEventListener(
-      'click', () => {
-        if (this.noiseSize > 1) {
-          this.noiseSize -= 1;
-          noiseSizeElement.innerText = this.noiseSize.toString();
-          this.createExperiment();
-        }
-      });
-
     const numGeneratorLayersElement =
       document.getElementById('num-g-layers') as HTMLElement;
     this.numGeneratorLayers = +numGeneratorLayersElement.innerText;
@@ -286,12 +266,15 @@ class GANLab extends GANLabPolymer {
         }
       });
 
-    this.noiseTypes = ['Uniform', 'Gaussian'];
-    this.selectedNoiseType = 'Uniform';
+    this.noiseTypes =
+      ['1D Uniform', '1D Gaussian', '2D Uniform', '2D Gaussian'];
+    this.selectedNoiseType = '2D Uniform';
+    this.noiseSize = 2;
     this.querySelector('#noise-dropdown')!.addEventListener(
       // tslint:disable-next-line:no-any event has no type
       'iron-activate', (event: any) => {
         this.selectedNoiseType = event.detail.selected;
+        this.noiseSize = +this.selectedNoiseType.substring(0, 1);
         this.createExperiment();
       });
 
@@ -345,34 +328,30 @@ class GANLab extends GANLabPolymer {
       });
 
     // Timeline controls.
-    const playButton =
-      document.getElementById('play-pause-button') as HTMLInputElement;
-    playButton.addEventListener(
+    document.getElementById('play-pause-button').addEventListener(
       'click', () => this.onClickPlayPauseButton());
-    const nextStepButton =
-      document.getElementById('next-step-button') as HTMLInputElement;
-    nextStepButton.addEventListener(
-      'click', () => this.onClickNextStepButton());
-    const resetButton =
-      document.getElementById('reset-button') as HTMLInputElement;
-    resetButton.addEventListener(
+    document.getElementById('reset-button').addEventListener(
       'click', () => this.onClickResetButton());
-    const nextStepDButton =
-      document.getElementById('next-step-d-button') as HTMLInputElement;
-    nextStepDButton.addEventListener(
-      'click', () => this.onClickNextStepButton("D"));
-    const nextStepGButton =
-      document.getElementById('next-step-g-button') as HTMLInputElement;
-    nextStepGButton.addEventListener(
-      'click', () => this.onClickNextStepButton("G"));
+
+    document.getElementById('next-step-d-button').addEventListener(
+      'click', () => this.onClickNextStepButton('D'));
+    document.getElementById('next-step-g-button').addEventListener(
+      'click', () => this.onClickNextStepButton('G'));
+    document.getElementById('next-step-all-button').addEventListener(
+      'click', () => this.onClickNextStepButton());
+
+    this.stepMode = false;
+    document.getElementById('next-step-button').addEventListener(
+      'click', () => this.onClickStepModeButton());
 
     this.slowMode = false;
-    this.querySelector('#slow-step')!.addEventListener(
+    document.getElementById('slow-step')!.addEventListener(
       'click', () => this.onClickSlowModeButton());
 
     this.editMode = true;
     document.getElementById('edit-model-button')!.addEventListener(
       'click', () => this.onClickEditModeButton());
+    this.onClickEditModeButton();
 
     this.iterCountElement =
       document.getElementById('iteration-count') as HTMLElement;
@@ -387,7 +366,7 @@ class GANLab extends GANLabPolymer {
     this.gDotsElementList = [
       '#vis-generated-samples',
       '#svg-generated-samples',
-      '#svg-g-prediction-generated-dots'
+      '#svg-generated-prediction'
     ];
     this.dFlowElements =
       this.querySelectorAll('.d-update-flow') as NodeListOf<SVGPathElement>;
@@ -419,29 +398,27 @@ class GANLab extends GANLabPolymer {
     // Reset.
     this.pause();
     this.iterationCount = 0;
-    this.iterCountElement.innerText = this.iterationCount;
+    this.iterCountElement.innerText = this.zeroPad(this.iterationCount);
 
     this.isPausedOngoingIteration = false;
 
     document.getElementById('d-loss-value').innerText = '-';
-    document.getElementById('d-loss-value-simple').innerText = '-';
     document.getElementById('g-loss-value').innerText = '-';
-    document.getElementById('g-loss-value-simple').innerText = '-';
+    document.getElementById('d-loss-bar').style.width = '0';
+    document.getElementById('g-loss-bar').style.width = '0';
     this.recreateCharts();
 
     const dataElements = [
       d3.select('#vis-true-samples').selectAll('.true-dot'),
-      d3.select('#svg-real-samples').selectAll('.true-dot'),
-      d3.select('#svg-t-prediction-true-dots').selectAll('.true-dot'),
+      d3.select('#svg-true-samples').selectAll('.true-dot'),
+      d3.select('#svg-true-prediction').selectAll('.true-dot'),
       d3.select('#vis-true-samples-contour').selectAll('path'),
       d3.select('#svg-noise').selectAll('.noise-dot'),
       d3.select('#vis-generated-samples').selectAll('.generated-dot'),
       d3.select('#svg-generated-samples').selectAll('.generated-dot'),
-      d3.select('#svg-g-prediction-generated-dots').selectAll('.generated-dot'),
+      d3.select('#svg-generated-prediction').selectAll('.generated-dot'),
       d3.select('#vis-discriminator-output').selectAll('.uniform-dot'),
       d3.select('#svg-discriminator-output').selectAll('.uniform-dot'),
-      //d3.select('#svg-t-prediction-uniform-dots').selectAll('.uniform-dot'),
-      //d3.select('#svg-g-prediction-uniform-dots').selectAll('.uniform-dot'),
       d3.select('#vis-manifold').selectAll('.uniform-generated-dot'),
       d3.select('#vis-manifold').selectAll('.manifold-cells'),
       d3.select('#vis-manifold').selectAll('.grids'),
@@ -597,8 +574,7 @@ class GANLab extends GANLabPolymer {
 
     const trueDotsElementList = [
       '#vis-true-samples',
-      '#svg-real-samples',
-      //'#svg-t-prediction-true-dots'
+      '#svg-true-samples',
     ];
     trueDotsElementList.forEach((dotsElement, k) => {
       const plotSizePx = k === 0 ? this.plotSizePx : this.smallPlotSizePx;
@@ -655,6 +631,10 @@ class GANLab extends GANLabPolymer {
   }
 
   private play() {
+    if (this.stepMode) {
+      this.onClickStepModeButton();
+    }
+
     this.isPlaying = true;
     document.getElementById('play-pause-button')!.classList.add('playing');
     if (!this.isPausedOngoingIteration) {
@@ -696,6 +676,27 @@ class GANLab extends GANLabPolymer {
     this.createExperiment();
   }
 
+  private onClickStepModeButton() {
+    if (!this.stepMode) {
+      if (this.isPlaying) {
+        this.pause();
+      }
+      if (this.slowMode) {
+        this.onClickSlowModeButton();
+      }
+
+      this.stepMode = true;
+      document.getElementById('next-step-button')
+        .classList.add('mdl-button--accent');
+      document.getElementById('step-buttons').style.visibility = 'visible';
+    } else {
+      this.stepMode = false;
+      document.getElementById('next-step-button')
+        .classList.remove('mdl-button--accent');
+      document.getElementById('step-buttons').style.visibility = 'hidden';
+    }
+  }
+
   private onClickSlowModeButton() {
     if (this.editMode) {
       this.onClickEditModeButton();
@@ -703,8 +704,15 @@ class GANLab extends GANLabPolymer {
     this.slowMode = !this.slowMode;
 
     if (this.slowMode === true) {
-      document.getElementById('tooltips')!.classList.add('shown');
+      if (this.stepMode) {
+        this.onClickStepModeButton();
+      }
+      document.getElementById('slow-step')
+        .classList.add('mdl-button--accent');
+      document.getElementById('tooltips').classList.add('shown');
     } else {
+      document.getElementById('slow-step')
+        .classList.remove('mdl-button--accent');
       this.dehighlightStep();
       const container =
         document.getElementById('model-visualization-container');
@@ -712,9 +720,13 @@ class GANLab extends GANLabPolymer {
         container.classList.remove('any-highlighted');
       }
       document.getElementById(
-        'component-discriminator').classList.remove('activated');
+        'component-discriminator').classList.remove('deactivated');
       document.getElementById(
-        'component-generator').classList.remove('activated');
+        'component-generator').classList.remove('deactivated');
+      document.getElementById(
+        'component-d-loss').classList.remove('activated');
+      document.getElementById(
+        'component-g-loss').classList.remove('activated');
       for (let i = 0; i < this.dFlowElements.length; ++i) {
         this.dFlowElements[i].classList.remove('d-activated');
       }
@@ -733,6 +745,18 @@ class GANLab extends GANLabPolymer {
         this.editMode ? 'hidden' : 'visible';
     }
     this.editMode = !this.editMode;
+    if (this.editMode === true) {
+      document.getElementById('edit-model-button')
+        .classList.add('mdl-button--accent');
+    } else {
+      document.getElementById('edit-model-button')
+        .classList.remove('mdl-button--accent');
+    }
+  }
+
+  private zeroPad(n: number): string {
+    const pad = '000000';
+    return (pad + n).slice(-pad.length).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
 
   private async iterateTraining(keepIterating: boolean, type?: string) {
@@ -744,7 +768,7 @@ class GANLab extends GANLabPolymer {
 
     if (!keepIterating || this.iterationCount === 1 || this.slowMode ||
       this.iterationCount % EPOCH_INTERVAL === 0) {
-      this.iterCountElement.innerText = this.iterationCount;
+      this.iterCountElement.innerText = this.zeroPad(this.iterationCount);
 
       d3.select('#model-vis-svg')
         .selectAll('path')
@@ -754,7 +778,7 @@ class GANLab extends GANLabPolymer {
     // Train Discriminator.
     let dCostVal: number = null;
     dl.tidy(() => {
-      const kDSteps = type === "D" ? 1 : (type === "G" ? 0 : this.kDSteps);
+      const kDSteps = type === 'D' ? 1 : (type === 'G' ? 0 : this.kDSteps);
       for (let j = 0; j < kDSteps; j++) {
         const dCost = this.dOptimizer.minimize(() => {
           const noiseBatch = this.noiseProvider.getNextCopy() as dl.Tensor2D;
@@ -784,7 +808,9 @@ class GANLab extends GANLabPolymer {
           container.classList.add('any-highlighted');
         }
         document.getElementById(
-          'component-discriminator').classList.add('activated');
+          'component-discriminator').classList.add('deactivated');
+        document.getElementById(
+          'component-d-loss').classList.add('activated');
         for (let i = 0; i < this.dFlowElements.length; ++i) {
           this.dFlowElements[i].classList.add('d-activated');
         }
@@ -818,7 +844,7 @@ class GANLab extends GANLabPolymer {
         }
 
         if (this.iterationCount === 1) {
-          d3.select('#svg-t-prediction-true-dots')
+          d3.select('#svg-true-prediction')
             .selectAll('.true-dot')
             .data(pInputData1)
             .enter()
@@ -837,12 +863,12 @@ class GANLab extends GANLabPolymer {
             return 0.5;
           }
         };
-        d3.select('#svg-t-prediction-true-dots')
+        d3.select('#svg-true-prediction')
           .selectAll('.true-dot')
           .data(pData1)
           .style('fill', (d: number) => this.colorScale(sqrtAbs(d)));
         if (this.iterationCount > 1) {
-          d3.select('#svg-g-prediction-generated-dots')
+          d3.select('#svg-generated-prediction')
             .selectAll('.generated-dot')
             .data(pData2)
             .style('fill', (d: number) => this.colorScale(sqrtAbs(d)));
@@ -853,10 +879,11 @@ class GANLab extends GANLabPolymer {
       if (dCostVal) {
         document.getElementById('d-loss-value').innerText =
           dCostVal.toFixed(3);
-        document.getElementById('d-loss-value-simple').innerText =
+        document.getElementById('d-loss-bar').title = dCostVal.toFixed(3);
+        document.getElementById('d-loss-bar').style.width =
           this.lossType === 'LeastSq loss'
-            ? dCostVal.toFixed(2)
-            : (Math.pow(dCostVal * 0.5, 2)).toFixed(2);
+            ? `${dCostVal * 50.0}px`
+            : `${Math.pow(dCostVal * 0.5, 2) * 50.0}px`;
       }
 
       if (this.slowMode) {
@@ -890,9 +917,7 @@ class GANLab extends GANLabPolymer {
 
         const gridDotsElementList = [
           '#vis-discriminator-output',
-          '#svg-discriminator-output',
-          //'#svg-t-prediction-uniform-dots',
-          //'#svg-g-prediction-uniform-dots'
+          '#svg-discriminator-output'
         ];
         if (this.iterationCount === 1) {
           gridDotsElementList.forEach((dotsElement, k) => {
@@ -938,7 +963,9 @@ class GANLab extends GANLabPolymer {
           container.classList.remove('any-highlighted');
         }
         document.getElementById(
-          'component-discriminator').classList.remove('activated');
+          'component-discriminator').classList.remove('deactivated');
+        document.getElementById(
+          'component-d-loss').classList.remove('activated');
         for (let i = 0; i < this.dFlowElements.length; ++i) {
           this.dFlowElements[i].classList.remove('d-activated');
         }
@@ -948,7 +975,9 @@ class GANLab extends GANLabPolymer {
           container.classList.add('any-highlighted');
         }
         document.getElementById(
-          'component-generator').classList.add('activated');
+          'component-generator').classList.add('deactivated');
+        document.getElementById(
+          'component-g-loss').classList.add('activated');
         for (let i = 0; i < this.gFlowElements.length; ++i) {
           this.gFlowElements[i].classList.add('g-activated');
         }
@@ -1022,7 +1051,7 @@ class GANLab extends GANLabPolymer {
     });
 
     // Train generator.
-    const kGSteps = type === "G" ? 1 : (type === "D" ? 0 : this.kGSteps);
+    const kGSteps = type === 'G' ? 1 : (type === 'D' ? 0 : this.kGSteps);
     let gCostVal: number = null;
     dl.tidy(() => {
       for (let j = 0; j < kGSteps; j++) {
@@ -1045,10 +1074,11 @@ class GANLab extends GANLabPolymer {
       if (gCostVal) {
         document.getElementById('g-loss-value').innerText =
           gCostVal.toFixed(3);
-        document.getElementById('g-loss-value-simple').innerText =
+        document.getElementById('g-loss-bar').title = gCostVal.toFixed(3);
+        document.getElementById('g-loss-bar').style.width =
           this.lossType === 'LeastSq loss'
-            ? (gCostVal * 2.0).toFixed(2)
-            : Math.pow(gCostVal, 2).toFixed(2);
+            ? `${gCostVal * 2.0 * 50.0}px`
+            : `${Math.pow(gCostVal, 2) * 50.0}px`;
       }
 
       // Update charts.
@@ -1262,7 +1292,9 @@ class GANLab extends GANLabPolymer {
           container.classList.remove('any-highlighted');
         }
         document.getElementById(
-          'component-generator').classList.remove('activated');
+          'component-generator').classList.remove('deactivated');
+        document.getElementById(
+          'component-g-loss').classList.remove('activated');
         for (let i = 0; i < this.gFlowElements.length; ++i) {
           this.gFlowElements[i].classList.remove('g-activated');
         }
@@ -1295,7 +1327,7 @@ class GANLab extends GANLabPolymer {
       }
     }
 
-    if (this.iterationCount > 10000) {
+    if (this.iterationCount > 99999) {
       this.isPlaying = false;
     }
 

@@ -285,14 +285,14 @@ class GANLab extends GANLabPolymer {
           this.querySelector('#vis-discriminator-output') as SVGGElement;
         // tslint:disable-next-line:no-any
         container.style.visibility =
-          (event.target as any).active ? 'visible' : 'hidden';
+          (event.target as any).checked ? 'visible' : 'hidden';
       });
     this.querySelector('#enable-manifold')!.addEventListener(
       'change', (event: Event) => {
         const container = this.querySelector('#vis-manifold') as SVGGElement;
         // tslint:disable-next-line:no-any
         container.style.visibility =
-          (event.target as any).active ? 'visible' : 'hidden';
+          (event.target as any).checked ? 'visible' : 'hidden';
       });
     this.querySelector('#show-g-samples')!.addEventListener(
       'change', (event: Event) => {
@@ -300,7 +300,7 @@ class GANLab extends GANLabPolymer {
           this.querySelector('#vis-generated-samples') as SVGGElement;
         // tslint:disable-next-line:no-any
         container.style.visibility =
-          (event.target as any).active ? 'visible' : 'hidden';
+          (event.target as any).checked ? 'visible' : 'hidden';
       });
     this.querySelector('#show-t-samples')!.addEventListener(
       'change', (event: Event) => {
@@ -308,7 +308,7 @@ class GANLab extends GANLabPolymer {
           this.querySelector('#vis-true-samples') as SVGGElement;
         // tslint:disable-next-line:no-any
         container.style.visibility =
-          (event.target as any).active ? 'visible' : 'hidden';
+          (event.target as any).checked ? 'visible' : 'hidden';
       });
     this.querySelector('#show-t-contour')!.addEventListener(
       'change', (event: Event) => {
@@ -316,7 +316,7 @@ class GANLab extends GANLabPolymer {
           this.querySelector('#vis-true-samples-contour') as SVGGElement;
         // tslint:disable-next-line:no-any
         container.style.visibility =
-          (event.target as any).active ? 'visible' : 'hidden';
+          (event.target as any).checked ? 'visible' : 'hidden';
       });
     this.querySelector('#show-g-gradients')!.addEventListener(
       'change', (event: Event) => {
@@ -324,7 +324,7 @@ class GANLab extends GANLabPolymer {
           this.querySelector('#vis-generator-gradients') as SVGGElement;
         // tslint:disable-next-line:no-any
         container.style.visibility =
-          (event.target as any).active ? 'visible' : 'hidden';
+          (event.target as any).checked ? 'visible' : 'hidden';
       });
 
     // Timeline controls.
@@ -687,12 +687,12 @@ class GANLab extends GANLabPolymer {
 
       this.stepMode = true;
       document.getElementById('next-step-button')
-        .classList.add('mdl-button--accent');
+        .classList.add('mdl-button--colored');
       document.getElementById('step-buttons').style.visibility = 'visible';
     } else {
       this.stepMode = false;
       document.getElementById('next-step-button')
-        .classList.remove('mdl-button--accent');
+        .classList.remove('mdl-button--colored');
       document.getElementById('step-buttons').style.visibility = 'hidden';
     }
   }
@@ -708,11 +708,11 @@ class GANLab extends GANLabPolymer {
         this.onClickStepModeButton();
       }
       document.getElementById('slow-step')
-        .classList.add('mdl-button--accent');
+        .classList.add('mdl-button--colored');
       document.getElementById('tooltips').classList.add('shown');
     } else {
       document.getElementById('slow-step')
-        .classList.remove('mdl-button--accent');
+        .classList.remove('mdl-button--colored');
       this.dehighlightStep();
       const container =
         document.getElementById('model-visualization-container');
@@ -747,10 +747,10 @@ class GANLab extends GANLabPolymer {
     this.editMode = !this.editMode;
     if (this.editMode === true) {
       document.getElementById('edit-model-button')
-        .classList.add('mdl-button--accent');
+        .classList.add('mdl-button--colored');
     } else {
       document.getElementById('edit-model-button')
-        .classList.remove('mdl-button--accent');
+        .classList.remove('mdl-button--colored');
     }
   }
 

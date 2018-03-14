@@ -12,6 +12,7 @@ import * as dl from 'deeplearn';
 import * as gan_lab_input_providers from './gan_lab_input_providers';
 import * as gan_lab_drawing from './gan_lab_drawing';
 import * as gan_lab_evaluators from './gan_lab_evaluators';
+import * as gan_lab_models from './gan_lab_models';
 
 const BATCH_SIZE = 150;
 const ATLAS_SIZE = 12000;
@@ -26,8 +27,8 @@ const EPOCH_INTERVAL = 2;
 const SLOW_INTERVAL_MS = 1000;
 
 // Hack to prevent error when using grads (doesn't allow this in model).
-let dVariables: dl.Variable[];
-let numDiscriminatorLayers: number;
+//let dVariables: dl.Variable[];
+//let numDiscriminatorLayers: number;
 
 interface ManifoldCell {
   points: Float32Array[];
@@ -56,17 +57,12 @@ const GANLabPolymer: new () => PolymerHTMLElement = PolymerElement({
 class GANLab extends GANLabPolymer {
   private iterationCount: number;
 
-  private dOptimizer: dl.Optimizer;
-  private gOptimizer: dl.Optimizer;
-
   private noiseProvider: dl.InputProvider;
   private trueSampleProvider: dl.InputProvider;
   private uniformNoiseProvider: dl.InputProvider;
   private uniformInputProvider: dl.InputProvider;
 
-  private dVariables: dl.Variable[];
-  private gVariables: dl.Variable[];
-
+  private model: gan_lab_models.GANLabModel;
   private noiseSize: number;
   private numGeneratorLayers: number;
   private numDiscriminatorLayers: number;
@@ -219,6 +215,7 @@ class GANLab extends GANLabPolymer {
       // tslint:disable-next-line:no-any event has no type
       'iron-activate', (event: any) => {
         this.lossType = event.detail.selected;
+        this.model.lossType = this.lossType;
       });
 
     this.learningRateOptions = [0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0];
@@ -227,14 +224,16 @@ class GANLab extends GANLabPolymer {
       // tslint:disable-next-line:no-any event has no type
       'iron-activate', (event: any) => {
         this.dLearningRate = +event.detail.selected;
-        this.updateOptimizers('D');
+        this.model.updateOptimizer(
+          'D', this.dOptimizerType, this.dLearningRate);
       });
     this.gLearningRate = 0.1;
     this.querySelector('#g-learning-rate-dropdown')!.addEventListener(
       // tslint:disable-next-line:no-any event has no type
       'iron-activate', (event: any) => {
         this.gLearningRate = +event.detail.selected;
-        this.updateOptimizers('G');
+        this.model.updateOptimizer(
+          'G', this.gOptimizerType, this.gLearningRate);
       });
 
     this.optimizerTypeOptions = ['SGD', 'Adam'];
@@ -243,14 +242,16 @@ class GANLab extends GANLabPolymer {
       // tslint:disable-next-line:no-any event has no type
       'iron-activate', (event: any) => {
         this.dOptimizerType = event.detail.selected;
-        this.updateOptimizers('D');
+        this.model.updateOptimizer(
+          'D', this.dOptimizerType, this.dLearningRate);
       });
     this.gOptimizerType = 'SGD';
     this.querySelector('#g-optimizer-type-dropdown')!.addEventListener(
       // tslint:disable-next-line:no-any event has no type
       'iron-activate', (event: any) => {
         this.gOptimizerType = event.detail.selected;
-        this.updateOptimizers('G');
+        this.model.updateOptimizer(
+          'G', this.gOptimizerType, this.gLearningRate);
       });
 
     this.shapeNames = [
@@ -481,8 +482,13 @@ class GANLab extends GANLabPolymer {
       trueSampleProviderBuilder.getInputAtlas(), NUM_TRUE_SAMPLES_VISUALIZED);
 
     // Prepare for model.
-    this.initializeModelVariables();
-    this.updateOptimizers();
+    this.model = new gan_lab_models.GANLabModel(
+      this.noiseSize, this.numGeneratorLayers, this.numDiscriminatorLayers,
+      this.numGeneratorNeurons, this.numDiscriminatorNeurons,
+      BATCH_SIZE, this.lossType);
+    this.model.initializeModelVariables();
+    this.model.updateOptimizer('D', this.dOptimizerType, this.dLearningRate);
+    this.model.updateOptimizer('G', this.gOptimizerType, this.gLearningRate);
   }
 
   private sampleFromTrueDistribution(
@@ -805,7 +811,7 @@ class GANLab extends GANLabPolymer {
         const gDataBefore: Array<[number, number]> = [];
         const noiseFixedBatch =
           this.noiseProviderFixed.getNextCopy() as dl.Tensor2D;
-        const gResult = this.modelGenerator(noiseFixedBatch);
+        const gResult = this.model.generator(noiseFixedBatch);
         gResultData = gResult.dataSync() as Float32Array;
         for (let j = 0; j < gResultData.length / 2; ++j) {
           gDataBefore.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
@@ -855,9 +861,9 @@ class GANLab extends GANLabPolymer {
           this.noiseProviderFixed.getNextCopy() as dl.Tensor2D;
         const trueSampleBatch =
           this.trueSampleProviderFixed.getNextCopy() as dl.Tensor2D;
-        const truePred = this.modelDiscriminator(trueSampleBatch);
+        const truePred = this.model.discriminator(trueSampleBatch);
         const generatedPred =
-          this.modelDiscriminator(this.modelGenerator(noiseBatch));
+          this.model.discriminator(this.model.generator(noiseBatch));
 
         const inputData1 = trueSampleBatch.dataSync();
         const resultData1 = truePred.dataSync();
@@ -913,15 +919,15 @@ class GANLab extends GANLabPolymer {
     dl.tidy(() => {
       const kDSteps = type === 'D' ? 1 : (type === 'G' ? 0 : this.kDSteps);
       for (let j = 0; j < kDSteps; j++) {
-        const dCost = this.dOptimizer.minimize(() => {
+        const dCost = this.model.dOptimizer.minimize(() => {
           const noiseBatch = this.noiseProvider.getNextCopy() as dl.Tensor2D;
           const trueSampleBatch =
             this.trueSampleProvider.getNextCopy() as dl.Tensor2D;
-          const truePred = this.modelDiscriminator(trueSampleBatch);
+          const truePred = this.model.discriminator(trueSampleBatch);
           const generatedPred =
-            this.modelDiscriminator(this.modelGenerator(noiseBatch));
-          return this.dLoss(truePred, generatedPred);
-        }, true, this.dVariables);
+            this.model.discriminator(this.model.generator(noiseBatch));
+          return this.model.dLoss(truePred, generatedPred);
+        }, true, this.model.dVariables);
         if ((!keepIterating || this.iterationCount === 1 || this.slowMode ||
           this.iterationCount % VIS_INTERVAL === 0)
           && j + 1 === this.kDSteps) {
@@ -943,7 +949,7 @@ class GANLab extends GANLabPolymer {
           dCostVal.toFixed(3);
         document.getElementById('d-loss-bar').title = dCostVal.toFixed(3);
         document.getElementById('d-loss-bar').style.width =
-          this.lossType === 'LeastSq loss'
+          this.model.lossType === 'LeastSq loss'
             ? `${dCostVal * 50.0}px`
             : `${Math.pow(dCostVal * 0.5, 2) * 50.0}px`;
       }
@@ -964,7 +970,7 @@ class GANLab extends GANLabPolymer {
         for (let i = 0; i < NUM_GRID_CELLS * NUM_GRID_CELLS / BATCH_SIZE; ++i) {
           const inputBatch =
             this.uniformInputProvider.getNextCopy() as dl.Tensor2D;
-          const result = this.modelDiscriminator(inputBatch);
+          const result = this.model.discriminator(inputBatch);
           const resultData = result.dataSync();
           for (let j = 0; j < resultData.length; ++j) {
             dData.push(resultData[j]);
@@ -1054,7 +1060,7 @@ class GANLab extends GANLabPolymer {
         const gDataBefore: Array<[number, number]> = [];
         const noiseFixedBatch =
           this.noiseProviderFixed.getNextCopy() as dl.Tensor2D;
-        const gResult = this.modelGenerator(noiseFixedBatch);
+        const gResult = this.model.generator(noiseFixedBatch);
         gResultData = gResult.dataSync() as Float32Array;
         for (let j = 0; j < gResultData.length / 2; ++j) {
           gDataBefore.push([gResultData[j * 2], gResultData[j * 2 + 1]]);
@@ -1075,10 +1081,10 @@ class GANLab extends GANLabPolymer {
       // Compute and store gradients before training.
       if (!keepIterating || this.iterationCount === 1 || this.slowMode ||
         this.iterationCount % VIS_INTERVAL === 0) {
-        const gradFunction = dl.grad(this.modelDiscriminator);
+        const gradFunction = dl.grad(this.model.discriminator);
         const noiseFixedBatchForGrad =
           this.noiseProviderFixed.getNextCopy() as dl.Tensor2D;
-        const gSamples = this.modelGenerator(noiseFixedBatchForGrad);
+        const gSamples = this.model.generator(noiseFixedBatchForGrad);
         const grad = gradFunction(gSamples);
         const gGradient = grad.dataSync();
 
@@ -1096,11 +1102,12 @@ class GANLab extends GANLabPolymer {
     let gCostVal: number = null;
     dl.tidy(() => {
       for (let j = 0; j < kGSteps; j++) {
-        const gCost = this.gOptimizer.minimize(() => {
+        const gCost = this.model.gOptimizer.minimize(() => {
           const noiseBatch = this.noiseProvider.getNextCopy() as dl.Tensor2D;
-          const pred = this.modelDiscriminator(this.modelGenerator(noiseBatch));
-          return this.gLoss(pred);
-        }, true, this.gVariables);
+          const pred =
+            this.model.discriminator(this.model.generator(noiseBatch));
+          return this.model.gLoss(pred);
+        }, true, this.model.gVariables);
         if ((!keepIterating || this.iterationCount === 1 || this.slowMode ||
           this.iterationCount % VIS_INTERVAL === 0)
           && j + 1 === this.kGSteps) {
@@ -1117,7 +1124,7 @@ class GANLab extends GANLabPolymer {
           gCostVal.toFixed(3);
         document.getElementById('g-loss-bar').title = gCostVal.toFixed(3);
         document.getElementById('g-loss-bar').style.width =
-          this.lossType === 'LeastSq loss'
+          this.model.lossType === 'LeastSq loss'
             ? `${gCostVal * 2.0 * 50.0}px`
             : `${Math.pow(gCostVal, 2) * 50.0}px`;
       }
@@ -1187,7 +1194,7 @@ class GANLab extends GANLabPolymer {
           for (let k = 0; k < numBatches; ++k) {
             const noiseBatch =
               this.uniformNoiseProvider.getNextCopy() as dl.Tensor2D;
-            const result = this.modelGenerator(noiseBatch);
+            const result = this.model.generator(noiseBatch);
             const maniResult: Float32Array = result.dataSync() as Float32Array;
             for (let i = 0; i < (k + 1 < numBatches ?
               BATCH_SIZE : BATCH_SIZE - remainingDummy); ++i) {
@@ -1261,7 +1268,7 @@ class GANLab extends GANLabPolymer {
       dl.tidy(() => {
         const noiseFixedBatch =
           this.noiseProviderFixed.getNextCopy() as dl.Tensor2D;
-        const gResult = this.modelGenerator(noiseFixedBatch);
+        const gResult = this.model.generator(noiseFixedBatch);
         const gResultData = gResult.dataSync();
         for (let i = 0; i < gResultData.length / 2; ++i) {
           gData.push([gResultData[i * 2], gResultData[i * 2 + 1]]);
@@ -1505,187 +1512,6 @@ class GANLab extends GANLabPolymer {
     if (this.highlightedTooltip) {
       this.highlightedTooltip.classList.remove('shown');
       this.highlightedTooltip.classList.remove('highlighted');
-    }
-  }
-
-  private initializeModelVariables() {
-    if (this.dVariables) {
-      this.dVariables.forEach((v: dl.Tensor) => v.dispose());
-    }
-    if (this.gVariables) {
-      this.gVariables.forEach((v: dl.Tensor) => v.dispose());
-    }
-    // Filter variable nodes for optimizers.
-    this.dVariables = [];
-    this.gVariables = [];
-
-    // Generator.
-    const gfc0W = dl.variable(
-      dl.randomNormal(
-        [this.noiseSize, this.numGeneratorNeurons], 0, 1.0 / Math.sqrt(2)));
-    const gfc0B = dl.variable(
-      dl.zeros([this.numGeneratorNeurons]));
-
-    this.gVariables.push(gfc0W);
-    this.gVariables.push(gfc0B);
-
-    for (let i = 0; i < this.numGeneratorLayers; ++i) {
-      const gfcW = dl.variable(
-        dl.randomNormal(
-          [this.numGeneratorNeurons, this.numGeneratorNeurons], 0,
-          1.0 / Math.sqrt(this.numGeneratorNeurons)));
-      const gfcB = dl.variable(dl.zeros([this.numGeneratorNeurons]));
-
-      this.gVariables.push(gfcW);
-      this.gVariables.push(gfcB);
-    }
-
-    const gfcLastW = dl.variable(
-      dl.randomNormal(
-        [this.numGeneratorNeurons, 2], 0,
-        1.0 / Math.sqrt(this.numGeneratorNeurons)));
-    const gfcLastB = dl.variable(dl.zeros([2]));
-
-    this.gVariables.push(gfcLastW);
-    this.gVariables.push(gfcLastB);
-
-    // Discriminator.
-    const dfc0W = dl.variable(
-      dl.randomNormal(
-        [2, this.numDiscriminatorNeurons], 0, 1.0 / Math.sqrt(2)),
-      true);
-    const dfc0B = dl.variable(dl.zeros([this.numDiscriminatorNeurons]));
-
-    this.dVariables.push(dfc0W);
-    this.dVariables.push(dfc0B);
-
-    for (let i = 0; i < this.numDiscriminatorLayers; ++i) {
-      const dfcW = dl.variable(
-        dl.randomNormal(
-          [this.numDiscriminatorNeurons, this.numDiscriminatorNeurons], 0,
-          1.0 / Math.sqrt(this.numDiscriminatorNeurons)));
-      const dfcB = dl.variable(dl.zeros([this.numDiscriminatorNeurons]));
-
-      this.dVariables.push(dfcW);
-      this.dVariables.push(dfcB);
-    }
-
-    const dfcLastW = dl.variable(
-      dl.randomNormal(
-        [this.numDiscriminatorNeurons, 1], 0,
-        1.0 / Math.sqrt(this.numDiscriminatorNeurons)));
-    const dfcLastB = dl.variable(dl.zeros([1]));
-
-    this.dVariables.push(dfcLastW);
-    this.dVariables.push(dfcLastB);
-
-    // Hack to prevent error when using grads (doesn't allow this in model).
-    dVariables = this.dVariables;
-    numDiscriminatorLayers = this.numDiscriminatorLayers;
-  }
-
-  private modelGenerator(noiseTensor: dl.Tensor2D): dl.Tensor2D {
-    const gfc0W = this.gVariables[0] as dl.Tensor2D;
-    const gfc0B = this.gVariables[1];
-
-    let network = noiseTensor.matMul(gfc0W)
-      .add(gfc0B)
-      .relu();
-
-    for (let i = 0; i < this.numGeneratorLayers; ++i) {
-      const gfcW = this.gVariables[2 + i * 2] as dl.Tensor2D;
-      const gfcB = this.gVariables[3 + i * 2];
-
-      network = network.matMul(gfcW)
-        .add(gfcB)
-        .relu();
-    }
-
-    const gfcLastW =
-      this.gVariables[2 + this.numGeneratorLayers * 2] as dl.Tensor2D;
-    const gfcLastB =
-      this.gVariables[3 + this.numGeneratorLayers * 2];
-
-    const generatedTensor: dl.Tensor2D = network.matMul(gfcLastW)
-      .add(gfcLastB)
-      .tanh() as dl.Tensor2D;
-
-    return generatedTensor;
-  }
-
-  private modelDiscriminator(inputTensor: dl.Tensor2D): dl.Tensor1D {
-    const dfc0W = /*this.*/dVariables[0] as dl.Tensor2D;
-    const dfc0B = /*this.*/dVariables[1];
-
-    let network = inputTensor.matMul(dfc0W)
-      .add(dfc0B)
-      .relu();
-
-    for (let i = 0; i < /*this.*/numDiscriminatorLayers; ++i) {
-      const dfcW = /*this.*/dVariables[2 + i * 2] as dl.Tensor2D;
-      const dfcB = /*this.*/dVariables[3 + i * 2];
-
-      network = network.matMul(dfcW)
-        .add(dfcB)
-        .relu();
-    }
-    const dfcLastW =
-      /*this.*/dVariables[2 + /*this.*/numDiscriminatorLayers * 2] as
-      dl.Tensor2D;
-    const dfcLastB =
-      /*this.*/dVariables[3 + /*this.*/numDiscriminatorLayers * 2];
-
-    const predictionTensor: dl.Tensor1D =
-      network.matMul(dfcLastW)
-        .add(dfcLastB)
-        .sigmoid()
-        .reshape([BATCH_SIZE]);
-
-    return predictionTensor;
-  }
-
-  // Define losses.
-  private dLoss(truePred: dl.Tensor1D, generatedPred: dl.Tensor1D) {
-    if (this.lossType === 'LeastSq loss') {
-      return dl.add(
-        truePred.sub(dl.scalar(1)).square().mean(),
-        generatedPred.square().mean()
-      ) as dl.Scalar;
-    } else {
-      return dl.add(
-        truePred.log().mul(dl.scalar(0.95)).mean(),
-        dl.sub(dl.scalar(1), generatedPred).log().mean()
-      ).mul(dl.scalar(-1)) as dl.Scalar;
-    }
-  }
-
-  private gLoss(generatedPred: dl.Tensor1D) {
-    if (this.lossType === 'LeastSq loss') {
-      return generatedPred.sub(dl.scalar(1)).square().mean() as dl.Scalar;
-    } else {
-      return generatedPred.log().mean().mul(dl.scalar(-1)) as dl.Scalar;
-    }
-  }
-
-  private updateOptimizers(dOrG?: string) {
-    if (this.selectedOptimizerType === 'Adam') {
-      const beta1 = 0.9;
-      const beta2 = 0.999;
-      if (dOrG == null || dOrG === 'D') {
-        this.dOptimizer = new dl.AdamOptimizer(
-          this.dLearningRate, beta1, beta2, this.dNodes);
-      }
-      if (dOrG == null || dOrG === 'G') {
-        this.gOptimizer = new dl.AdamOptimizer(
-          this.gLearningRate, beta1, beta2, this.gNodes);
-      }
-    } else {
-      if (dOrG == null || dOrG === 'D') {
-        this.dOptimizer = dl.train.sgd(this.dLearningRate);
-      }
-      if (dOrG == null || dOrG === 'G') {
-        this.gOptimizer = dl.train.sgd(this.gLearningRate);
-      }
     }
   }
 

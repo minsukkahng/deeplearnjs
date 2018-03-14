@@ -442,18 +442,27 @@
       opacity: 0.4;
     }
 
+    #model-visualization-container.any-highlighted .model-component.model-component-model {
+      opacity: 0.7;
+    }
+
+    #model-visualization-container.any-highlighted .model-component.model-component-model.deactivated {
+      opacity: 0.4;
+    }
+
     #model-visualization-container.any-highlighted .tooltip {
       opacity: 0.7;
     }
 
-    #model-visualization-container.any-highlighted .model-component.d-highlighted,
-    #model-visualization-container.any-highlighted .model-component.g-highlighted,
+    #model-visualization-container.any-highlighted .model-component.highlighted,
     #model-visualization-container.any-highlighted .model-component.activated {
       opacity: 1.0;
     }
 
-    .d-highlighted .component-label,
-    .g-highlighted .component-label {
+    .highlighted .component-label,
+    .highlighted .component-sub-label,
+    .highlighted .component-loss-label {
+      color: #000;
       font-weight: bold;
     }
 
@@ -470,11 +479,11 @@
       border-color: rgb(179, 179, 179);
     }
 
-    #component-discriminator.d-highlighted svg {
+    #component-discriminator.highlighted svg {
       border-color: rgb(105, 158, 255);
     }
 
-    #component-generator.g-highlighted svg {
+    #component-generator.highlighted svg {
       border-color: rgb(186, 99, 207);
     }
 
@@ -483,16 +492,16 @@
     }
 
     .tooltip-number {
-      border-radius: 10px;
+      border-radius: 1px;
       color: white;
       font-size: 11px;
       height: 10px;
       left: -9px;
-      padding: 4px;
+      padding: 3px;
       position: absolute;
       text-align: center;
-      top: -7px;
-      width: 12px;
+      top: -3px;
+      width: 8px;
     }
 
     .tooltip {
@@ -507,11 +516,11 @@
     }
 
     .tooltip-for-d .tooltip-number {
-      background-color: rgba(92, 115, 216, 0.9)
+      background-color: rgba(148, 192, 243, 0.9)
     }
 
     .tooltip-for-g .tooltip-number {
-      background-color: rgba(167, 111, 212, 0.9);
+      background-color: rgba(227, 171, 253, 0.9);
     }
 
     #tooltips.shown {
@@ -589,9 +598,9 @@
           <div id="model-vis-content-container">
             <svg id="model-vis-svg" class="">
               <path d="M86,285 L122,285"
-                id="arrow-g-forward-i" class="g-update-flow" />
+                id="arrow-g-forward-i" class="d-update-flow g-update-flow" />
               <path d="M278,285 L314,285"
-                id="arrow-g-forward-o" class="g-update-flow" />
+                id="arrow-g-forward-o" class="d-update-flow g-update-flow" />
               <path d="M376,195 L412,195"
                 id="arrow-t-d-forward-i" class="d-update-flow" />
               <path d="M568,195 L604,195"
@@ -959,40 +968,55 @@
             </div>
 
             <div id="tooltips">
+                <div id="tooltip-d-generated-samples" class="tooltip tooltip-for-d"
+                style="top: 0px; left: 0px">
+                <div class="tooltip-number">1</div>
+                Generator generates samples
+              </div>
+              <div id="tooltip-d-prediction" class="tooltip tooltip-for-d"
+                style="top: 0px; left: 160px">
+                <div class="tooltip-number">2</div>
+                Discriminator predicts both real and fake samples
+              </div>
               <div id="tooltip-d-loss" class="tooltip tooltip-for-d"
-                style="top: 150px; left: 630px">
-                <div class="tooltip-number">D1</div>
-                computes discriminator's loss
+                style="top: 0px; left: 320px">
+                <div class="tooltip-number">3</div>
+                Loss is computed (how well predicted)
               </div>
               <div id="tooltip-d-gradients" class="tooltip tooltip-for-d"
-                style="top: 25px; left: 635px">
-                <div class="tooltip-number">D2</div>
-                computed to determine how boundary should change to decrease loss
+                style="top: 0px; left: 480px">
+                <div class="tooltip-number">4</div>
+                Gradients are computed to determine how boundary should change
               </div>
               <div id="tooltip-update-discriminator" class="tooltip tooltip-for-d"
-                style="top: 140px; left: 450px">
-                <div class="tooltip-number">D3</div>
-                updates decision boundary based on gradients
+                style="top: 0px; left: 640px">
+                <div class="tooltip-number">5</div>
+                Discriminator is updated based on gradients
+              </div>
+              <div id="tooltip-g-generated-samples" class="tooltip tooltip-for-g"
+                style="top: 535px; left: 0px">
+                <div class="tooltip-number">1</div>
+                Generator generates samples
+              </div>
+              <div id="tooltip-g-prediction" class="tooltip tooltip-for-g"
+                style="top: 530px; left: 160px">
+                <div class="tooltip-number">2</div>
+                Discriminator predicts only fake samples
               </div>
               <div id="tooltip-g-loss" class="tooltip tooltip-for-g"
-                style="top: 370px; left: 630px">
-                <div class="tooltip-number">G1</div>
-                computes generator's loss
+                style="top: 530px; left: 320px">
+                <div class="tooltip-number">3</div>
+                Loss is computed (how successful fool)
               </div>
               <div id="tooltip-g-gradients" class="tooltip tooltip-for-g"
-                style="top: 490px; left: 440px">
-                <div class="tooltip-number">G2</div>
-                computed to determine which direction each point should move to decrease loss
+                style="top: 530px; left: 480px">
+                <div class="tooltip-number">4</div>
+                Gradients are computed to determine which direction each point should move
               </div>
               <div id="tooltip-update-generator" class="tooltip tooltip-for-g"
-                style="top: 370px; left: 170px">
-                <div class="tooltip-number">G3</div>
-                updates function based on gradients
-              </div>
-              <div id="tooltip-generated-samples" class="tooltip tooltip-for-g"
-                style="top: 245px; left: 310px; width: 110px">
-                <div class="tooltip-number">G4</div>
-                samples produced by generator from noise
+                style="top: 530px; left: 640px">
+                <div class="tooltip-number">5</div>
+                Generator is updated based on gradients
               </div>
             </div>
           </div>

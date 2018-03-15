@@ -451,10 +451,11 @@
     }
 
     #model-visualization-container.any-highlighted .tooltip {
-      opacity: 0.7;
+      opacity: 0.5;
     }
 
     #model-visualization-container.any-highlighted .model-component.highlighted,
+    #model-visualization-container.any-highlighted .model-component.model-component-model.deactivated.highlighted,
     #model-visualization-container.any-highlighted .model-component.activated {
       opacity: 1.0;
     }
@@ -474,11 +475,6 @@
       border-color: rgb(211, 171, 231);
     }
 
-    #component-discriminator.deactivated svg,
-    #component-generator.deactivated svg {
-      border-color: rgb(179, 179, 179);
-    }
-
     #component-discriminator.highlighted svg {
       border-color: rgb(105, 158, 255);
     }
@@ -487,40 +483,40 @@
       border-color: rgb(186, 99, 207);
     }
 
+    #component-discriminator.deactivated svg,
+    #component-generator.deactivated svg {
+      border-color: rgb(179, 179, 179);
+    }
+
     #tooltips {
       display: none;
     }
 
     .tooltip-number {
-      border-radius: 1px;
-      color: white;
-      font-size: 11px;
+      font-size: 24px;
       height: 10px;
-      left: -9px;
+      left: 5px;
       padding: 3px;
       position: absolute;
       text-align: center;
-      top: -3px;
-      width: 8px;
+      top: 10px;
     }
 
     .tooltip {
-      background-color: rgba(241, 241, 241, 0.85);
-      border-radius: 4px;
-      color: #000;
-      font-size: 11px;
+      color: white;
+      font-size: 12px;
       line-height: 13px;
-      padding: 4px 6px 4px 9px;
+      padding: 7px 6px 7px 29px;
       position: absolute;
-      width: 135px;
+      width: 125px;
     }
 
-    .tooltip-for-d .tooltip-number {
-      background-color: rgba(148, 192, 243, 0.9)
+    .tooltip-for-d {
+      background-color: rgb(64, 128, 247)
     }
 
-    .tooltip-for-g .tooltip-number {
-      background-color: rgba(227, 171, 253, 0.9);
+    .tooltip-for-g {
+      background-color: rgb(170, 79, 192);
     }
 
     #tooltips.shown {
@@ -535,14 +531,6 @@
     #model-visualization-container.any-highlighted .tooltip-for-d.highlighted,
     #model-visualization-container.any-highlighted .tooltip-for-g.highlighted {
       opacity: 1.0;
-    }
-
-    .tooltip-for-d.highlighted {
-      background-color: rgba(219, 223, 243, 0.95);
-    }
-
-    .tooltip-for-g.highlighted {
-      background-color: rgba(240, 224, 255, 0.95);
     }
   </style>
   <template>
@@ -969,54 +957,54 @@
 
             <div id="tooltips">
                 <div id="tooltip-d-generated-samples" class="tooltip tooltip-for-d"
-                style="top: 0px; left: 0px">
+                style="top: -5px; left: 0px">
                 <div class="tooltip-number">1</div>
-                Generator generates samples
+                Generator derives samples from noise
               </div>
               <div id="tooltip-d-prediction" class="tooltip tooltip-for-d"
-                style="top: 0px; left: 160px">
+                style="top: -5px; left: 160px">
                 <div class="tooltip-number">2</div>
-                Discriminator predicts both real and fake samples
+                Discriminator classifies samples
               </div>
               <div id="tooltip-d-loss" class="tooltip tooltip-for-d"
-                style="top: 0px; left: 320px">
+                style="top: -5px; left: 320px">
                 <div class="tooltip-number">3</div>
-                Loss is computed (how well predicted)
+                Computes discriminator loss
               </div>
               <div id="tooltip-d-gradients" class="tooltip tooltip-for-d"
-                style="top: 0px; left: 480px">
+                style="top: -5px; left: 480px">
                 <div class="tooltip-number">4</div>
-                Gradients are computed to determine how boundary should change
+                Computes discriminator gradients
               </div>
               <div id="tooltip-update-discriminator" class="tooltip tooltip-for-d"
-                style="top: 0px; left: 640px">
+                style="top: -5px; left: 640px">
                 <div class="tooltip-number">5</div>
-                Discriminator is updated based on gradients
+                Updates discriminator based on gradients
               </div>
               <div id="tooltip-g-generated-samples" class="tooltip tooltip-for-g"
-                style="top: 535px; left: 0px">
+                style="top: 520px; left: 0px">
                 <div class="tooltip-number">1</div>
-                Generator generates samples
+                Generator derives samples from noise
               </div>
               <div id="tooltip-g-prediction" class="tooltip tooltip-for-g"
-                style="top: 530px; left: 160px">
+                style="top: 520px; left: 160px">
                 <div class="tooltip-number">2</div>
-                Discriminator predicts only fake samples
+                Discriminator classifies fake samples only
               </div>
               <div id="tooltip-g-loss" class="tooltip tooltip-for-g"
-                style="top: 530px; left: 320px">
+                style="top: 520px; left: 320px">
                 <div class="tooltip-number">3</div>
-                Loss is computed (how successful fool)
+                Computes generator loss
               </div>
               <div id="tooltip-g-gradients" class="tooltip tooltip-for-g"
-                style="top: 530px; left: 480px">
+                style="top: 520px; left: 480px">
                 <div class="tooltip-number">4</div>
-                Gradients are computed to determine which direction each point should move
+                Computes generator gradients
               </div>
               <div id="tooltip-update-generator" class="tooltip tooltip-for-g"
-                style="top: 530px; left: 640px">
+                style="top: 520px; left: 640px">
                 <div class="tooltip-number">5</div>
-                Generator is updated based on gradients
+                Updates generator based on gradients
               </div>
             </div>
           </div>

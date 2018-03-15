@@ -24,7 +24,7 @@ const NUM_TRUE_SAMPLES_VISUALIZED = 450;
 
 const VIS_INTERVAL = 50;
 const EPOCH_INTERVAL = 2;
-const SLOW_INTERVAL_MS = 1000;
+const SLOW_INTERVAL_MS = 1250;
 
 // Hack to prevent error when using grads (doesn't allow this in model).
 //let dVariables: dl.Variable[];
@@ -800,7 +800,8 @@ class GANLab extends GANLabPolymer {
       await this.sleep(SLOW_INTERVAL_MS);
 
       await this.highlightStep(true,
-        ['component-true-samples', 'component-generated-samples'],
+        ['component-noise', 'component-generator',
+          'component-generated-samples'],
         'tooltip-d-generated-samples');
     }
 
@@ -850,7 +851,9 @@ class GANLab extends GANLabPolymer {
 
     if (this.slowMode) {
       await this.highlightStep(true,
-        ['component-true-prediction', 'component-generated-prediction'],
+        ['component-true-samples', 'component-generated-samples',
+          'component-discriminator',
+          'component-true-prediction', 'component-generated-prediction'],
         'tooltip-d-prediction');
     }
 
@@ -1039,12 +1042,16 @@ class GANLab extends GANLabPolymer {
       await this.sleep(SLOW_INTERVAL_MS);
 
       await this.highlightStep(false,
-        ['component-generated-samples'], 'tooltip-g-generated-samples');
+        ['component-noise', 'component-generator',
+          'component-generated-samples'],
+        'tooltip-g-generated-samples');
     }
 
     if (this.slowMode) {
       await this.highlightStep(false,
-        ['component-generated-prediction'], 'tooltip-g-prediction');
+        ['component-generated-samples', 'component-discriminator',
+          'component-generated-prediction'],
+        'tooltip-g-prediction');
     }
 
     if (this.slowMode) {

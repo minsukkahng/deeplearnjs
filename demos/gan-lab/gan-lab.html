@@ -3,7 +3,7 @@
 <link rel="import" href="../node_modules/@bower_components/paper-listbox/paper-listbox.html">
 <link rel="import" href="../node_modules/@bower_components/paper-item/paper-item.html">
 <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-<link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.light_green-blue.min.css" />
+<link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.amber-blue.min.css" />
 
 <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.4.0/Chart.bundle.min.js"></script>
@@ -18,20 +18,27 @@
     #top-panel {
       background-color: #eee;
       border-bottom: 2px solid #ddd;
-      font-size: 24px;
-      padding: 10px 30px 8px;
+      font-size: 30px;
+      padding: 8px 30px 7px;
     }
 
     #page-title {
       color: #444;
       display: inline-block;
-      font-size: 24px;
-      margin-right: 20px;
-      padding: 5px;
+      font-size: 28px;
+      margin-right: 25px;
     }
 
     .timeline-controls {
       display: inline-block;
+    }
+
+    .mdl-button--fab.mdl-button--colored,
+    .mdl-button--fab.mdl-button--colored:hover,
+    .mdl-button--fab.mdl-button--colored:active,
+    .mdl-button--fab.mdl-button--colored:focus,
+    .mdl-button--fab.mdl-button--colored:focus:not(:active) {
+      background: #183D4E;
     }
 
     #play-pause-button .material-icons {
@@ -87,6 +94,8 @@
       display: inline-block;
       font-size: 14px;
       margin-left: 15px;
+      margin-top: 16px;
+      vertical-align: top;
     }
 
     #iteration-count {
@@ -107,9 +116,9 @@
     }
 
     .panel-title {
-      color: #777;
+      color: #555;
       margin-bottom: 10px;
-      font-size: 13px;
+      font-size: 15px;
       text-transform: uppercase;
     }
 
@@ -301,15 +310,15 @@
       appearance: none;
       background-color: rgb(216, 216, 216);
       border: none;
-      border-radius: 12px;
+      border-radius: 10px;
       cursor: pointer;
       display: inline-block;
-      height: 9px;
+      height: 7px;
       outline: none;
       overflow: hidden;
       position: relative;
       transition: background-color ease 0.3s;
-      width: 16px;
+      width: 14px;
     }
 
     .checkbox-toggle input:before {
@@ -318,12 +327,12 @@
       color: #fff;
       content: '';
       display: block;
-      height: 7px;
+      height: 5px;
       left: 1px;
       position: absolute;
       top: 1px;
       transition: all 0.3s;
-      width: 7px;
+      width: 5px;
       z-index: 2;
     }
 
@@ -332,7 +341,7 @@
     }
 
     .checkbox-toggle input:checked:before {
-      background-color: rgb(139, 195, 74);
+      background-color: rgb(128, 224, 99);
       left: 8px;
     }
 
@@ -468,11 +477,11 @@
     }
 
     #component-discriminator svg {
-      border-color: rgb(190, 209, 245);
+      border-color: rgba(105, 158, 255, 0.5);
     }
 
     #component-generator svg {
-      border-color: rgb(211, 171, 231);
+      border-color: rgba(186, 99, 207, 0.5);
     }
 
     #component-discriminator.highlighted svg {
@@ -576,7 +585,8 @@
 
       <div id="main-panel">
         <div id="model-visualization-container" class="ink-panel">
-          <div class="panel-title">GAN Model Architecture
+          <div class="panel-title" style="padding-left: 5px;">
+            Model Overview Graph
             <button class="mdl-button mdl-js-button mdl-button--icon"
               id="edit-model-button" title="Show/hide hyperparameter options">
               <i class="material-icons">mode_edit</i>
@@ -608,9 +618,9 @@
                 id="arrow-d-loss-d" class="d-update-flow" />
 
               <path d="M665,285 L710,285 a10,10 0 0 1 10,10
-                L720,450 a10,10 0 0 1 -10,10 L376,460"
+                L720,445 a10,10 0 0 1 -10,10 L376,455"
                 id="arrow-g-loss-g-1" class="g-update-flow" />
-              <path d="M314,460 L210,460 a10,10 0 0 1 -10,-10 L200,333"
+              <path d="M314,455 L210,455 a10,10 0 0 1 -10,-10 L200,333"
                 id="arrow-g-loss-g-2" class="g-update-flow" />
             </svg>
 
@@ -669,7 +679,7 @@
               </div>
 
               <div id="component-g-loop" class="model-component"
-                style="top: 457px; left: 590px">
+                style="top: 452px; left: 590px">
                 <div class="config-item" style="width: 150px">
                   <div class="up-down-buttons">
                     <button class="mdl-button mdl-js-button mdl-button--icon"
@@ -727,7 +737,7 @@
               </div>
 
               <div id="component-generator-learning" class="model-component"
-                style="top: 370px; left: 205px">
+                style="top: 365px; left: 205px">
                 <div class="config-item" style="width: 120px">
                   <div class="up-down-buttons">
                     <label>Optimizer:</label>
@@ -877,7 +887,7 @@
               </div>
 
               <div id="component-generator-gradients" class="model-component"
-                style="top: 425px; left: 285px">
+                style="top: 420px; left: 285px">
                 <svg id="svg-generator-gradients"></svg>
                 <div class="component-label">Gradients
                   <div id="g-gradients-toggle" class="checkbox-toggle"
@@ -957,52 +967,52 @@
 
             <div id="tooltips">
                 <div id="tooltip-d-generated-samples" class="tooltip tooltip-for-d"
-                style="top: -5px; left: 0px">
+                style="top: -10px; left: 0px">
                 <div class="tooltip-number">1</div>
                 Generator derives samples from noise
               </div>
               <div id="tooltip-d-prediction" class="tooltip tooltip-for-d"
-                style="top: -5px; left: 160px">
+                style="top: -10px; left: 160px">
                 <div class="tooltip-number">2</div>
                 Discriminator classifies samples
               </div>
               <div id="tooltip-d-loss" class="tooltip tooltip-for-d"
-                style="top: -5px; left: 320px">
+                style="top: -10px; left: 320px">
                 <div class="tooltip-number">3</div>
                 Computes discriminator loss
               </div>
               <div id="tooltip-d-gradients" class="tooltip tooltip-for-d"
-                style="top: -5px; left: 480px">
+                style="top: -10px; left: 480px">
                 <div class="tooltip-number">4</div>
                 Computes discriminator gradients
               </div>
               <div id="tooltip-update-discriminator" class="tooltip tooltip-for-d"
-                style="top: -5px; left: 640px">
+                style="top: -10px; left: 640px">
                 <div class="tooltip-number">5</div>
                 Updates discriminator based on gradients
               </div>
               <div id="tooltip-g-generated-samples" class="tooltip tooltip-for-g"
-                style="top: 520px; left: 0px">
+                style="top: 510px; left: 0px">
                 <div class="tooltip-number">1</div>
                 Generator derives samples from noise
               </div>
               <div id="tooltip-g-prediction" class="tooltip tooltip-for-g"
-                style="top: 520px; left: 160px">
+                style="top: 510px; left: 160px">
                 <div class="tooltip-number">2</div>
                 Discriminator classifies fake samples only
               </div>
               <div id="tooltip-g-loss" class="tooltip tooltip-for-g"
-                style="top: 520px; left: 320px">
+                style="top: 510px; left: 320px">
                 <div class="tooltip-number">3</div>
                 Computes generator loss
               </div>
               <div id="tooltip-g-gradients" class="tooltip tooltip-for-g"
-                style="top: 520px; left: 480px">
+                style="top: 510px; left: 480px">
                 <div class="tooltip-number">4</div>
                 Computes generator gradients
               </div>
               <div id="tooltip-update-generator" class="tooltip tooltip-for-g"
-                style="top: 520px; left: 640px">
+                style="top: 510px; left: 640px">
                 <div class="tooltip-number">5</div>
                 Updates generator based on gradients
               </div>
@@ -1013,7 +1023,7 @@
         <div id="drawing-disable-background"></div>
 
         <div id="visualization-container" class="ink-panel">
-          <div class="panel-title">Distributions</div>
+          <div class="panel-title">Layered Distributions</div>
 
           <svg id="vis-svg" width="400" height="400">
             <g id="vis-area">
@@ -1033,36 +1043,36 @@
           <svg id="vis-descriptions" width="400" height="300">
             <g transform="translate(0,20)">
               <text transform="translate(0,0)">
-                Each dot represents a sample:
+                Each dot is a sample:
               </text>
               <circle class="true-dot" r="2" transform="translate(5,15)"></circle>
-              <text transform="translate(15,19)">Samples from true distribution</text>
+              <text transform="translate(15,19)">Real samples</text>
               <circle class="generated-dot" r="2" transform="translate(5,35)"></circle>
-              <text transform="translate(15,39)">Samples generated by the generator</text>
+              <text transform="translate(15,39)">Fake samples (by generator)</text>
             </g>
             <g transform="translate(0,80)">
               <text transform="translate(0,10)">
-                Background colors of grids represent discriminator's predictions:
+                Background colors of grid cells represent discriminator's predictions:
               </text>
               <rect class="true-dot" width="10" height="10" transform="translate(1,20)"
                 style="fill-opacity: 0.75"></rect>
               <text transform="translate(16,29)">
-                Samples in this region might be from true distribution.
+                Samples in this cell might be real.
               </text>
               <rect width="10" height="10" transform="translate(1,40)"
               style="fill: #e2e2e2"></rect>
               <text transform="translate(16,49)">
-                Difficult to determine whether samples are from true distribution or not.
+                Difficult to determine whether samples are real or fake.
               </text>
               <rect class="generated-dot" width="10" height="10" transform="translate(1,60)"
                 style="fill-opacity: 0.75"></rect>
               <text transform="translate(16,69)">
-                Samples in this region might be from generators.
+                Samples in this cell might be from the generator.
               </text>
             </g>
             <g transform="translate(0,180)">
               <text transform="translate(0,0)">
-                Lines from generated samples represent gradients for generator:
+                Lines from fake samples represent gradients for generator:
               </text>
               <circle class="generated-dot" r="2" transform="translate(3,18)"></circle>
               <text transform="translate(15,19)">

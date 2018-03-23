@@ -530,7 +530,7 @@ class GANLab extends GANLabPolymer {
         }
       }
       case 'Three Dots': {
-        const stdev = 0.03;
+        const stdev = 0.05;
         if (rand < 0.333) {
           return [
             0.35 + stdev * gan_lab_input_providers.randNormal(),
@@ -898,7 +898,7 @@ class GANLab extends GANLabPolymer {
         const sqrtAbs = (d: number) => {
           if (d > 0.5) {
             return Math.pow(d * 2.0 - 1.0, 0.5) * 0.5 + 0.5;
-          } else if (d > 0.5) {
+          } else if (d < 0.5) {
             return Math.pow((d * 2.0 - 1.0) * (-1), 0.5) * (-0.5) + 0.5;
           } else {
             return 0.5;

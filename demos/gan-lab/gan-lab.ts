@@ -459,6 +459,10 @@ class GANLab extends GANLabPolymer {
         new gan_lab_input_providers.GANLabUniformNoiseProviderBuilder(
           this.noiseSize, NUM_MANIFOLD_CELLS, BATCH_SIZE);
       uniformNoiseProviderBuilder.generateAtlas();
+      if (this.selectedNoiseType === '2D Gaussian') {
+        this.densitiesForGaussian =
+          uniformNoiseProviderBuilder.calculateDensitiesForGaussian();
+      }
       this.uniformNoiseProvider =
         uniformNoiseProviderBuilder.getInputProvider();
     }
@@ -1246,10 +1250,13 @@ class GANLab extends GANLabPolymer {
               .attr('d', (d: ManifoldCell) => manifoldCell(
                 d.points.map(point => [point[0], point[1]] as [number, number])
               ))
-              .style('fill-opacity', (d: ManifoldCell) => {
-                return this.noiseSize === 2 ? Math.max(
-                  0.9 - d.area! * 0.4 * Math.pow(NUM_MANIFOLD_CELLS, 2), 0.1) :
-                  'none';
+              .style('fill-opacity', (d: ManifoldCell, i: number) => {
+                return this.selectedNoiseType === '2D Gaussian'
+                  ? Math.min(0.1 + this.densitiesForGaussian[i] /
+                    (d.area! * Math.pow(NUM_MANIFOLD_CELLS, 2)) * 0.2, 0.9)
+                  : (this.noiseSize === 2 ? Math.max(
+                    0.9 - d.area! * 0.4 * Math.pow(NUM_MANIFOLD_CELLS, 2), 0.1)
+                    : 'none');
               });
 
             if (this.noiseSize === 1) {
@@ -1445,10 +1452,13 @@ class GANLab extends GANLabPolymer {
         .attr('d', (d: ManifoldCell) => manifoldCell(
           d.points.map(point => [point[0], point[1]] as [number, number])
         ))
-        .style('fill-opacity', (d: ManifoldCell) => {
-          return this.noiseSize === 2 ? Math.max(
-            0.9 - d.area! * 0.4 * Math.pow(NUM_MANIFOLD_CELLS, 2), 0.1) :
-            'none';
+        .style('fill-opacity', (d: ManifoldCell, i: number) => {
+          return this.selectedNoiseType === '2D Gaussian'
+            ? Math.min(0.1 + this.densitiesForGaussian[i] /
+              (d.area! * Math.pow(NUM_MANIFOLD_CELLS, 2)) * 0.2, 0.9)
+            : (this.noiseSize === 2 ? Math.max(
+              0.9 - d.area! * 0.4 * Math.pow(NUM_MANIFOLD_CELLS, 2), 0.1)
+              : 'none');
         });
 
       if (this.noiseSize === 1) {
@@ -1471,10 +1481,13 @@ class GANLab extends GANLabPolymer {
         .attr('d', (d: ManifoldCell) => manifoldCell(
           d.points.map(point => [point[0], point[1]] as [number, number])
         ))
-        .style('fill-opacity', (d: ManifoldCell) => {
-          return this.noiseSize === 2 ? Math.max(
-            0.9 - d.area! * 0.4 * Math.pow(NUM_MANIFOLD_CELLS, 2), 0.1) :
-            'none';
+        .style('fill-opacity', (d: ManifoldCell, i: number) => {
+          return this.selectedNoiseType === '2D Gaussian'
+            ? Math.min(0.1 + this.densitiesForGaussian[i] /
+              (d.area! * Math.pow(NUM_MANIFOLD_CELLS, 2)) * 0.3, 0.9)
+            : (this.noiseSize === 2 ? Math.max(
+              0.9 - d.area! * 0.4 * Math.pow(NUM_MANIFOLD_CELLS, 2), 0.1)
+              : 'none');
         });
 
       if (this.noiseSize === 1) {

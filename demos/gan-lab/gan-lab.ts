@@ -255,8 +255,8 @@ class GANLab extends GANLabPolymer {
       });
 
     this.shapeNames = [
-      'Line', 'Gaussian', 'Two Gaussian Hills', 'Three Dots', 'Drawing'];
-    this.selectedShapeName = 'Two Gaussian Hills';
+      'Line', 'Gaussian', 'Two Gaussians', 'Ring', 'Three Regions', 'Drawing'];
+    this.selectedShapeName = 'Two Gaussians';
     this.querySelector('#shape-dropdown')!.addEventListener(
       // tslint:disable-next-line:no-any event has no type
       'iron-activate', (event: any) => {
@@ -516,11 +516,11 @@ class GANLab extends GANLabPolymer {
       }
       case 'Gaussian': {
         return [
-          0.6 + 0.125 * gan_lab_input_providers.randNormal(),
-          0.3 + 0.05 * gan_lab_input_providers.randNormal()
+          0.55 + 0.125 * gan_lab_input_providers.randNormal(),
+          0.7 + 0.025 * gan_lab_input_providers.randNormal()
         ];
       }
-      case 'Two Gaussian Hills': {
+      case 'Two Gaussians': {
         if (rand < 0.5) {
           return [
             0.3 + 0.1 * gan_lab_input_providers.randNormal(),
@@ -533,8 +533,16 @@ class GANLab extends GANLabPolymer {
           ];
         }
       }
-      case 'Three Dots': {
-        const stdev = 0.05;
+      case 'Ring': {
+        return [
+          0.5 + 0.3 * Math.cos(rand * Math.PI * 2) +
+          0.025 * gan_lab_input_providers.randNormal(),
+          0.45 + 0.25 * Math.sin(rand * Math.PI * 2) +
+          0.025 * gan_lab_input_providers.randNormal(),
+        ];
+      }
+      case 'Three Regions': {
+        const stdev = 0.025;
         if (rand < 0.333) {
           return [
             0.35 + stdev * gan_lab_input_providers.randNormal(),
@@ -656,6 +664,8 @@ class GANLab extends GANLabPolymer {
   }
 
   private pause() {
+    // Extra iteration for visualization.
+    this.iterateTraining(false);
     this.isPlaying = false;
     const button = document.getElementById('play-pause-button');
     if (button.classList.contains('playing')) {
@@ -937,7 +947,7 @@ class GANLab extends GANLabPolymer {
         }, true, this.model.dVariables);
         if ((!keepIterating || this.iterationCount === 1 || this.slowMode ||
           this.iterationCount % VIS_INTERVAL === 0)
-          && j + 1 === this.kDSteps) {
+          && j + 1 === kDSteps) {
           dCostVal = dCost.get();
         }
       }
@@ -953,8 +963,8 @@ class GANLab extends GANLabPolymer {
       // Update discriminator loss.
       if (dCostVal) {
         document.getElementById('d-loss-value').innerText =
-          dCostVal.toFixed(3);
-        document.getElementById('d-loss-bar').title = dCostVal.toFixed(3);
+          (dCostVal / 2).toFixed(3);
+        document.getElementById('d-loss-bar').title = (dCostVal / 2).toFixed(3);
         document.getElementById('d-loss-bar').style.width =
           this.model.lossType === 'LeastSq loss'
             ? `${dCostVal * 50.0}px`
@@ -1009,17 +1019,14 @@ class GANLab extends GANLabPolymer {
                 (d: number, i: number) => plotSizePx -
                   (Math.floor(i / NUM_GRID_CELLS) + 1) *
                   (plotSizePx / NUM_GRID_CELLS))
-              .style('fill', (d: number) => this.colorScale(d))
-              .append('title')
-              .text((d: number) => Number(d).toFixed(3));
+              .style('fill', (d: number) => this.colorScale(d));
           });
         }
         gridDotsElementList.forEach((dotsElement) => {
           d3.select(dotsElement)
             .selectAll('.uniform-dot')
             .data(dData)
-            .style('fill', (d: number) => this.colorScale(d))
-            .select('title').text((d: number) => Number(d).toFixed(3));
+            .style('fill', (d: number) => this.colorScale(d));
         });
       });
     }
@@ -1121,7 +1128,7 @@ class GANLab extends GANLabPolymer {
         }, true, this.model.gVariables);
         if ((!keepIterating || this.iterationCount === 1 || this.slowMode ||
           this.iterationCount % VIS_INTERVAL === 0)
-          && j + 1 === this.kGSteps) {
+          && j + 1 === kGSteps) {
           gCostVal = gCost.get();
         }
       }
@@ -1147,8 +1154,8 @@ class GANLab extends GANLabPolymer {
         chartContainer.style.visibility = 'visible';
       }
 
-      this.updateChartData(
-        this.costChartData, this.iterationCount, [dCostVal, gCostVal]);
+      this.updateChartData(this.costChartData, this.iterationCount,
+        [dCostVal ? dCostVal / 2 : null, gCostVal]);
       this.costChart.update();
 
       if (this.slowMode) {
@@ -1550,7 +1557,7 @@ class GANLab extends GANLabPolymer {
       { label: 'Generator\'s Loss', color: 'rgba(123, 50, 148, 0.5)' }
     ];
     this.costChart = this.createChart(
-      'cost-chart', this.costChartData, costChartSpecification, 0, 2);
+      'cost-chart', this.costChartData, costChartSpecification, 0);
 
     this.evalChartData = new Array<ChartData>(2);
     for (let i = 0; i < this.evalChartData.length; ++i) {

@@ -477,7 +477,7 @@
     }
 
     #component-discriminator svg {
-      border-color: rgba(105, 158, 255, 0.5);
+      border-color: rgba(105, 158, 255, 0.65);
     }
 
     #component-generator svg {
@@ -1048,7 +1048,7 @@
               <circle class="true-dot" r="2" transform="translate(5,15)"></circle>
               <text transform="translate(15,19)">Real samples</text>
               <circle class="generated-dot" r="2" transform="translate(5,35)"></circle>
-              <text transform="translate(15,39)">Fake samples (by generator)</text>
+              <text transform="translate(15,39)">Fake samples</text>
             </g>
             <g transform="translate(0,80)">
               <text transform="translate(0,10)">
@@ -1057,7 +1057,7 @@
               <rect class="true-dot" width="10" height="10" transform="translate(1,20)"
                 style="fill-opacity: 0.75"></rect>
               <text transform="translate(16,29)">
-                Samples in this cell might be real.
+                Samples in this cell seem real.
               </text>
               <rect width="10" height="10" transform="translate(1,40)"
               style="fill: #e2e2e2"></rect>
@@ -1067,7 +1067,7 @@
               <rect class="generated-dot" width="10" height="10" transform="translate(1,60)"
                 style="fill-opacity: 0.75"></rect>
               <text transform="translate(16,69)">
-                Samples in this cell might be from the generator.
+                Samples in this cell seem fake.
               </text>
             </g>
             <g transform="translate(0,180)">
